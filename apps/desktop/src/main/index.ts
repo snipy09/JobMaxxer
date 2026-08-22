@@ -909,3 +909,274 @@ ipcMain.handle('stop-heartbeat', () => {
   }
   return { success: true };
 });
+
+// ── IPC: Authentication & Licensing Handlers ──────────────────────────────
+ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => {
+  try {
+    const db = getDb();
+    const email = String(credentials['email'] ?? '').trim().toLowerCase();
+    const password = String(credentials['password'] ?? '').trim();
+    const licenseKey = String(credentials['licenseKey'] ?? '').trim();
+
+    if (!email) {
+      return { success: false, error: 'Email is required to sign in.' };
+    }
+
+    const results = db.exec(
+      `SELECT * FROM app_users 
+       WHERE LOWER(email) = ? 
+         AND (password = ? OR license_key = ? OR license_key = ?)`,
+      [email, password, password, licenseKey]
+    );
+
+    if (!results.length || !results[0].values.length) {
+      return { success: false, error: 'Invalid email, password, or license key.' };
+    }
+
+    const cols = results[0].columns;
+    const userRow = Object.fromEntries(cols.map((c, i) => [c, results[0].values[0][i]]));
+
+    if (String(userRow['status']) === 'suspended') {
+      return { success: false, error: 'This account or license key is suspended. Contact administrator.' };
+    }
+
+    // Update last_login
+    db.run(`UPDATE app_users SET last_login = datetime('now') WHERE id = ?`, [Number(userRow['id'])]);
+    persistDb();
+
+    log(`[Auth] User authenticated: ${userRow['email']} (Role: ${userRow['role']}, Tier: ${userRow['tier']})`);
+
+    return {
+      success: true,
+      user: {
+        id: Number(userRow['id']),
+        email: String(userRow['email']),
+        fullName: String(userRow['full_name']),
+        role: String(userRow['role']) as 'admin' | 'user',
+        tier: String(userRow['tier']) as 'pro' | 'enterprise' | 'lifetime',
+        licenseKey: String(userRow['license_key'] ?? ''),
+        status: String(userRow['status']) as 'active' | 'suspended',
+        appsCount: Number(userRow['apps_count'] ?? 0),
+        createdAt: String(userRow['created_at'] ?? ''),
+        lastLogin: String(userRow['last_login'] ?? ''),
+      },
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Auth] Login error: ${msg}`);
+    return { success: false, error: msg };
+  }
+});
+
+// ── IPC: Admin Dashboard Management Handlers ──────────────────────────────
+ipcMain.handle('admin-get-users', async () => {
+  try {
+    const db = getDb();
+    const results = db.exec('SELECT * FROM app_users ORDER BY id DESC');
+    if (!results.length) return [];
+    const cols = results[0].columns;
+    return results[0].values.map(row => {
+      const obj = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+      return {
+        id: Number(obj['id']),
+        email: String(obj['email']),
+        fullName: String(obj['full_name']),
+        role: String(obj['role']) as 'admin' | 'user',
+        tier: String(obj['tier']) as 'pro' | 'enterprise' | 'lifetime',
+        licenseKey: String(obj['license_key'] ?? ''),
+        status: String(obj['status']) as 'active' | 'suspended',
+        appsCount: Number(obj['apps_count'] ?? 0),
+        createdAt: String(obj['created_at'] ?? ''),
+        lastLogin: obj['last_login'] ? String(obj['last_login']) : undefined,
+      };
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Admin] Fetch users error: ${msg}`);
+    return [];
+  }
+});
+
+ipcMain.handle('admin-create-user', async (_, user: Record<string, unknown>) => {
+  try {
+    const db = getDb();
+    const email = String(user['email'] ?? '').trim().toLowerCase();
+    const fullName = String(user['fullName'] ?? '').trim();
+    const password = String(user['password'] ?? 'pass123').trim();
+    const tier = String(user['tier'] ?? 'pro').toLowerCase();
+    const role = String(user['role'] ?? 'user').toLowerCase();
+
+    // Auto-generate human-readable license key if not provided
+    const randomBlock1 = Math.floor(1000 + Math.random() * 9000);
+    const randomBlock2 = Math.floor(1000 + Math.random() * 9000);
+    const licenseKey = String(
+      user['licenseKey'] ?? `JMX-${tier.toUpperCase().slice(0, 4)}-${randomBlock1}-${randomBlock2}`
+    ).trim();
+
+    db.run(
+      `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'))`,
+      [email, password, fullName, role, tier, licenseKey]
+    );
+
+    // Auto-record initial billing entry for new paid buyer
+    const planPrices: Record<string, string> = {
+      pro: '$49.00',
+      enterprise: '$99.00',
+      lifetime: '$299.00',
+    };
+    const price = planPrices[tier] ?? '$49.00';
+    db.run(
+      `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
+       VALUES (?, ?, ?, 'paid', 'Manual Admin Grant / Stripe', datetime('now'))`,
+      [email, price, `${tier.toUpperCase()} License`]
+    );
+
+    persistDb();
+    log(`[Admin] Issued new license key: ${licenseKey} for user: ${email} (${tier})`);
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Admin] Create user error: ${msg}`);
+    return { success: false, error: msg };
+  }
+});
+
+ipcMain.handle('admin-update-user-status', async (_, data: { id: number; status: string }) => {
+  try {
+    const db = getDb();
+    db.run('UPDATE app_users SET status = ? WHERE id = ?', [data.status, data.id]);
+    persistDb();
+    log(`[Admin] Updated user ID ${data.id} status to: ${data.status}`);
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Admin] Update user status error: ${msg}`);
+    return { success: false, error: msg };
+  }
+});
+
+ipcMain.handle('admin-delete-user', async (_, id: number) => {
+  try {
+    const db = getDb();
+    db.run('DELETE FROM app_users WHERE id = ?', [id]);
+    persistDb();
+    log(`[Admin] Deleted user ID ${id}`);
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Admin] Delete user error: ${msg}`);
+    return { success: false, error: msg };
+  }
+});
+
+ipcMain.handle('admin-get-billing', async () => {
+  try {
+    const db = getDb();
+    const results = db.exec('SELECT * FROM billing_records ORDER BY id DESC');
+    if (!results.length) return [];
+    const cols = results[0].columns;
+    return results[0].values.map(row => {
+      const obj = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
+      return {
+        id: Number(obj['id']),
+        userEmail: String(obj['user_email']),
+        amount: String(obj['amount']),
+        plan: String(obj['plan']),
+        status: String(obj['status']) as 'paid' | 'pending' | 'refunded',
+        paymentMethod: String(obj['payment_method']),
+        createdAt: String(obj['created_at']),
+      };
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Admin] Fetch billing error: ${msg}`);
+    return [];
+  }
+});
+
+ipcMain.handle('admin-create-billing-record', async (_, record: Record<string, unknown>) => {
+  try {
+    const db = getDb();
+    db.run(
+      `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
+       VALUES (?, ?, ?, 'paid', ?, datetime('now'))`,
+      [
+        String(record['userEmail'] ?? ''),
+        String(record['amount'] ?? '$49.00'),
+        String(record['plan'] ?? 'Pro Plan'),
+        String(record['paymentMethod'] ?? 'Stripe Card'),
+      ]
+    );
+    persistDb();
+    log(`[Admin] Recorded transaction: ${record['amount']} for ${record['userEmail']}`);
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Admin] Create billing error: ${msg}`);
+    return { success: false, error: msg };
+  }
+});
+
+ipcMain.handle('admin-get-metrics', async () => {
+  try {
+    const db = getDb();
+    const userRes = db.exec('SELECT * FROM app_users');
+    let totalUsers = 0;
+    let activeUsers = 0;
+    let totalApps = 0;
+    let proUsers = 0;
+    let enterpriseUsers = 0;
+    let lifetimeUsers = 0;
+
+    if (userRes.length) {
+      const cols = userRes[0].columns;
+      const users = userRes[0].values.map(r => Object.fromEntries(cols.map((c, i) => [c, r[i]])));
+      totalUsers = users.length;
+      activeUsers = users.filter(u => String(u['status']) === 'active').length;
+      totalApps = users.reduce((acc, u) => acc + (Number(u['apps_count']) || 0), 0);
+      proUsers = users.filter(u => String(u['tier']) === 'pro').length;
+      enterpriseUsers = users.filter(u => String(u['tier']) === 'enterprise').length;
+      lifetimeUsers = users.filter(u => String(u['tier']) === 'lifetime').length;
+    }
+
+    const billingRes = db.exec('SELECT amount FROM billing_records WHERE status = "paid"');
+    let totalRevenueCents = 0;
+    if (billingRes.length) {
+      for (const row of billingRes[0].values) {
+        const str = String(row[0]).replace(/[^0-9.]/g, '');
+        totalRevenueCents += parseFloat(str || '0') * 100;
+      }
+    }
+
+    const mrrDollars = proUsers * 49 + enterpriseUsers * 99;
+    const totalRevDollars = (totalRevenueCents / 100).toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    });
+
+    return {
+      totalUsers,
+      activeUsers,
+      totalApps,
+      totalRevenue: totalRevDollars,
+      mrr: `$${mrrDollars.toLocaleString()}/mo`,
+      proUsers,
+      enterpriseUsers,
+      lifetimeUsers,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Admin] Metrics computation error: ${msg}`);
+    return {
+      totalUsers: 0,
+      activeUsers: 0,
+      totalApps: 0,
+      totalRevenue: '$0.00',
+      mrr: '$0/mo',
+      proUsers: 0,
+      enterpriseUsers: 0,
+      lifetimeUsers: 0,
+    };
+  }
+});

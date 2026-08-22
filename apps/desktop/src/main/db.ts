@@ -92,6 +92,31 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       is_default INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS app_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+      tier TEXT DEFAULT 'pro' CHECK (tier IN ('pro', 'enterprise', 'lifetime')),
+      license_key TEXT UNIQUE,
+      status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+      apps_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME,
+      last_login DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS billing_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL,
+      amount TEXT NOT NULL,
+      plan TEXT NOT NULL,
+      status TEXT DEFAULT 'paid' CHECK (status IN ('paid', 'pending', 'refunded')),
+      payment_method TEXT DEFAULT 'Stripe Card',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migrate existing databases
@@ -99,6 +124,41 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
   try { db.run(`ALTER TABLE master_profile ADD COLUMN onboarding_completed INTEGER DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN desired_title TEXT`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN tech_stack TEXT`); } catch {}
+
+  // Seed default admin user & demo clients if app_users is empty
+  try {
+    const userCheck = db.exec('SELECT COUNT(*) as count FROM app_users');
+    const userCount = userCheck.length && userCheck[0].values.length ? Number(userCheck[0].values[0][0]) : 0;
+    if (userCount === 0) {
+      // 1. Seed Master Admin
+      db.run(
+        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at)
+         VALUES ('admin@jobmaxxer.com', 'admin123', 'JobMaxxer Master Admin', 'admin', 'lifetime', 'ADMIN-MASTER-KEY-2026', 'active', 0, datetime('now', '-30 days'))`
+      );
+
+      // 2. Seed Demo Active Buyers
+      db.run(
+        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, last_login)
+         VALUES 
+         ('alex.dev@gmail.com', 'pass123', 'Alex Vance', 'user', 'pro', 'JMX-PRO-9842-8821', 'active', 142, datetime('now', '-12 days'), datetime('now', '-2 hours')),
+         ('elena.cloud@outlook.com', 'pass123', 'Elena Rostova', 'user', 'enterprise', 'JMX-ENT-4412-9901', 'active', 318, datetime('now', '-25 days'), datetime('now', '-30 minutes')),
+         ('david.chen@icloud.com', 'pass123', 'David Chen', 'user', 'pro', 'JMX-PRO-7731-1029', 'active', 89, datetime('now', '-5 days'), datetime('now', '-1 day')),
+         ('sarah.react@yahoo.com', 'pass123', 'Sarah Jenkins', 'user', 'lifetime', 'JMX-LIFE-5501-3329', 'active', 450, datetime('now', '-40 days'), datetime('now', '-4 hours'))`
+      );
+
+      // 3. Seed Initial Billing Transactions
+      db.run(
+        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
+         VALUES
+         ('elena.cloud@outlook.com', '$99.00', 'Enterprise Plan (Monthly)', 'paid', 'Stripe Card (Visa •••• 4242)', datetime('now', '-25 days')),
+         ('sarah.react@yahoo.com', '$299.00', 'Lifetime Founder License', 'paid', 'Stripe Card (Mastercard •••• 8821)', datetime('now', '-40 days')),
+         ('alex.dev@gmail.com', '$49.00', 'Pro Plan (Monthly)', 'paid', 'Stripe Card (Visa •••• 1092)', datetime('now', '-12 days')),
+         ('david.chen@icloud.com', '$49.00', 'Pro Plan (Monthly)', 'paid', 'Stripe Card (Amex •••• 3001)', datetime('now', '-5 days'))`
+      );
+    }
+  } catch (err: any) {
+    console.warn('[SQLite] Error seeding admin/billing defaults:', err.message);
+  }
 
   persistDb();
   console.log('[SQLite (sql.js)] Initialized local database at', dbFilePath);

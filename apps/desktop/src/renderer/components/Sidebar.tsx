@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import {
   Home, Search, Mail, FileText, User,
-  PanelLeftClose, PanelLeft
+  PanelLeftClose, PanelLeft, Shield
 } from 'lucide-react';
-import { TabType, HeartbeatStatus } from '../types';
+import { TabType, HeartbeatStatus, AppUser } from '../types';
 
 interface SidebarProps {
   activeTab: TabType;
   onSelectTab: (tab: TabType) => void;
   heartbeat: HeartbeatStatus | null;
   logsCount: number;
+  currentUser?: AppUser | null;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
+  currentUser,
 }) => {
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
@@ -50,6 +52,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  if (currentUser?.role === 'admin') {
+    navigationItems.push({
+      id: 'admin-overview',
+      label: 'Admin',
+      icon: Shield,
+    });
+  }
+
   return (
     <aside
       className={`border-r border-slate-200 bg-white flex flex-col justify-between select-none transition-all duration-200 ease-in-out ${
@@ -60,7 +70,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-2 space-y-1">
         {navigationItems.map(item => {
           const Icon = item.icon;
-          const isActive = activeTab === item.id;
+          const isActive =
+            activeTab === item.id ||
+            (item.id === 'admin-overview' && activeTab.startsWith('admin'));
+
           return (
             <button
               key={item.id}

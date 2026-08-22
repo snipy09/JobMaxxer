@@ -35,4 +35,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('heartbeat-status', handler);
     return () => ipcRenderer.removeListener('heartbeat-status', handler);
   },
+
+  // Admin & Authentication APIs
+  authLogin: (credentials: Record<string, unknown>) => ipcRenderer.invoke('auth-login', credentials),
+  adminGetUsers: () => ipcRenderer.invoke('admin-get-users'),
+  adminCreateUser: (user: Record<string, unknown>) => ipcRenderer.invoke('admin-create-user', user),
+  adminUpdateUserStatus: (id: number, status: string) => ipcRenderer.invoke('admin-update-user-status', { id, status }),
+  adminDeleteUser: (id: number) => ipcRenderer.invoke('admin-delete-user', id),
+  adminGetBilling: () => ipcRenderer.invoke('admin-get-billing'),
+  adminCreateBillingRecord: (record: Record<string, unknown>) => ipcRenderer.invoke('admin-create-billing-record', record),
+  adminGetMetrics: () => ipcRenderer.invoke('admin-get-metrics'),
 });

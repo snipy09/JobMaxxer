@@ -71,7 +71,15 @@ export interface HeartbeatStatus {
   ip?: string;
 }
 
-export type TabType = 'home' | 'feed' | 'outreach' | 'logs' | 'settings';
+export type TabType =
+  | 'home'
+  | 'feed'
+  | 'outreach'
+  | 'logs'
+  | 'settings'
+  | 'admin-overview'
+  | 'admin-users'
+  | 'admin-billing';
 
 export type ThemeMode = 'light';
 
@@ -82,6 +90,40 @@ export interface ResumeRecord {
   filePath: string;
   isDefault: boolean;
   createdAt?: string;
+}
+
+export interface AppUser {
+  id: number;
+  email: string;
+  fullName: string;
+  role: 'admin' | 'user';
+  tier: 'pro' | 'enterprise' | 'lifetime';
+  licenseKey: string;
+  status: 'active' | 'suspended';
+  appsCount: number;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+export interface BillingRecord {
+  id: number;
+  userEmail: string;
+  amount: string;
+  plan: string;
+  status: 'paid' | 'pending' | 'refunded';
+  paymentMethod: string;
+  createdAt: string;
+}
+
+export interface AdminMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  totalApps: number;
+  totalRevenue: string;
+  mrr: string;
+  proUsers: number;
+  enterpriseUsers: number;
+  lifetimeUsers: number;
 }
 
 export interface ElectronAPI {
@@ -98,25 +140,54 @@ export interface ElectronAPI {
   launchSemiAuto: (jobUrls: string[]) => Promise<{ success: boolean; error?: string }>;
   launchAutonomous: (jobUrls: string[]) => Promise<{ success: boolean; applied?: number; error?: string }>;
   verifyEmail: (email: string) => Promise<{ isValid: boolean; stageFailed?: number; reason?: string }>;
-  sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>) =>
+  sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string }>) =>
     Promise<{ success: boolean; sent?: number; error?: string }>;
-  getApplications: () => Promise<Application[]>;
-  getSavedJobs: () => Promise<Job[]>;
-  saveJob: (job: Job) => Promise<{ success: boolean }>;
-  removeSavedJob: (applyUrl: string) => Promise<{ success: boolean }>;
-  checkDependencies: () => Promise<DependencyStatus>;
-  installDependencies: () => Promise<{ success: boolean; error?: string }>;
-  testGroqKey: (key: string) => Promise<{ success: boolean; error?: string }>;
   startHeartbeat: (userId: string, sessionToken: string, deviceFingerprint: string) =>
     Promise<{ success: boolean }>;
   stopHeartbeat: () => Promise<{ success: boolean }>;
-  onLog: (cb: (m: string) => void) => () => void;
-  onHeartbeatStatus: (cb: (status: HeartbeatStatus) => void) => () => void;
+  onHeartbeatStatus: (callback: (status: HeartbeatStatus) => void) => () => void;
+  checkDependencies: () => Promise<DependencyStatus>;
+  installDependencies: () => Promise<{ success: boolean; error?: string }>;
+  testGroqKey: (key: string) => Promise<{ success: boolean; error?: string }>;
+  onLog: (callback: (msg: string) => void) => () => void;
+  getApplications: () => Promise<Application[]>;
+  getSavedJobs: () => Promise<Job[]>;
+  saveJob: (job: Job) => Promise<{ success: boolean; error?: string }>;
+  removeSavedJob: (applyUrl: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Admin & Auth Handlers
+  authLogin: (credentials: { email: string; password?: string; licenseKey?: string }) =>
+    Promise<{ success: boolean; user?: AppUser; error?: string }>;
+  adminGetUsers: () => Promise<AppUser[]>;
+  adminCreateUser: (user: {
+    email: string;
+    password?: string;
+    fullName: string;
+    tier: 'pro' | 'enterprise' | 'lifetime';
+    licenseKey?: string;
+    role?: 'admin' | 'user';
+  }) => Promise<{ success: boolean; id?: number; error?: string }>;
+  adminUpdateUserStatus: (id: number, status: 'active' | 'suspended') => Promise<{ success: boolean; error?: string }>;
+  adminDeleteUser: (id: number) => Promise<{ success: boolean; error?: string }>;
+  adminGetBilling: () => Promise<BillingRecord[]>;
+  adminCreateBillingRecord: (record: {
+    userEmail: string;
+    amount: string;
+    plan: string;
+    paymentMethod: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  adminGetMetrics: () => Promise<AdminMetrics>;
 }
 
-export const getApi = (): ElectronAPI | null => {
-  if (typeof window !== 'undefined' && (window as any).electronAPI) {
-    return (window as any).electronAPI as ElectronAPI;
+declare global {
+  interface Window {
+    api?: ElectronAPI;
   }
-  return null;
-};
+}
+
+export function getApi(): ElectronAPI | undefined {
+  if (typeof window !== 'undefined' && window.api) {
+    return window.api;
+  }
+  return undefined;
+}

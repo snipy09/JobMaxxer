@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  TabType, ThemeMode, MasterProfile, HeartbeatStatus, getApi
+  TabType, ThemeMode, MasterProfile, HeartbeatStatus, AppUser, getApi
 } from './types';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { TopBar } from './components/TopBar';
@@ -10,8 +10,25 @@ import { FeedView } from './components/FeedView';
 import { OutreachView } from './components/OutreachView';
 import { ApplicationsView } from './components/ApplicationsView';
 import { ProfileView } from './components/ProfileView';
+import { AdminView } from './components/AdminView';
+import { AuthModal } from './components/AuthModal';
 
 export default function App() {
+  // Current user state (defaults to Master Admin for owner access)
+  const [currentUser, setCurrentUser] = useState<AppUser | null>({
+    id: 1,
+    email: 'admin@jobmaxxer.com',
+    fullName: 'Master Admin',
+    role: 'admin',
+    tier: 'lifetime',
+    licenseKey: 'ADMIN-MASTER-KEY-2026',
+    status: 'active',
+    appsCount: 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+
   // Navigation tab state - default to 'home'
   const [activeTab, setActiveTab] = useState<TabType>('home');
 
@@ -166,7 +183,7 @@ export default function App() {
   if (!onboardingLoaded) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500 font-mono text-xs">
-        Initializing Job Automator Pro...
+        Initializing JobMaxxer...
       </div>
     );
   }
@@ -185,7 +202,12 @@ export default function App() {
     <div className="h-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden select-none">
       
       {/* Top Application Header */}
-      <TopBar />
+      <TopBar
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        activeTab={activeTab}
+        onNavigate={setActiveTab}
+      />
 
       {/* Main Workspace Layout (Sidebar + Sub-view) */}
       <div className="flex-1 flex overflow-hidden">
@@ -196,6 +218,7 @@ export default function App() {
           onSelectTab={setActiveTab}
           heartbeat={heartbeat}
           logsCount={logs.length}
+          currentUser={currentUser}
         />
 
         {/* Dynamic Sub-view Container */}
@@ -239,9 +262,27 @@ export default function App() {
                 heartbeat={heartbeat}
               />
             )}
+
+            {activeTab.startsWith('admin') && (
+              <AdminView
+                onLog={addLog}
+                currentUser={currentUser}
+              />
+            )}
           </div>
         </main>
       </div>
+
+      {/* Login & Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+          addLog(`[Auth] Switched active session to: ${user.email} (${user.role})`);
+        }}
+        onLog={addLog}
+      />
     </div>
   );
 }
