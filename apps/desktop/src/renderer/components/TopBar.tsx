@@ -1,17 +1,17 @@
 import React from 'react';
-import { Shield, User, LogOut, Key } from 'lucide-react';
+import { Shield, User, LogOut } from 'lucide-react';
 import { AppUser, TabType } from '../types';
 
 interface TopBarProps {
   currentUser: AppUser | null;
-  onOpenAuth: () => void;
+  onLogout: () => void;
   activeTab: TabType;
   onNavigate: (tab: TabType) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
   currentUser,
-  onOpenAuth,
+  onLogout,
   activeTab,
   onNavigate,
 }) => {
@@ -48,17 +48,22 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onOpenAuth}
-          className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 flex items-center gap-1.5 transition-colors"
-          title={currentUser ? `Logged in as ${currentUser.email}` : 'Sign In'}
-        >
-          <User className="w-3.5 h-3.5 text-slate-500" />
-          <span className="max-w-[120px] truncate">
-            {currentUser ? currentUser.fullName.split(' ')[0] : 'Sign In'}
-          </span>
-        </button>
+        {currentUser && (
+          <div className="flex items-center gap-2 pl-1">
+            <span className="text-xs font-medium text-slate-600 hidden sm:inline">
+              {currentUser.fullName.split(' ')[0]}
+            </span>
+
+            <button
+              type="button"
+              onClick={onLogout}
+              className="text-xs text-slate-400 hover:text-slate-700 p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

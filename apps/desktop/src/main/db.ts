@@ -124,12 +124,23 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
   try { db.run(`ALTER TABLE master_profile ADD COLUMN onboarding_completed INTEGER DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN desired_title TEXT`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN tech_stack TEXT`); } catch {}
+  try { db.run(`ALTER TABLE app_users ADD COLUMN username TEXT`); } catch {}
+
+  // Ensure admin user exists with username 'admin' and password 'admin123'
+  try {
+    db.run(
+      `INSERT OR REPLACE INTO app_users (id, username, email, password, full_name, role, tier, license_key, status, apps_count, created_at)
+       VALUES (1, 'admin', 'admin@jobmaxxer.com', 'admin123', 'JobMaxxer Administrator', 'admin', 'lifetime', 'ADMIN-MASTER-KEY-2026', 'active', 0, datetime('now', '-30 days'))`
+    );
+  } catch (err: any) {
+    console.warn('[SQLite] Error ensuring admin user:', err.message);
+  }
 
   // Seed default admin user & demo clients if app_users is empty
   try {
     const userCheck = db.exec('SELECT COUNT(*) as count FROM app_users');
     const userCount = userCheck.length && userCheck[0].values.length ? Number(userCheck[0].values[0][0]) : 0;
-    if (userCount === 0) {
+    if (userCount <= 1) {
       // 1. Seed Master Admin
       db.run(
         `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at)

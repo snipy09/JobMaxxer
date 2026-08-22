@@ -914,23 +914,23 @@ ipcMain.handle('stop-heartbeat', () => {
 ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => {
   try {
     const db = getDb();
-    const email = String(credentials['email'] ?? '').trim().toLowerCase();
+    const usernameOrEmail = String(credentials['username'] ?? credentials['email'] ?? '').trim().toLowerCase();
     const password = String(credentials['password'] ?? '').trim();
     const licenseKey = String(credentials['licenseKey'] ?? '').trim();
 
-    if (!email) {
-      return { success: false, error: 'Email is required to sign in.' };
+    if (!usernameOrEmail) {
+      return { success: false, error: 'Username is required.' };
     }
 
     const results = db.exec(
       `SELECT * FROM app_users 
-       WHERE LOWER(email) = ? 
+       WHERE (LOWER(email) = ? OR LOWER(username) = ?) 
          AND (password = ? OR license_key = ? OR license_key = ?)`,
-      [email, password, password, licenseKey]
+      [usernameOrEmail, usernameOrEmail, password, password, licenseKey]
     );
 
     if (!results.length || !results[0].values.length) {
-      return { success: false, error: 'Invalid email, password, or license key.' };
+      return { success: false, error: 'Invalid username or password.' };
     }
 
     const cols = results[0].columns;

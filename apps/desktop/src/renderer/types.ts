@@ -156,7 +156,7 @@ export interface ElectronAPI {
   removeSavedJob: (applyUrl: string) => Promise<{ success: boolean; error?: string }>;
 
   // Admin & Auth Handlers
-  authLogin: (credentials: { email: string; password?: string; licenseKey?: string }) =>
+  authLogin: (credentials: { username?: string; email?: string; password?: string; licenseKey?: string }) =>
     Promise<{ success: boolean; user?: AppUser; error?: string }>;
   adminGetUsers: () => Promise<AppUser[]>;
   adminCreateUser: (user: {

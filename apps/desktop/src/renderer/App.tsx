@@ -11,26 +11,30 @@ import { OutreachView } from './components/OutreachView';
 import { ApplicationsView } from './components/ApplicationsView';
 import { ProfileView } from './components/ProfileView';
 import { AdminView } from './components/AdminView';
-import { AuthModal } from './components/AuthModal';
+import { LoginView } from './components/LoginView';
 
 export default function App() {
-  // Current user state (defaults to Master Admin for owner access)
-  const [currentUser, setCurrentUser] = useState<AppUser | null>({
-    id: 1,
-    email: 'admin@jobmaxxer.com',
-    fullName: 'Master Admin',
-    role: 'admin',
-    tier: 'lifetime',
-    licenseKey: 'ADMIN-MASTER-KEY-2026',
-    status: 'active',
-    appsCount: 0,
-    createdAt: new Date().toISOString(),
+  // Current user state (persisted in localStorage)
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    try {
+      const stored = localStorage.getItem('jobmaxxer_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   });
 
-  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
-
-  // Navigation tab state - default to 'home'
-  const [activeTab, setActiveTab] = useState<TabType>('home');
+  // Navigation tab state - default to 'home' or 'admin-overview'
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    try {
+      const stored = localStorage.getItem('jobmaxxer_user');
+      if (stored) {
+        const user: AppUser = JSON.parse(stored);
+        return user.role === 'admin' ? 'admin-overview' : 'home';
+      }
+    } catch {}
+    return 'home';
+  });
 
   // Master profile state
   const [profile, setProfile] = useState<MasterProfile>({
@@ -140,6 +144,23 @@ export default function App() {
     loadStartupData();
   }, []);
 
+  const handleLoginSuccess = (user: AppUser) => {
+    setCurrentUser(user);
+    localStorage.setItem('jobmaxxer_user', JSON.stringify(user));
+    if (user.role === 'admin') {
+      setActiveTab('admin-overview');
+    } else {
+      setActiveTab('home');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('jobmaxxer_user');
+    setActiveTab('home');
+    addLog('[Auth] Signed out.');
+  };
+
   // Save profile helper
   const handleSaveProfile = async () => {
     const api = getApi();
@@ -179,7 +200,17 @@ export default function App() {
     addLog('[Onboarding] System setup completed. Application ready.');
   };
 
-  // Wait until initial check finishes
+  // 1. If not logged in, show simple clean login page
+  if (!currentUser) {
+    return (
+      <LoginView
+        onLoginSuccess={handleLoginSuccess}
+        onLog={addLog}
+      />
+    );
+  }
+
+  // 2. Wait until initial check finishes
   if (!onboardingLoaded) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500 font-mono text-xs">
@@ -188,8 +219,8 @@ export default function App() {
     );
   }
 
-  // Render onboarding wizard if needed
-  if (showOnboarding) {
+  // 3. Render onboarding wizard if needed (only for client users)
+  if (showOnboarding && currentUser.role !== 'admin') {
     return (
       <OnboardingWizard
         initialProfile={profile}
@@ -204,7 +235,7 @@ export default function App() {
       {/* Top Application Header */}
       <TopBar
         currentUser={currentUser}
-        onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={handleLogout}
         activeTab={activeTab}
         onNavigate={setActiveTab}
       />
@@ -272,17 +303,6 @@ export default function App() {
           </div>
         </main>
       </div>
-
-      {/* Login & Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onSuccess={(user) => {
-          setCurrentUser(user);
-          addLog(`[Auth] Switched active session to: ${user.email} (${user.role})`);
-        }}
-        onLog={addLog}
-      />
     </div>
   );
 }
