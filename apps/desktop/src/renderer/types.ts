@@ -187,9 +187,16 @@ declare global {
   }
 }
 
-export function getApi(): ElectronAPI | undefined {
+import { createBrowserApiShim } from './browserApiShim';
+
+let browserShimInstance: ElectronAPI | null = null;
+
+export function getApi(): ElectronAPI {
   if (typeof window !== 'undefined' && window.api) {
     return window.api;
   }
-  return undefined;
+  if (!browserShimInstance) {
+    browserShimInstance = createBrowserApiShim();
+  }
+  return browserShimInstance;
 }
