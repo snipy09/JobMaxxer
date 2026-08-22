@@ -3,7 +3,8 @@ import {
   Users, CreditCard, Shield, Plus, Trash2, CheckCircle2,
   AlertCircle, Loader2, RefreshCw, Key, DollarSign, Activity,
   TrendingUp, Search, UserPlus, UserCheck, UserX, Copy, Check,
-  SlidersHorizontal, Download, FileText, ArrowUpRight
+  SlidersHorizontal, Download, FileText, ArrowUpRight, Clock,
+  Sparkles, RotateCcw
 } from 'lucide-react';
 import { AppUser, BillingRecord, AdminMetrics, getApi } from '../types';
 
@@ -21,8 +22,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
     totalApps: 0,
     totalRevenue: '$0.00',
     mrr: '$0/mo',
+    trialUsers: 0,
     proUsers: 0,
-    enterpriseUsers: 0,
+    maxUsers: 0,
     lifetimeUsers: 0,
   });
 
@@ -36,7 +38,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
   const [newEmail, setNewEmail] = useState<string>('');
   const [newFullName, setNewFullName] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('pass123');
-  const [newTier, setNewTier] = useState<'pro' | 'enterprise' | 'lifetime'>('pro');
+  const [newTier, setNewTier] = useState<'trial' | 'pro' | 'max' | 'lifetime'>('trial');
   const [newRole, setNewRole] = useState<'user' | 'admin'>('user');
   const [creatingUser, setCreatingUser] = useState<boolean>(false);
   const [createFeedback, setCreateFeedback] = useState<string | null>(null);
@@ -119,7 +121,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
         setNewEmail('');
         setNewFullName('');
         setNewPassword('pass123');
-        onLog(`[Admin] Created user ${newEmail.trim()} and issued license.`);
+        setNewTier('trial');
+        onLog(`[Admin] Created ${newTier.toUpperCase()} user ${newEmail.trim()} and issued license.`);
       } else {
         setCreateFeedback(res.error || 'Failed to create user.');
       }
@@ -140,8 +143,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
     );
   });
 
+  const getTierBadge = (tier: string) => {
+    switch (tier) {
+      case 'trial':
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'max':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'lifetime':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'pro':
+      default:
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+    }
+  };
+
   return (
-    <div className="space-y-6 max-w-6xl pb-12">
+    <div className="space-y-6 max-w-6xl pb-12 select-none">
       
       {/* Top Header */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -155,11 +172,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                 Master Admin Dashboard
               </h1>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                Owner Access
+                Raksha (Owner)
               </span>
             </div>
             <p className="text-xs text-slate-500 font-normal">
-              Manage buyers, issue custom license credentials, view fleet applications, and track billing revenue.
+              Manage buyers, issue custom credentials across 4 plans, track fleet applications, and monitor billing.
             </p>
           </div>
         </div>
@@ -286,36 +303,63 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
             </div>
           </div>
 
-          {/* Plan Breakdown & Fleet Details */}
+          {/* 4 Plan Breakdown & Fleet Details */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4 lg:col-span-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                Subscription Plan Distribution
-              </h3>
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3 lg:col-span-1">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  4 Subscription Plans
+                </h3>
+                <span className="text-[10px] font-bold text-slate-400">Tiers</span>
+              </div>
 
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="space-y-2.5 pt-1">
+                {/* 1. Trial Plan */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/60 border border-amber-200 text-xs">
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Pro Tier ($49/mo)</div>
-                    <div className="text-[11px] text-slate-500">Standard auto-apply &amp; feed</div>
+                    <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      <span>7-Day Trial</span>
+                    </div>
+                    <div className="text-[11px] text-amber-700">7 days validity + renewal chance</div>
                   </div>
-                  <span className="text-base font-bold font-mono text-slate-900">{metrics.proUsers}</span>
+                  <span className="text-sm font-bold font-mono text-amber-900">{metrics.trialUsers}</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                {/* 2. Pro Plan */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50/60 border border-blue-200 text-xs">
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Enterprise Tier ($99/mo)</div>
-                    <div className="text-[11px] text-slate-500">Unlimited 500+ scrapers &amp; outreach</div>
+                    <div className="font-bold text-blue-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-blue-600" />
+                      <span>Pro Plan ($49/mo)</span>
+                    </div>
+                    <div className="text-[11px] text-blue-700">Standard auto-apply &amp; feed</div>
                   </div>
-                  <span className="text-base font-bold font-mono text-slate-900">{metrics.enterpriseUsers}</span>
+                  <span className="text-sm font-bold font-mono text-blue-900">{metrics.proUsers}</span>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                {/* 3. Max Plan */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-purple-50/60 border border-purple-200 text-xs">
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Lifetime Founders ($299)</div>
-                    <div className="text-[11px] text-slate-500">One-time full access</div>
+                    <div className="font-bold text-purple-900 flex items-center gap-1.5">
+                      <Shield className="w-3 h-3 text-purple-600" />
+                      <span>Max Plan ($99/mo)</span>
+                    </div>
+                    <div className="text-[11px] text-purple-700">Unlimited 500+ scrapers &amp; outreach</div>
                   </div>
-                  <span className="text-base font-bold font-mono text-slate-900">{metrics.lifetimeUsers}</span>
+                  <span className="text-sm font-bold font-mono text-purple-900">{metrics.maxUsers}</span>
+                </div>
+
+                {/* 4. Lifetime Plan */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs">
+                  <div>
+                    <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Lifetime License ($299)</span>
+                    </div>
+                    <div className="text-[11px] text-emerald-700">Permanent unlimited access</div>
+                  </div>
+                  <span className="text-sm font-bold font-mono text-emerald-900">{metrics.lifetimeUsers}</span>
                 </div>
               </div>
             </div>
@@ -339,23 +383,17 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                       <div>
                         <div className="font-bold text-slate-900">{u.fullName} <span className="text-slate-400 font-normal">({u.email})</span></div>
                         <div className="text-[11px] text-slate-500 font-mono">
-                          License: {u.licenseKey} • {u.appsCount} applications submitted
+                          License: {u.licenseKey} • {u.appsCount} applications
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
-                        u.tier === 'enterprise'
-                          ? 'bg-purple-50 text-purple-700 border-purple-200'
-                          : u.tier === 'lifetime'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${getTierBadge(u.tier)}`}>
                         {u.tier}
                       </span>
                       <div className="text-[10px] text-slate-400 mt-1">
-                        {u.lastLogin ? `Last active: ${u.lastLogin}` : 'Pending first login'}
+                        {u.expiresAt ? `Expires: ${u.expiresAt.split(' ')[0]}` : 'Permanent'}
                       </div>
                     </div>
                   </div>
@@ -375,7 +413,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                 Authorized Client Users &amp; Licenses
               </h2>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Issue unique credentials, manage active subscriptions, and revoke access.
+                Issue unique credentials across 4 plans (Trial, Pro, Max, Lifetime), manage renewals, and revoke access.
               </p>
             </div>
 
@@ -399,6 +437,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                   <th className="pb-2.5">User</th>
                   <th className="pb-2.5">License Key / Credentials</th>
                   <th className="pb-2.5">Plan</th>
+                  <th className="pb-2.5">Validity / Expiry</th>
                   <th className="pb-2.5">Apps</th>
                   <th className="pb-2.5">Status</th>
                   <th className="pb-2.5 text-right">Actions</th>
@@ -428,15 +467,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                     </td>
 
                     <td className="py-3">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
-                        u.tier === 'enterprise'
-                          ? 'bg-purple-50 text-purple-700 border-purple-200'
-                          : u.tier === 'lifetime'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${getTierBadge(u.tier)}`}>
                         {u.tier}
                       </span>
+                    </td>
+
+                    <td className="py-3 font-mono text-[11px] text-slate-600">
+                      {u.expiresAt ? (
+                        <div>
+                          <span>{u.expiresAt.split(' ')[0]}</span>
+                          {u.tier === 'trial' && (
+                            <span className="block text-[10px] text-amber-700 font-sans">7-Day Trial</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-emerald-700 font-sans font-semibold">Permanent</span>
+                      )}
                     </td>
 
                     <td className="py-3 font-mono font-bold text-slate-800">
@@ -473,6 +519,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                             type="button"
                             onClick={() => handleDeleteUser(u.id, u.email)}
                             className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg border border-slate-200 hover:bg-white transition-colors"
+                            title="Delete User"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -496,7 +543,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                 Revenue &amp; Invoices
               </h2>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Stripe transactions, manual licenses, and automated renewals.
+                Stripe transactions, trial grants, and license sales.
               </p>
             </div>
 
@@ -612,15 +659,16 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="font-bold text-slate-700">Subscription Tier</label>
+                  <label className="font-bold text-slate-700">Subscription Plan</label>
                   <select
                     value={newTier}
                     onChange={e => setNewTier(e.target.value as any)}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-medium"
                   >
-                    <option value="pro">Pro ($49/mo)</option>
-                    <option value="enterprise">Enterprise ($99/mo)</option>
-                    <option value="lifetime">Lifetime ($299)</option>
+                    <option value="trial">Trial (7 Days Validity + Renewal)</option>
+                    <option value="pro">Pro Plan ($49/mo)</option>
+                    <option value="max">Max Plan ($99/mo)</option>
+                    <option value="lifetime">Lifetime License ($299)</option>
                   </select>
                 </div>
 

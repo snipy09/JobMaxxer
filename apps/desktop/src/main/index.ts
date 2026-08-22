@@ -940,6 +940,20 @@ ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => 
       return { success: false, error: 'This account or license key is suspended. Contact administrator.' };
     }
 
+    // Expiration check (e.g. 7-day trial or expired subscription)
+    if (userRow['expires_at']) {
+      const expiresAt = new Date(String(userRow['expires_at']));
+      if (expiresAt.getTime() < Date.now()) {
+        const isTrial = String(userRow['tier']) === 'trial';
+        return {
+          success: false,
+          error: isTrial
+            ? 'Your 7-day free trial has expired. Contact administrator to renew or upgrade to Pro/Max.'
+            : 'Your subscription plan has expired. Contact administrator to renew.',
+        };
+      }
+    }
+
     // Update last_login
     db.run(`UPDATE app_users SET last_login = datetime('now') WHERE id = ?`, [Number(userRow['id'])]);
     persistDb();
@@ -953,11 +967,12 @@ ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => 
         email: String(userRow['email']),
         fullName: String(userRow['full_name']),
         role: String(userRow['role']) as 'admin' | 'user',
-        tier: String(userRow['tier']) as 'pro' | 'enterprise' | 'lifetime',
+        tier: String(userRow['tier']) as 'trial' | 'pro' | 'max' | 'lifetime',
         licenseKey: String(userRow['license_key'] ?? ''),
         status: String(userRow['status']) as 'active' | 'suspended',
         appsCount: Number(userRow['apps_count'] ?? 0),
         createdAt: String(userRow['created_at'] ?? ''),
+        expiresAt: userRow['expires_at'] ? String(userRow['expires_at']) : undefined,
         lastLogin: String(userRow['last_login'] ?? ''),
       },
     };
@@ -982,11 +997,12 @@ ipcMain.handle('admin-get-users', async () => {
         email: String(obj['email']),
         fullName: String(obj['full_name']),
         role: String(obj['role']) as 'admin' | 'user',
-        tier: String(obj['tier']) as 'pro' | 'enterprise' | 'lifetime',
+        tier: String(obj['tier']) as 'trial' | 'pro' | 'max' | 'lifetime',
         licenseKey: String(obj['license_key'] ?? ''),
         status: String(obj['status']) as 'active' | 'suspended',
         appsCount: Number(obj['apps_count'] ?? 0),
         createdAt: String(obj['created_at'] ?? ''),
+        expiresAt: obj['expires_at'] ? String(obj['expires_at']) : undefined,
         lastLogin: obj['last_login'] ? String(obj['last_login']) : undefined,
       };
     });
@@ -1006,34 +1022,54 @@ ipcMain.handle('admin-create-user', async (_, user: Record<string, unknown>) => 
     const tier = String(user['tier'] ?? 'pro').toLowerCase();
     const role = String(user['role'] ?? 'user').toLowerCase();
 
-    // Auto-generate human-readable license key if not provided
+    // Auto-generate human-readable license key
     const randomBlock1 = Math.floor(1000 + Math.random() * 9000);
     const randomBlock2 = Math.floor(1000 + Math.random() * 9000);
+    const tierPrefix = tier === 'trial' ? 'TRL' : tier === 'max' ? 'MAX' : tier === 'lifetime' ? 'LIFE' : 'PRO';
     const licenseKey = String(
-      user['licenseKey'] ?? `JMX-${tier.toUpperCase().slice(0, 4)}-${randomBlock1}-${randomBlock2}`
+      user['licenseKey'] ?? `JMX-${tierPrefix}-${randomBlock1}-${randomBlock2}`
     ).trim();
 
-    db.run(
-      `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'))`,
-      [email, password, fullName, role, tier, licenseKey]
-    );
-
-    // Auto-record initial billing entry for new paid buyer
-    const planPrices: Record<string, string> = {
-      pro: '$49.00',
-      enterprise: '$99.00',
-      lifetime: '$299.00',
-    };
-    const price = planPrices[tier] ?? '$49.00';
-    db.run(
-      `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
-       VALUES (?, ?, ?, 'paid', 'Manual Admin Grant / Stripe', datetime('now'))`,
-      [email, price, `${tier.toUpperCase()} License`]
-    );
+    // Set expiration based on tier: trial = 7 days, pro/max = 30 days, lifetime = null
+    if (tier === 'trial') {
+      db.run(
+        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'), datetime('now', '+7 days'))`,
+        [email, password, fullName, role, tier, licenseKey]
+      );
+      db.run(
+        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
+         VALUES (?, '$0.00', '7-Day Free Trial', 'paid', 'Direct Trial Activation', datetime('now'))`,
+        [email]
+      );
+    } else if (tier === 'lifetime') {
+      db.run(
+        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'), NULL)`,
+        [email, password, fullName, role, tier, licenseKey]
+      );
+      db.run(
+        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
+         VALUES (?, '$299.00', 'Lifetime Founder License', 'paid', 'Manual Admin Grant / Stripe', datetime('now'))`,
+        [email]
+      );
+    } else {
+      const price = tier === 'max' ? '$99.00' : '$49.00';
+      const planTitle = tier === 'max' ? 'Max Plan ($99/mo)' : 'Pro Plan ($49/mo)';
+      db.run(
+        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'), datetime('now', '+30 days'))`,
+        [email, password, fullName, role, tier, licenseKey]
+      );
+      db.run(
+        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
+         VALUES (?, ?, ?, 'paid', 'Manual Admin Grant / Stripe', datetime('now'))`,
+        [email, price, planTitle]
+      );
+    }
 
     persistDb();
-    log(`[Admin] Issued new license key: ${licenseKey} for user: ${email} (${tier})`);
+    log(`[Admin] Issued new ${tier.toUpperCase()} license key: ${licenseKey} for user: ${email}`);
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1125,8 +1161,9 @@ ipcMain.handle('admin-get-metrics', async () => {
     let totalUsers = 0;
     let activeUsers = 0;
     let totalApps = 0;
+    let trialUsers = 0;
     let proUsers = 0;
-    let enterpriseUsers = 0;
+    let maxUsers = 0;
     let lifetimeUsers = 0;
 
     if (userRes.length) {
@@ -1135,8 +1172,9 @@ ipcMain.handle('admin-get-metrics', async () => {
       totalUsers = users.length;
       activeUsers = users.filter(u => String(u['status']) === 'active').length;
       totalApps = users.reduce((acc, u) => acc + (Number(u['apps_count']) || 0), 0);
+      trialUsers = users.filter(u => String(u['tier']) === 'trial').length;
       proUsers = users.filter(u => String(u['tier']) === 'pro').length;
-      enterpriseUsers = users.filter(u => String(u['tier']) === 'enterprise').length;
+      maxUsers = users.filter(u => String(u['tier']) === 'max' || String(u['tier']) === 'enterprise').length;
       lifetimeUsers = users.filter(u => String(u['tier']) === 'lifetime').length;
     }
 
@@ -1149,7 +1187,7 @@ ipcMain.handle('admin-get-metrics', async () => {
       }
     }
 
-    const mrrDollars = proUsers * 49 + enterpriseUsers * 99;
+    const mrrDollars = proUsers * 49 + maxUsers * 99;
     const totalRevDollars = (totalRevenueCents / 100).toLocaleString('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -1161,8 +1199,9 @@ ipcMain.handle('admin-get-metrics', async () => {
       totalApps,
       totalRevenue: totalRevDollars,
       mrr: `$${mrrDollars.toLocaleString()}/mo`,
+      trialUsers,
       proUsers,
-      enterpriseUsers,
+      maxUsers,
       lifetimeUsers,
     };
   } catch (err: unknown) {
@@ -1174,8 +1213,9 @@ ipcMain.handle('admin-get-metrics', async () => {
       totalApps: 0,
       totalRevenue: '$0.00',
       mrr: '$0/mo',
+      trialUsers: 0,
       proUsers: 0,
-      enterpriseUsers: 0,
+      maxUsers: 0,
       lifetimeUsers: 0,
     };
   }

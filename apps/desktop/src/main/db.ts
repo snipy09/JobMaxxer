@@ -144,22 +144,22 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
     if (userCount <= 1) {
       // 1. Seed Demo Active Buyers
       db.run(
-        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, last_login)
+        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at, last_login)
          VALUES 
-         ('alex.dev@gmail.com', 'pass123', 'Alex Vance', 'user', 'pro', 'JMX-PRO-9842-8821', 'active', 142, datetime('now', '-12 days'), datetime('now', '-2 hours')),
-         ('elena.cloud@outlook.com', 'pass123', 'Elena Rostova', 'user', 'enterprise', 'JMX-ENT-4412-9901', 'active', 318, datetime('now', '-25 days'), datetime('now', '-30 minutes')),
-         ('david.chen@icloud.com', 'pass123', 'David Chen', 'user', 'pro', 'JMX-PRO-7731-1029', 'active', 89, datetime('now', '-5 days'), datetime('now', '-1 day')),
-         ('sarah.react@yahoo.com', 'pass123', 'Sarah Jenkins', 'user', 'lifetime', 'JMX-LIFE-5501-3329', 'active', 450, datetime('now', '-40 days'), datetime('now', '-4 hours'))`
+         ('lucas.trial@gmail.com', 'pass123', 'Lucas Meyer', 'user', 'trial', 'JMX-TRL-1092-7712', 'active', 15, datetime('now', '-2 days'), datetime('now', '+5 days'), datetime('now', '-1 hour')),
+         ('alex.dev@gmail.com', 'pass123', 'Alex Vance', 'user', 'pro', 'JMX-PRO-9842-8821', 'active', 142, datetime('now', '-12 days'), datetime('now', '+18 days'), datetime('now', '-2 hours')),
+         ('elena.cloud@outlook.com', 'pass123', 'Elena Rostova', 'user', 'max', 'JMX-MAX-4412-9901', 'active', 318, datetime('now', '-25 days'), datetime('now', '+5 days'), datetime('now', '-30 minutes')),
+         ('sarah.react@yahoo.com', 'pass123', 'Sarah Jenkins', 'user', 'lifetime', 'JMX-LIFE-5501-3329', 'active', 450, datetime('now', '-40 days'), NULL, datetime('now', '-4 hours'))`
       );
 
       // 2. Seed Initial Billing Transactions
       db.run(
         `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
          VALUES
-         ('elena.cloud@outlook.com', '$99.00', 'Enterprise Plan (Monthly)', 'paid', 'Stripe Card (Visa •••• 4242)', datetime('now', '-25 days')),
+         ('elena.cloud@outlook.com', '$99.00', 'Max Plan ($99/mo)', 'paid', 'Stripe Card (Visa •••• 4242)', datetime('now', '-25 days')),
          ('sarah.react@yahoo.com', '$299.00', 'Lifetime Founder License', 'paid', 'Stripe Card (Mastercard •••• 8821)', datetime('now', '-40 days')),
-         ('alex.dev@gmail.com', '$49.00', 'Pro Plan (Monthly)', 'paid', 'Stripe Card (Visa •••• 1092)', datetime('now', '-12 days')),
-         ('david.chen@icloud.com', '$49.00', 'Pro Plan (Monthly)', 'paid', 'Stripe Card (Amex •••• 3001)', datetime('now', '-5 days'))`
+         ('alex.dev@gmail.com', '$49.00', 'Pro Plan ($49/mo)', 'paid', 'Stripe Card (Visa •••• 1092)', datetime('now', '-12 days')),
+         ('lucas.trial@gmail.com', '$0.00', '7-Day Free Trial', 'paid', 'Direct Trial Activation', datetime('now', '-2 days'))`
       );
     }
   } catch (err: any) {

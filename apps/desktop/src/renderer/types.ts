@@ -97,11 +97,12 @@ export interface AppUser {
   email: string;
   fullName: string;
   role: 'admin' | 'user';
-  tier: 'pro' | 'enterprise' | 'lifetime';
+  tier: 'trial' | 'pro' | 'max' | 'lifetime';
   licenseKey: string;
   status: 'active' | 'suspended';
   appsCount: number;
   createdAt: string;
+  expiresAt?: string;
   lastLogin?: string;
 }
 
@@ -121,8 +122,9 @@ export interface AdminMetrics {
   totalApps: number;
   totalRevenue: string;
   mrr: string;
+  trialUsers: number;
   proUsers: number;
-  enterpriseUsers: number;
+  maxUsers: number;
   lifetimeUsers: number;
 }
 
@@ -163,7 +165,7 @@ export interface ElectronAPI {
     email: string;
     password?: string;
     fullName: string;
-    tier: 'pro' | 'enterprise' | 'lifetime';
+    tier: 'trial' | 'pro' | 'max' | 'lifetime';
     licenseKey?: string;
     role?: 'admin' | 'user';
   }) => Promise<{ success: boolean; id?: number; error?: string }>;
