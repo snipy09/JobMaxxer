@@ -1,0 +1,122 @@
+export interface MasterProfile {
+  id?: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  linkedin: string;
+  github: string;
+  sponsorship: string;
+  desiredSalary: string;
+  noticePeriod: string;
+  groqApiKey: string;
+  claudeApiKey?: string;
+  hunterApiKey?: string;
+  sendgridApiKey?: string;
+  smtpPassword: string;
+  resumeText: string;
+  desiredTitle?: string;
+  techStack?: string;
+  autoApplyDelay?: number;
+  saveScreenshots?: boolean;
+  emailTone?: 'professional' | 'casual' | 'confident';
+  emailSignature?: string;
+  syncFrequency?: string;
+  customAnswers: Record<string, string>;
+  onboardingCompleted?: boolean;
+}
+
+export interface Job {
+  title: string;
+  company: string;
+  applyUrl: string;
+  location?: string;
+  salary?: string;
+  source?: string;
+  score?: number;
+  tags?: string[];
+  description?: string;
+}
+
+export interface Application {
+  id: number;
+  company: string;
+  title: string;
+  apply_url: string;
+  status: string;
+  mode: string;
+  applied_at: string;
+}
+
+export interface OutreachContact {
+  email: string;
+  name?: string;
+  company?: string;
+  role?: string;
+  verificationStatus?: 'valid' | 'invalid' | 'pending' | 'catch-all';
+  sentStatus?: 'unsent' | 'sent' | 'failed';
+  sentAt?: string;
+}
+
+export interface DependencyStatus {
+  sqliteReady: boolean;
+  playwrightInstalled: boolean;
+  internetOk: boolean;
+  allReady: boolean;
+}
+
+export interface HeartbeatStatus {
+  valid: boolean;
+  reason?: string;
+  ip?: string;
+}
+
+export type TabType = 'home' | 'feed' | 'outreach' | 'logs' | 'settings';
+
+export type ThemeMode = 'light';
+
+export interface ResumeRecord {
+  id?: number;
+  name: string;
+  targetRole: string;
+  filePath: string;
+  isDefault: boolean;
+  createdAt?: string;
+}
+
+export interface ElectronAPI {
+  getMasterProfile: () => Promise<Record<string, unknown> | null>;
+  saveMasterProfile: (data: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+  getResumes: () => Promise<ResumeRecord[]>;
+  saveResume: (resume: { name: string; targetRole: string; filePath: string; isDefault: boolean }) =>
+    Promise<{ success: boolean; id?: number; error?: string }>;
+  deleteResume: (id: number) => Promise<{ success: boolean; error?: string }>;
+  setDefaultResume: (id: number) => Promise<{ success: boolean; error?: string }>;
+  pickResumeFile: () => Promise<{ canceled: boolean; filePath?: string; fileName?: string }>;
+  runScrapers: () => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
+  getCloudFeed: (userId: string) => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
+  launchSemiAuto: (jobUrls: string[]) => Promise<{ success: boolean; error?: string }>;
+  launchAutonomous: (jobUrls: string[]) => Promise<{ success: boolean; applied?: number; error?: string }>;
+  verifyEmail: (email: string) => Promise<{ isValid: boolean; stageFailed?: number; reason?: string }>;
+  sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>) =>
+    Promise<{ success: boolean; sent?: number; error?: string }>;
+  getApplications: () => Promise<Application[]>;
+  getSavedJobs: () => Promise<Job[]>;
+  saveJob: (job: Job) => Promise<{ success: boolean }>;
+  removeSavedJob: (applyUrl: string) => Promise<{ success: boolean }>;
+  checkDependencies: () => Promise<DependencyStatus>;
+  installDependencies: () => Promise<{ success: boolean; error?: string }>;
+  testGroqKey: (key: string) => Promise<{ success: boolean; error?: string }>;
+  startHeartbeat: (userId: string, sessionToken: string, deviceFingerprint: string) =>
+    Promise<{ success: boolean }>;
+  stopHeartbeat: () => Promise<{ success: boolean }>;
+  onLog: (cb: (m: string) => void) => () => void;
+  onHeartbeatStatus: (cb: (status: HeartbeatStatus) => void) => () => void;
+}
+
+export const getApi = (): ElectronAPI | null => {
+  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+    return (window as any).electronAPI as ElectronAPI;
+  }
+  return null;
+};
