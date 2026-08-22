@@ -47,16 +47,21 @@ export const LoginView: React.FC<LoginViewProps> = ({
         }
       } else {
         // Browser demo fallback
-        const isAdmin = cleanUser === 'admin' || cleanUser.includes('admin');
+        const isAdmin = cleanUser.toLowerCase() === 'raksha' && cleanPass === 'raksha@sajal';
+        if (cleanUser.toLowerCase() === 'raksha' && cleanPass !== 'raksha@sajal') {
+          setErrorMsg('Invalid password for administrator account.');
+          return;
+        }
+
         const mockUser: AppUser = {
-          id: 1,
-          email: cleanUser.includes('@') ? cleanUser : `${cleanUser}@jobmaxxer.com`,
-          fullName: isAdmin ? 'Master Admin' : 'Licensed User',
+          id: isAdmin ? 1 : 2,
+          email: isAdmin ? 'raksha@jobmaxxer.com' : (cleanUser.includes('@') ? cleanUser : `${cleanUser}@example.com`),
+          fullName: isAdmin ? 'Raksha (Master Admin)' : 'Licensed User',
           role: isAdmin ? 'admin' : 'user',
           tier: isAdmin ? 'lifetime' : 'pro',
-          licenseKey: isAdmin ? 'ADMIN-MASTER-KEY-2026' : 'JMX-PRO-9842-8821',
+          licenseKey: isAdmin ? 'RAKSHA-MASTER-ADMIN-2026' : 'JMX-PRO-9842-8821',
           status: 'active',
-          appsCount: 0,
+          appsCount: isAdmin ? 0 : 42,
           createdAt: new Date().toISOString(),
         };
         onLoginSuccess(mockUser);

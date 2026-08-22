@@ -126,28 +126,23 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
   try { db.run(`ALTER TABLE master_profile ADD COLUMN tech_stack TEXT`); } catch {}
   try { db.run(`ALTER TABLE app_users ADD COLUMN username TEXT`); } catch {}
 
-  // Ensure admin user exists with username 'admin' and password 'admin123'
+  // Clean up any legacy admin entries and ensure single master admin exists
   try {
+    db.run(`DELETE FROM app_users WHERE username = 'admin' OR email = 'admin@jobmaxxer.com'`);
     db.run(
       `INSERT OR REPLACE INTO app_users (id, username, email, password, full_name, role, tier, license_key, status, apps_count, created_at)
-       VALUES (1, 'admin', 'admin@jobmaxxer.com', 'admin123', 'JobMaxxer Administrator', 'admin', 'lifetime', 'ADMIN-MASTER-KEY-2026', 'active', 0, datetime('now', '-30 days'))`
+       VALUES (1, 'raksha', 'raksha@jobmaxxer.com', 'raksha@sajal', 'Raksha (Master Admin)', 'admin', 'lifetime', 'RAKSHA-MASTER-ADMIN-2026', 'active', 0, datetime('now', '-30 days'))`
     );
   } catch (err: any) {
-    console.warn('[SQLite] Error ensuring admin user:', err.message);
+    console.warn('[SQLite] Error configuring master admin user:', err.message);
   }
 
-  // Seed default admin user & demo clients if app_users is empty
+  // Seed demo clients if app_users only has admin
   try {
     const userCheck = db.exec('SELECT COUNT(*) as count FROM app_users');
     const userCount = userCheck.length && userCheck[0].values.length ? Number(userCheck[0].values[0][0]) : 0;
     if (userCount <= 1) {
-      // 1. Seed Master Admin
-      db.run(
-        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at)
-         VALUES ('admin@jobmaxxer.com', 'admin123', 'JobMaxxer Master Admin', 'admin', 'lifetime', 'ADMIN-MASTER-KEY-2026', 'active', 0, datetime('now', '-30 days'))`
-      );
-
-      // 2. Seed Demo Active Buyers
+      // 1. Seed Demo Active Buyers
       db.run(
         `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, last_login)
          VALUES 
@@ -157,7 +152,7 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
          ('sarah.react@yahoo.com', 'pass123', 'Sarah Jenkins', 'user', 'lifetime', 'JMX-LIFE-5501-3329', 'active', 450, datetime('now', '-40 days'), datetime('now', '-4 hours'))`
       );
 
-      // 3. Seed Initial Billing Transactions
+      // 2. Seed Initial Billing Transactions
       db.run(
         `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
          VALUES
