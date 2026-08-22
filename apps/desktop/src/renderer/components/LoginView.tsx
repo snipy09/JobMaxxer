@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Lock, User, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
+import { Lock, User, Loader2, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import { AppUser, getApi } from '../types';
+import { TermsModal } from './TermsModal';
 
 interface LoginViewProps {
   onLoginSuccess: (user: AppUser) => void;
@@ -13,6 +14,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
 }) => {
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [agreedToTerms, setAgreedToTerms] = useState<boolean>(true);
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -23,6 +26,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
     if (!cleanUser || !cleanPass) {
       setErrorMsg('Please enter both username and password.');
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setErrorMsg('You must agree to the Terms & Conditions to continue.');
       return;
     }
 
@@ -75,7 +83,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 select-none font-sans">
-      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-xl p-7 space-y-6">
+      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-xl p-7 space-y-5">
         
         {/* Minimal Header */}
         <div className="text-center space-y-1">
@@ -120,6 +128,30 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </div>
           </div>
 
+          {/* Simple Terms & Conditions Toggle */}
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="terms-toggle"
+              checked={agreedToTerms}
+              onChange={e => setAgreedToTerms(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-0 cursor-pointer accent-slate-900"
+            />
+            <label htmlFor="terms-toggle" className="text-[11px] text-slate-600 cursor-pointer">
+              I agree to the{' '}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowTermsModal(true);
+                }}
+                className="font-bold text-slate-900 underline hover:text-blue-600"
+              >
+                Terms &amp; Conditions
+              </button>
+            </label>
+          </div>
+
           {errorMsg && (
             <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
@@ -138,6 +170,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </form>
 
       </div>
+
+      {/* Terms & Conditions Modal */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => setAgreedToTerms(true)}
+        hasAccepted={agreedToTerms}
+      />
     </div>
   );
 };

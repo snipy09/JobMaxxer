@@ -125,6 +125,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
       const locLower = (j.location || '').toLowerCase();
       const sourceLower = (j.source || '').toLowerCase();
       const salaryLower = (j.salary || '').toLowerCase();
+      const urlLower = (j.applyUrl || '').toLowerCase();
 
       // Search query
       const matchesSearch =
@@ -144,10 +145,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
         matchesLocation = locLower.includes('uk') || locLower.includes('europe') || locLower.includes('germany') || locLower.includes('london');
       }
 
-      // Direct Source Filter
+      // Direct Source Filter (LinkedIn, Internshala, Greenhouse, Lever, Ashby)
       let matchesSource = true;
       if (sourceFilter !== 'all') {
-        matchesSource = sourceLower.includes(sourceFilter.toLowerCase());
+        const sf = sourceFilter.toLowerCase();
+        matchesSource = sourceLower.includes(sf) || urlLower.includes(sf);
       }
 
       // Direct Salary Filter
@@ -350,11 +352,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
           </div>
 
           {/* Source Filter */}
-          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5 overflow-x-auto">
             <span className="text-[10px] text-slate-500 px-1.5 font-medium">Source:</span>
             {[
               { id: 'all', label: 'All' },
               { id: 'linkedin', label: 'LinkedIn' },
+              { id: 'internshala', label: 'Internshala' },
               { id: 'greenhouse', label: 'Greenhouse' },
               { id: 'lever', label: 'Lever' },
               { id: 'ashby', label: 'Ashby' },
@@ -363,7 +366,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => setSourceFilter(item.id)}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors shrink-0 ${
                   sourceFilter === item.id
                     ? 'bg-slate-900 text-white font-bold'
                     : 'text-slate-600 hover:text-slate-900'

@@ -6,6 +6,7 @@ import {
   Sparkles, Lock, AlertTriangle, Cloud
 } from 'lucide-react';
 import { MasterProfile, DependencyStatus, ThemeMode, getApi } from '../types';
+import { TermsModal } from './TermsModal';
 
 interface OnboardingWizardProps {
   theme?: ThemeMode;
@@ -20,6 +21,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [profile, setProfile] = useState<MasterProfile>(initialProfile);
+
+  // Terms & Conditions state
+  const [agreedToTerms, setAgreedToTerms] = useState<boolean>(true);
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
 
   // Step 2 state: Dependencies
   const [depStatus, setDepStatus] = useState<DependencyStatus>({
@@ -683,6 +688,31 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                     AI Auto-Filler: {groqKey ? 'Groq Llama-3 Active' : 'Offline Q&A Rules'}
                   </div>
                 </div>
+
+                {/* Terms and Conditions Acceptance */}
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                  <input
+                    type="checkbox"
+                    id="wizard-terms-toggle"
+                    checked={agreedToTerms}
+                    onChange={e => setAgreedToTerms(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-0 cursor-pointer accent-slate-900"
+                  />
+                  <label htmlFor="wizard-terms-toggle" className="text-xs text-slate-600 cursor-pointer">
+                    I agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowTermsModal(true);
+                      }}
+                      className="font-bold text-slate-900 underline hover:text-blue-600"
+                    >
+                      Terms &amp; Conditions
+                    </button>{' '}
+                    and Privacy Policy
+                  </label>
+                </div>
               </div>
             </div>
           )}
@@ -716,7 +746,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             <button
               type="button"
               onClick={handleFinalLaunch}
-              disabled={savingProfile}
+              disabled={savingProfile || !agreedToTerms}
               className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-6 py-2.5 rounded-xl flex items-center gap-2 transition-colors shadow-md disabled:opacity-50"
             >
               {savingProfile ? (
@@ -732,6 +762,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Terms & Conditions Modal */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => setAgreedToTerms(true)}
+        hasAccepted={agreedToTerms}
+      />
     </div>
   );
 };
