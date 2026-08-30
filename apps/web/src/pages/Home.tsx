@@ -170,7 +170,7 @@ export default function Home() {
       {/* Top Announcement Bar */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950" />
-        <span>Desktop Career Operating System v2.0.1 Released · Windows Native</span>
+        <span>JobMaxxer v2.0.1 Released · Native Windows Client</span>
       </div>
 
       {/* Main Navigation Header */}
@@ -243,7 +243,7 @@ export default function Home() {
       <section id="overview" className="relative pt-24 pb-20 px-6 max-w-5xl mx-auto w-full text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-xs font-mono text-ink-600 mb-8 shadow-fine">
           <span className="w-1.5 h-1.5 rounded-full bg-ink-950" />
-          <span>Dual-Track Career Operating System</span>
+          <span>Desktop Application for Software Engineers</span>
         </div>
 
         <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-ink-950 leading-[1.06] mb-6">
@@ -398,11 +398,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Dual-Persona Architecture */}
+      {/* Platform Architecture */}
       <section className="py-24 px-6 border-t border-ink-100">
         <div className="max-w-6xl mx-auto space-y-16">
           <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Dual-Track Architecture</span>
+            <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Core Architecture</span>
             <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Designed for both learning and scaling.</h2>
             <p className="text-xs text-ink-500">Whether mastering new technologies or executing active application campaigns, JobMaxxer adapts to your phase.</p>
           </div>
@@ -785,7 +785,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div>
             <div className="text-sm font-extrabold tracking-tight text-ink-950">JobMaxxer</div>
-            <p className="text-[11px] text-ink-400 mt-0.5 font-mono">Desktop Career Operating System / 2026</p>
+            <p className="text-[11px] text-ink-400 mt-0.5 font-mono">Desktop Software for Software Engineers / 2026</p>
           </div>
           <div className="flex flex-wrap justify-center gap-6 font-semibold">
             <a href="#/terms" className="hover:text-ink-950 transition-colors">Terms of Service</a>

@@ -81,7 +81,7 @@ export default function Legal({ type }: { type: 'terms' | 'privacy' }) {
 
       <footer className="border-t border-ink-200 bg-white py-8 px-6 text-center text-xs text-ink-400">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span>JobMaxxer / Desktop Career Operating System</span>
+          <span>JobMaxxer / Desktop Software for Engineers</span>
           <div className="flex gap-4">
             <a href="#/terms" className="hover:text-ink-950 transition-colors">Terms of Service</a>
             <a href="#/privacy" className="hover:text-ink-950 transition-colors">Privacy Policy</a>
