@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Home from './pages/Home';
+import Download from './pages/Download';
 import Legal from './pages/Legal';
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  if (route.startsWith('#/download')) return <Download />;
   if (route.startsWith('#/terms')) return <Legal type="terms" />;
   if (route.startsWith('#/privacy')) return <Legal type="privacy" />;
 

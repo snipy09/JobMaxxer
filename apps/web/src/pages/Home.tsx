@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowRight, Check, X, Shield, Terminal,
   Laptop, Search, Mail, Zap, BookOpen,
-  ChevronDown, ChevronUp, Menu, Briefcase
+  ChevronDown, ChevronUp, Menu, Briefcase,
+  Download as DownloadIcon, Layers, Sparkles
 } from 'lucide-react';
+import { animate, stagger } from 'animejs';
 
 const CAREER_DOMAINS = [
   {
@@ -174,7 +176,41 @@ export default function Home() {
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const [selectedJobIndex, setSelectedJobIndex] = useState<number>(0);
 
+  const heroRef = useRef<HTMLDivElement>(null);
+  const domainCardRef = useRef<HTMLDivElement>(null);
+
   const selectedDomain = CAREER_DOMAINS.find(d => d.id === activeDomainId) || CAREER_DOMAINS[0];
+
+  useEffect(() => {
+    // Initial Staggered Anime.js Entrance Animation
+    try {
+      animate('.anime-hero-fade', {
+        translateY: [20, 0],
+        opacity: [0, 1],
+        delay: stagger(100, { start: 50 }),
+        duration: 800,
+        ease: 'outQuart',
+      });
+    } catch (e) {
+      // Fallback
+    }
+  }, []);
+
+  const handleDomainChange = (domainId: string) => {
+    setActiveDomainId(domainId);
+    if (domainCardRef.current) {
+      try {
+        animate(domainCardRef.current, {
+          opacity: [0.4, 1],
+          translateY: [8, 0],
+          duration: 350,
+          ease: 'outQuad'
+        });
+      } catch (e) {
+        // Fallback
+      }
+    }
+  };
 
   const toggleFaq = (idx: number) => {
     setActiveFaqIndex(activeFaqIndex === idx ? null : idx);
@@ -216,21 +252,11 @@ export default function Home() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <a
-              href="https://github.com/snipy09/JobMaxxer"
-              target="_blank"
-              rel="noreferrer"
-              className="hidden lg:inline-flex text-xs font-semibold text-ink-600 hover:text-ink-950 px-3.5 py-2 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors"
+              href="#/download"
+              className="text-[11px] sm:text-xs font-bold bg-ink-950 hover:bg-ink-800 text-white px-3.5 sm:px-4 py-2 rounded-lg transition-all shadow-fine flex items-center gap-1.5 hover:shadow-lifted active:scale-95"
             >
-              GitHub
-            </a>
-
-            <a
-              href="https://github.com/snipy09/JobMaxxer/releases/latest"
-              className="text-[11px] sm:text-xs font-bold bg-ink-950 hover:bg-ink-800 text-white px-3 sm:px-4 py-2 rounded-lg transition-all shadow-fine flex items-center gap-1.5"
-            >
-              <span className="hidden sm:inline">Download Desktop App</span>
-              <span className="sm:hidden">Download</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <DownloadIcon className="w-3.5 h-3.5" />
+              <span>Download Desktop App</span>
             </a>
 
             <button
@@ -253,14 +279,14 @@ export default function Home() {
             <a href="#capabilities" onClick={() => setMobileMenuOpen(false)} className="block py-1 hover:text-ink-950">Capabilities</a>
             <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="block py-1 hover:text-ink-950">Pricing</a>
             <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="block py-1 hover:text-ink-950">FAQ</a>
-            <div className="pt-2 border-t border-ink-100 flex gap-3">
+            <div className="pt-2 border-t border-ink-100">
               <a
-                href="https://github.com/snipy09/JobMaxxer"
-                target="_blank"
-                rel="noreferrer"
-                className="block text-ink-600 hover:text-ink-950 py-1"
+                href="#/download"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full py-2 bg-ink-950 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 shadow-fine"
               >
-                GitHub Repository
+                <DownloadIcon className="w-3.5 h-3.5" />
+                <span>Download for Desktop</span>
               </a>
             </div>
           </div>
@@ -268,28 +294,28 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section id="overview" className="relative pt-16 sm:pt-24 pb-14 sm:pb-20 px-4 sm:px-6 max-w-5xl mx-auto w-full text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-[11px] sm:text-xs font-mono text-ink-600 mb-6 sm:mb-8 shadow-fine max-w-full">
+      <section id="overview" ref={heroRef} className="relative pt-16 sm:pt-24 pb-14 sm:pb-20 px-4 sm:px-6 max-w-5xl mx-auto w-full text-center">
+        <div className="anime-hero-fade inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-[11px] sm:text-xs font-mono text-ink-600 mb-6 sm:mb-8 shadow-fine max-w-full">
           <span className="w-1.5 h-1.5 rounded-full bg-ink-950 shrink-0" />
           <span className="truncate">Desktop App for All Job Seekers &amp; Students</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-ink-950 leading-[1.08] sm:leading-[1.05] mb-5 sm:mb-6">
+        <h1 className="anime-hero-fade text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-ink-950 leading-[1.08] sm:leading-[1.05] mb-5 sm:mb-6">
           Master the skills.<br />
           <span className="text-ink-400">Automate the applications.</span>
         </h1>
 
-        <p className="text-sm sm:text-base md:text-lg text-ink-600 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed font-normal px-2">
+        <p className="anime-hero-fade text-sm sm:text-base md:text-lg text-ink-600 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed font-normal px-2">
           Hirestack is the desktop automation platform for job seekers, students, and professionals across all industries. Master step-by-step career roadmaps, stream verified direct-company job feeds, and execute client-side stealth batch applications directly from your machine.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center w-full max-w-md sm:max-w-none mx-auto">
+        <div className="anime-hero-fade flex flex-col sm:flex-row gap-3 justify-center items-center w-full max-w-md sm:max-w-none mx-auto">
           <a
-            href="https://github.com/snipy09/JobMaxxer/releases/latest"
-            className="w-full sm:w-auto bg-ink-950 hover:bg-ink-800 text-white px-6 sm:px-7 py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted"
+            href="#/download"
+            className="w-full sm:w-auto bg-ink-950 hover:bg-ink-800 text-white px-6 sm:px-7 py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95"
           >
+            <DownloadIcon className="w-4 h-4" />
             <span>Download for Windows (Free)</span>
-            <ArrowRight className="w-4 h-4" />
           </a>
           <a
             href="#preview"
@@ -300,7 +326,7 @@ export default function Home() {
         </div>
 
         {/* Feature Badges */}
-        <div className="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-ink-100 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-[11px] sm:text-xs text-ink-500 font-mono">
+        <div className="anime-hero-fade mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-ink-100 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-[11px] sm:text-xs text-ink-500 font-mono">
           <span className="flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-ink-950 shrink-0" /> Local-first SQLite privacy</span>
           <span className="flex items-center gap-1.5"><Laptop className="w-3.5 h-3.5 text-ink-950 shrink-0" /> Single-laptop hardware lock</span>
           <span className="flex items-center gap-1.5"><Search className="w-3.5 h-3.5 text-ink-950 shrink-0" /> Direct ATS ingest</span>
@@ -310,7 +336,7 @@ export default function Home() {
 
       {/* Interactive Desktop Client Mockup */}
       <section id="preview" className="px-4 sm:px-6 pb-16 sm:pb-24 max-w-5xl mx-auto w-full">
-        <div className="bg-ink-950 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-float border border-ink-800">
+        <div className="bg-ink-950 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-float border border-ink-800 transition-all hover:border-ink-700">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-800 pb-4 mb-5">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-ink-700" />
@@ -508,10 +534,10 @@ export default function Home() {
             {CAREER_DOMAINS.map(d => (
               <button
                 key={d.id}
-                onClick={() => setActiveDomainId(d.id)}
+                onClick={() => handleDomainChange(d.id)}
                 className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                   activeDomainId === d.id
-                    ? 'bg-ink-950 text-white shadow-fine'
+                    ? 'bg-ink-950 text-white shadow-fine scale-105'
                     : 'bg-ink-50 text-ink-600 hover:text-ink-950 hover:bg-ink-100 border border-ink-200'
                 }`}
               >
@@ -520,7 +546,7 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="bg-ink-50 border border-ink-200 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-fine space-y-6">
+          <div ref={domainCardRef} className="bg-ink-50 border border-ink-200 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-fine space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-200 pb-5">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -577,7 +603,7 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine md:col-span-2 hover:border-ink-300 transition-all">
+            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine md:col-span-2 hover:border-ink-300 transition-all hover:shadow-lifted">
               <div className="w-9 h-9 rounded-xl bg-ink-50 border border-ink-200 flex items-center justify-center text-ink-950">
                 <Search className="w-4 h-4" />
               </div>
@@ -587,7 +613,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine hover:border-ink-300 transition-all">
+            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine hover:border-ink-300 transition-all hover:shadow-lifted">
               <div className="w-9 h-9 rounded-xl bg-ink-50 border border-ink-200 flex items-center justify-center text-ink-950">
                 <Zap className="w-4 h-4" />
               </div>
@@ -597,7 +623,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine hover:border-ink-300 transition-all">
+            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine hover:border-ink-300 transition-all hover:shadow-lifted">
               <div className="w-9 h-9 rounded-xl bg-ink-50 border border-ink-200 flex items-center justify-center text-ink-950">
                 <Mail className="w-4 h-4" />
               </div>
@@ -607,7 +633,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine md:col-span-2 hover:border-ink-300 transition-all">
+            <div className="bg-white border border-ink-200 rounded-2xl sm:rounded-3xl p-6 sm:p-8 space-y-3 shadow-fine md:col-span-2 hover:border-ink-300 transition-all hover:shadow-lifted">
               <div className="w-9 h-9 rounded-xl bg-ink-50 border border-ink-200 flex items-center justify-center text-ink-950">
                 <Shield className="w-4 h-4" />
               </div>
@@ -666,7 +692,7 @@ export default function Home() {
               </div>
 
               <a
-                href="https://github.com/snipy09/JobMaxxer/releases/latest"
+                href="#/download"
                 className="mt-8 block text-center w-full py-3 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-950 rounded-xl font-bold text-xs transition-colors"
               >
                 Download Free Version
@@ -716,7 +742,7 @@ export default function Home() {
               </div>
 
               <a
-                href="https://github.com/snipy09/JobMaxxer/releases/latest"
+                href="#/download"
                 className="mt-8 block text-center w-full py-3 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs transition-colors shadow-fine"
               >
                 Get Seeker Pro (₹299)
@@ -770,7 +796,7 @@ export default function Home() {
               </div>
 
               <a
-                href="https://github.com/snipy09/JobMaxxer/releases/latest"
+                href="#/download"
                 className="mt-8 block text-center w-full py-3 bg-white hover:bg-ink-100 text-ink-950 rounded-xl font-bold text-xs transition-colors shadow-fine"
               >
                 Get Seeker Turbo (₹599)
@@ -825,6 +851,7 @@ export default function Home() {
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-5 sm:gap-6 font-semibold">
+            <a href="#/download" className="hover:text-ink-950 transition-colors">Download App</a>
             <a href="#/terms" className="hover:text-ink-950 transition-colors">Terms of Service</a>
             <a href="#/privacy" className="hover:text-ink-950 transition-colors">Privacy Policy</a>
             <a href="mailto:support@hirestack.app" className="hover:text-ink-950 transition-colors">Contact Support</a>
