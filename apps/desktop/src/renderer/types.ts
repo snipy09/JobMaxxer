@@ -76,7 +76,12 @@ export interface HeartbeatStatus {
   ip?: string;
 }
 
+export type PersonaTrack = 'learner' | 'seeker';
+
 export type TabType =
+  | 'learner-roadmaps'
+  | 'learner-resources'
+  | 'learner-interview-prep'
   | 'home'
   | 'feed'
   | 'outreach'
@@ -176,6 +181,10 @@ export interface ElectronAPI {
     password?: string;
     licenseKey?: string;
     forceTakeover?: boolean;
+    oauthToken?: boolean;
+    tier?: 'trial' | 'pro' | 'max' | 'lifetime';
+    role?: 'admin' | 'user';
+    fullName?: string;
   }) => Promise<{
     success: boolean;
     conflict?: boolean;
@@ -183,6 +192,8 @@ export interface ElectronAPI {
     user?: AppUser;
     error?: string;
   }>;
+  authGoogle: () => Promise<{ success: boolean; error?: string }>;
+  onOauthCallback: (callback: (url: string) => void) => () => void;
   adminGetUsers: () => Promise<AppUser[]>;
   adminCreateUser: (user: {
     email: string;

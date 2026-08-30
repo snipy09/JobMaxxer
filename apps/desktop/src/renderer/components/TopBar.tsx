@@ -1,12 +1,14 @@
 import React from 'react';
-import { Shield, User, LogOut } from 'lucide-react';
-import { AppUser, TabType } from '../types';
+import { Shield, User, LogOut, BookOpen, Zap } from 'lucide-react';
+import { AppUser, TabType, PersonaTrack } from '../types';
 
 interface TopBarProps {
   currentUser: AppUser | null;
   onLogout: () => void;
   activeTab: TabType;
   onNavigate: (tab: TabType) => void;
+  activeTrack?: PersonaTrack;
+  setTrack?: (track: PersonaTrack) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -14,6 +16,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onLogout,
   activeTab,
   onNavigate,
+  activeTrack,
+  setTrack,
 }) => {
   const isAdmin = currentUser?.role === 'admin';
   const isInAdminView = activeTab.startsWith('admin');
@@ -25,13 +29,14 @@ export const TopBar: React.FC<TopBarProps> = ({
     : activeTab === 'outreach' ? 'Outreach'
     : activeTab === 'logs' ? 'Activity Logs'
     : activeTab === 'settings' ? 'Settings'
+    : activeTab.startsWith('learner') ? 'Learner Track'
     : 'JobMaxxer';
 
   return (
-    <header className="h-12 border-b border-slate-200 bg-white px-5 flex items-center justify-between z-10 select-none">
+    <header className="h-14 border-b border-slate-200 bg-white px-5 flex items-center justify-between z-10 select-none">
       <div className="flex items-center gap-3">
-        <span className="font-bold text-sm tracking-tight text-slate-900 font-sans">
-          {pageTitle}
+        <span className="font-black text-sm tracking-tight text-slate-900 font-sans">
+          Job<span className="text-brand-600">Maxxer</span> <span className="opacity-40 px-1 font-normal">|</span> {pageTitle}
         </span>
 
         {isAdmin && (
@@ -40,6 +45,40 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
         )}
       </div>
+
+      {!isInAdminView && setTrack && (
+        <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+          <button
+            onClick={() => {
+              setTrack('learner');
+              onNavigate('learner-roadmaps');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTrack === 'learner'
+                ? 'bg-white text-brand-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>🎓 Learner Track</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setTrack('seeker');
+              onNavigate('feed');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTrack === 'seeker'
+                ? 'bg-white text-emerald-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>🚀 Seeker Track</span>
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         {isAdmin && (
@@ -59,7 +98,10 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {currentUser && (
           <div className="flex items-center gap-2 pl-1">
-            <span className="text-xs font-medium text-slate-600 hidden sm:inline">
+            <span className="text-xs font-bold text-slate-600 hidden sm:inline px-2 py-1 rounded-lg bg-slate-50">
+              {currentUser.tier.toUpperCase()}
+            </span>
+            <span className="text-xs font-medium text-slate-600 hidden sm:inline border-l border-slate-200 pl-2">
               {currentUser.fullName.split(' ')[0]}
             </span>
 

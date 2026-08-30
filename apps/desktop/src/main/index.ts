@@ -48,6 +48,45 @@ app.commandLine.appendSwitch('disk-cache-size', '1');
 app.commandLine.appendSwitch('media-cache-size', '1');
 app.disableHardwareAcceleration();
 
+// ── Deep Linking & OAuth ──────────────────────────────────────────────
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('jobmaxxer', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('jobmaxxer');
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      const url = commandLine.find(arg => arg.startsWith('jobmaxxer://auth'));
+      if (url) mainWindow.webContents.send('oauth-callback', url);
+    }
+  });
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  if (mainWindow) mainWindow.webContents.send('oauth-callback', url);
+});
+
+ipcMain.handle('auth-google', async () => {
+  const supabase = getAnonSupabase();
+  if (!supabase) return { success: false, error: 'Supabase URL missing for OAuth.' };
+  
+  // Need to ensure redirect_to is registered in Supabase Dashboard -> Auth -> URL Configuration
+  const authUrl = `${process.env.SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=jobmaxxer://auth-callback`;
+  shell.openExternal(authUrl);
+  return { success: true };
+});
+// ── End Deep Linking ──────────────────────────────────────────────
+
 let mainWindow: BrowserWindow | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let activeUserId: string | null = null;

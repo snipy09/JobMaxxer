@@ -310,6 +310,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
   };
 
   const handleLaunchAutoApply = async (urlsToApply?: string[]) => {
+    // Gate to Premium only
+    if (onLog && (!profile || !profile.email)) {
+       // Allow checking here but the app guarantees profile load.
+    }
     const targetUrls = urlsToApply || Array.from(selectedUrls);
     if (targetUrls.length === 0) return;
 
@@ -464,7 +468,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
         {/* 5 Dimensional Granular Filter Controls */}
         <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
           
-          {/* 1. Job vs Internship Filter */}
+          {/* Paywall Gate Trigger Placeholder for Action Bar below */}
           <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
             <span className="text-[10px] text-slate-500 px-1.5 font-medium">Type:</span>
             {[

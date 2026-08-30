@@ -1,56 +1,43 @@
 import React, { useState } from 'react';
 import {
   Home, Search, Mail, FileText, User,
-  PanelLeftClose, PanelLeft, Shield
+  PanelLeftClose, PanelLeft, Shield, BookOpen, Layers, Crosshair
 } from 'lucide-react';
-import { TabType, HeartbeatStatus, AppUser } from '../types';
+import { TabType, HeartbeatStatus, AppUser, PersonaTrack } from '../types';
 
 interface SidebarProps {
   activeTab: TabType;
   onSelectTab: (tab: TabType) => void;
-  heartbeat: HeartbeatStatus | null;
-  logsCount: number;
+  heartbeat?: HeartbeatStatus | null;
+  logsCount?: number;
   currentUser?: AppUser | null;
+  activeTrack?: PersonaTrack;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
   currentUser,
+  activeTrack,
 }) => {
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
-  const navigationItems: Array<{
-    id: TabType;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }> = [
-    {
-      id: 'home',
-      label: 'Home',
-      icon: Home,
-    },
-    {
-      id: 'feed',
-      label: 'Job feed',
-      icon: Search,
-    },
-    {
-      id: 'outreach',
-      label: 'Outreach',
-      icon: Mail,
-    },
-    {
-      id: 'logs',
-      label: 'Logs',
-      icon: FileText,
-    },
-    {
-      id: 'settings',
-      label: 'Settings',
-      icon: User,
-    },
+  const learnerItems: Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+    { id: 'learner-roadmaps', label: 'Career Roadmaps', icon: BookOpen },
+    { id: 'learner-resources', label: 'Resource Vault', icon: Layers },
+    { id: 'learner-interview-prep', label: 'Interview QA', icon: Crosshair },
+    { id: 'settings', label: 'Profile', icon: User },
   ];
+
+  const seekerItems: Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'feed', label: 'Job feed', icon: Search },
+    { id: 'outreach', label: 'Outreach', icon: Mail },
+    { id: 'logs', label: 'Logs', icon: FileText },
+    { id: 'settings', label: 'Settings', icon: User },
+  ];
+
+  const navigationItems = activeTrack === 'learner' ? learnerItems : seekerItems;
 
   if (currentUser?.role === 'admin') {
     navigationItems.push({

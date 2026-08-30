@@ -49,6 +49,12 @@ const apiObj = {
   adminGetBilling: () => ipcRenderer.invoke('admin-get-billing'),
   adminCreateBillingRecord: (record: Record<string, unknown>) => ipcRenderer.invoke('admin-create-billing-record', record),
   adminGetMetrics: () => ipcRenderer.invoke('admin-get-metrics'),
+  authGoogle: () => ipcRenderer.invoke('auth-google'),
+  onOauthCallback: (cb: (url: string) => void) => {
+    const handler = (_: unknown, url: string) => cb(url);
+    ipcRenderer.on('oauth-callback', handler);
+    return () => ipcRenderer.removeListener('oauth-callback', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', apiObj);

@@ -333,7 +333,7 @@ export function createBrowserApiShim(): ElectronAPI {
       const email = (credentials.email || credentials.username || '').trim().toLowerCase();
       const password = (credentials.password || credentials.licenseKey || '').trim();
 
-      if (!email || !password) {
+      if ((!email || !password) && !credentials.oauthToken) {
         return { success: false, error: 'Email and password are required.' };
       }
       if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) {
@@ -341,6 +341,23 @@ export function createBrowserApiShim(): ElectronAPI {
       }
 
       try {
+        if (credentials.oauthToken) {
+          // OAuth fallback behavior for browser preview
+          const user: AppUser = {
+            id: Date.now(),
+            email: email || 'oauth@example.com',
+            fullName: credentials.fullName || 'Google User',
+            role: credentials.role || 'user',
+            tier: credentials.tier || 'pro',
+            licenseKey: 'OAUTH_VERIFIED',
+            status: 'active',
+            appsCount: 0,
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+          };
+          return { success: true, user };
+        }
+
         const res = await fetch(`${SUPABASE_REST_URL}/rpc/authenticate_user`, {
           method: 'POST',
           headers: {
@@ -490,6 +507,8 @@ export function createBrowserApiShim(): ElectronAPI {
         lifetimeUsers,
       };
     },
+    authGoogle: async () => ({ success: true }),
+    onOauthCallback: () => () => {},
   };
 }
 

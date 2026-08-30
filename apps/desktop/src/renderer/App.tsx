@@ -6,6 +6,9 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { HomeView } from './components/HomeView';
+import { LearnerView } from './components/LearnerView';
+import { UpgradeModal } from './components/UpgradeModal';
+import { PersonaTrack } from './components/HomeView';
 import { FeedView } from './components/FeedView';
 import { OutreachView } from './components/OutreachView';
 import { ApplicationsView } from './components/ApplicationsView';
@@ -25,6 +28,10 @@ export default function App() {
   });
 
   // Navigation tab state - default to 'home' or 'admin-overview'
+  const [activeTrack, setActiveTrack] = useState<PersonaTrack>('learner');
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  const [upgradeFeature, setUpgradeFeature] = useState<string>('');
+
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     try {
       const stored = localStorage.getItem('jobmaxxer_user');
@@ -239,6 +246,8 @@ export default function App() {
         onLogout={handleLogout}
         activeTab={activeTab}
         onNavigate={setActiveTab}
+        activeTrack={activeTrack}
+        setTrack={setActiveTrack}
       />
 
       {/* Main Workspace Layout (Sidebar + Sub-view) */}
@@ -246,6 +255,7 @@ export default function App() {
         
         {/* Navigation Sidebar */}
         <Sidebar
+          activeTrack={activeTrack}
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           heartbeat={heartbeat}
@@ -256,6 +266,9 @@ export default function App() {
         {/* Dynamic Sub-view Container */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50 transition-colors">
           <div className="max-w-6xl mx-auto">
+            {activeTab.startsWith('learner') && (
+              <LearnerView profile={profile} onUpdateProfile={(u) => setProfile({ ...profile, ...u })} onNavigateToSeeker={() => { setActiveTrack('seeker'); setActiveTab('feed'); }} onLog={addLog} />
+            )}
             {activeTab === 'home' && (
               <HomeView
                 profile={profile}
@@ -303,6 +316,7 @@ export default function App() {
             )}
           </div>
         </main>
+        <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} currentUser={currentUser} triggerFeature={upgradeFeature} onUpgradeSuccess={() => console.log('Upgraded!')} />
       </div>
     </div>
   );
