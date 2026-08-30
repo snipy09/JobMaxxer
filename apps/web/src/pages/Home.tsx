@@ -422,7 +422,7 @@ export default function Home() {
               <ul className="space-y-3 text-xs text-ink-700">
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Structured roadmaps across Frontend, Backend, Fullstack, AI, DevOps &amp; Mobile</span>
+                  <span>Interactive roadmaps across all software engineering domains and custom specializations</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
@@ -469,9 +469,9 @@ export default function Home() {
       <section className="py-24 px-6 border-t border-ink-100 bg-white">
         <div className="max-w-6xl mx-auto space-y-12">
           <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Curriculum Breakdown</span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Engineering Roadmaps</h2>
-            <p className="text-xs text-ink-500">Select a discipline to inspect modules, estimated duration, and target skills.</p>
+            <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Skill Intelligence</span>
+            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Dynamic Skill Roadmaps</h2>
+            <p className="text-xs text-ink-500">Unrestricted roadmaps across all engineering disciplines. Inspect sample curriculum structures below or build custom milestone tracks.</p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
