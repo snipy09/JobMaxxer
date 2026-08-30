@@ -4,143 +4,162 @@ import {
   Shield, Terminal, Laptop, Database,
   Search, Mail, Zap, Layers, BookOpen,
   Code2, Server, Globe, ChevronDown, ChevronUp,
-  Menu, FileText, CornerDownRight, CheckCircle2
+  Menu, FileText, CornerDownRight, CheckCircle2,
+  Briefcase, Compass, Users, TrendingUp, BarChart3,
+  PenTool, DollarSign
 } from 'lucide-react';
 
-const DISCIPLINES = [
+const CAREER_DOMAINS = [
   {
-    id: 'frontend',
-    title: 'Frontend Architecture',
+    id: 'product-management',
+    title: 'Product & Project Management',
     badge: 'High Demand',
-    tag: 'React 18 · TypeScript · Next.js · Tailwind CSS',
-    hours: '140 Hours',
-    role: 'UI & Frontend Engineer',
+    tag: 'Product Discovery · PRDs · Agile Sprints · User Metrics',
+    hours: '90 Hours',
+    role: 'Associate Product Manager / Project Lead',
     modules: [
-      'Semantic HTML5 & Responsive Layout Engine',
-      'Advanced JavaScript (Event Loop, Closures, Async/Await)',
-      'React State Architecture & TanStack Query',
-      'Browser Performance Profiling & Web Vitals'
+      'Product Opportunity Analysis & Customer Interviews',
+      'PRD Documentation & User Story Mapping',
+      'Data-Driven Prioritization (RICE / MoSCoW Frameworks)',
+      'Cross-Functional Stakeholder Alignment & Go-To-Market'
     ],
-    skills: ['React', 'TypeScript', 'Next.js', 'Tailwind CSS', 'State Management']
+    skills: ['Product Discovery', 'PRD Authoring', 'Roadmapping', 'Agile / Scrum', 'Metrics & KPIs']
   },
   {
-    id: 'backend',
-    title: 'Backend & Systems',
+    id: 'tech-engineering',
+    title: 'Software & Technology',
     badge: 'Top Comp',
-    tag: 'Node.js · Go · PostgreSQL · Redis · Docker',
-    hours: '130 Hours',
-    role: 'Backend Systems Engineer',
+    tag: 'Web Development · Mobile Apps · Cloud Systems · AI',
+    hours: '140 Hours',
+    role: 'Software Developer / Technical Specialist',
     modules: [
-      'RESTful & GraphQL API Architecture',
-      'PostgreSQL Schema Design & Query Indexing',
-      'Redis Distributed Caching & Pub/Sub',
-      'Asynchronous Task Processing & Queues'
+      'Core Programming Fundamentals & Algorithmic Problem Solving',
+      'Web & Mobile Application Architecture',
+      'Databases, APIs & Backend Integration',
+      'System Reliability, Debugging & Deployment'
     ],
-    skills: ['Node.js', 'PostgreSQL', 'Redis', 'Docker', 'System Design']
+    skills: ['Programming Fundamentals', 'API Integration', 'Databases', 'Git & CI/CD', 'System Architecture']
   },
   {
-    id: 'fullstack',
-    title: 'Full Stack Engineering',
-    badge: 'Versatile',
-    tag: 'TypeScript · Full Stack Web · Cloud Architecture',
-    hours: '175 Hours',
-    role: 'Full Stack Developer',
+    id: 'design-ux',
+    title: 'Design & User Experience',
+    badge: 'Creative',
+    tag: 'UI/UX · Figma · Design Systems · Usability Testing',
+    hours: '85 Hours',
+    role: 'Product Designer / UX Specialist',
     modules: [
-      'End-to-End Type Safety & Data Validation',
-      'Database ORM Integration (Prisma / Drizzle)',
-      'Authentication, JWTs & Access Control',
-      'CI/CD Pipelines & Cloud Containerization'
+      'User Research, Persona Development & Journey Mapping',
+      'Wireframing, Rapid Prototyping & Micro-Interactions',
+      'Design System Creation & Component Tokens',
+      'Usability Audits & Design-to-Development Handoff'
     ],
-    skills: ['Full Stack', 'TypeScript', 'Prisma', 'REST APIs', 'Cloud']
+    skills: ['Figma', 'UI/UX Design', 'Design Systems', 'User Research', 'Prototyping']
   },
   {
-    id: 'ai',
-    title: 'AI & Data Systems',
-    badge: 'Emerging',
-    tag: 'Vector DBs · RAG Pipelines · pgvector · Python',
-    hours: '105 Hours',
-    role: 'AI Application Engineer',
+    id: 'data-analytics',
+    title: 'Data & Business Analytics',
+    badge: 'Analytical',
+    tag: 'SQL · Excel / Sheets · PowerBI · Statistical Modeling',
+    hours: '95 Hours',
+    role: 'Business Analyst / Data Strategist',
     modules: [
-      'Vector Embeddings & Similarity Search',
-      'Retrieval-Augmented Generation (RAG) Systems',
-      'Tool Calling & Autonomous Agent Loops',
-      'Evaluation, Caching & System Guardrails'
+      'Advanced SQL Querying & Relational Data Models',
+      'Business Intelligence Dashboards & Visualizations',
+      'Exploratory Data Analysis & Statistical Inference',
+      'Translating Complex Data into Actionable Business Decisions'
     ],
-    skills: ['AI Architecture', 'RAG Pipelines', 'Vector DBs', 'Python', 'Embeddings']
+    skills: ['SQL', 'Data Visualization', 'Spreadsheet Modeling', 'Business Intelligence', 'Analytics']
   },
   {
-    id: 'devops',
-    title: 'DevOps & Platform',
-    badge: 'Infrastructure',
-    tag: 'Kubernetes · Terraform · Linux · CI/CD',
-    hours: '120 Hours',
-    role: 'DevOps Platform Engineer',
+    id: 'growth-marketing',
+    title: 'Marketing, Growth & Content',
+    badge: 'Strategic',
+    tag: 'Performance Marketing · SEO · Brand Strategy · Funnels',
+    hours: '80 Hours',
+    role: 'Growth Associate / Marketing Specialist',
     modules: [
-      'Linux Kernel Basics & Network Troubleshooting',
-      'Infrastructure as Code with Terraform',
-      'Container Orchestration with Kubernetes',
-      'Observability, Metrics & Telemetry'
+      'Audience Segmentation & Acquisition Funnel Design',
+      'Content Strategy, Copywriting & Search Optimization (SEO)',
+      'Paid Campaign Management & Multi-Touch Attribution',
+      'Conversion Rate Optimization (CRO) & Retention Loops'
     ],
-    skills: ['Kubernetes', 'Terraform', 'CI/CD', 'Linux', 'AWS']
+    skills: ['Performance Marketing', 'SEO / SEM', 'Copywriting', 'Funnel Optimization', 'Campaign Analytics']
   },
   {
-    id: 'mobile',
-    title: 'Mobile Applications',
-    badge: 'Cross-Platform',
-    tag: 'React Native · Expo · iOS · Android',
-    hours: '115 Hours',
-    role: 'Mobile Engineer',
+    id: 'finance-operations',
+    title: 'Finance, Operations & Sales',
+    badge: 'Commercial',
+    tag: 'Financial Modeling · Operations Workflows · Client Success',
+    hours: '85 Hours',
+    role: 'Operations Lead / Financial Analyst / Account Executive',
     modules: [
-      'React Native Core Primitives & Gesture Handlers',
-      'Native Module Bridging & Device Hardware APIs',
-      'Offline-First Local Storage Architecture',
-      'App Store & Google Play Build Pipelines'
+      'Financial Statements, Forecasting & Valuation Basics',
+      'Operational Process Automation & Supply Chain Workflows',
+      'Consultative Selling, Pipeline Management & CRM Systems',
+      'Customer Retention, Client Success & Account Expansion'
     ],
-    skills: ['React Native', 'Expo', 'Mobile UI', 'Offline Sync']
+    skills: ['Financial Modeling', 'Operations Strategy', 'CRM & Pipeline', 'Client Relations', 'Process Mapping']
   }
 ];
 
 const SAMPLE_LISTINGS = [
   {
-    title: 'Frontend Engineer',
+    title: 'Associate Product Manager',
+    company: 'Linear',
+    location: 'Remote / Hybrid',
+    source: 'Ashby API',
+    match: '96% Match',
+    compensation: 'Competitive Base + Equity',
+    type: 'Full-time',
+    field: 'Product'
+  },
+  {
+    title: 'Business Operations Associate',
+    company: 'Stripe',
+    location: 'Remote',
+    source: 'Greenhouse API',
+    match: '94% Match',
+    compensation: 'Tier-1 Industry Comp',
+    type: 'Full-time',
+    field: 'Operations'
+  },
+  {
+    title: 'Growth & Marketing Specialist',
     company: 'Vercel',
     location: 'Remote',
     source: 'Greenhouse API',
-    match: '96% Match',
-    compensation: '₹22 LPA · $140k',
-    type: 'Full-time'
+    match: '91% Match',
+    compensation: 'Global Remote Package',
+    type: 'Full-time',
+    field: 'Marketing'
   },
   {
-    title: 'Software Engineering Intern',
-    company: 'Linear',
-    location: 'Hybrid',
-    source: 'Ashby API',
-    match: '93% Match',
-    compensation: '₹65,000 / mo',
-    type: 'Internship'
-  },
-  {
-    title: 'Backend Systems Engineer',
+    title: 'Graduate Analyst / Trainee',
     company: 'Supabase',
     location: 'Remote',
     source: 'Lever API',
     match: '89% Match',
-    compensation: '₹26 LPA · $155k',
-    type: 'Full-time'
+    compensation: 'Entry-Level / Fast Track',
+    type: 'Internship / Fresher',
+    field: 'Analytics'
   }
 ];
 
 const FAQ_ITEMS = [
   {
-    question: 'How does JobMaxxer execute automated applications?',
-    answer: 'JobMaxxer runs a local, user-controlled Chromium automation engine on your machine. It navigates directly to authentic company career portals (Greenhouse, Lever, Ashby, Internshala), inputs your profile data, uploads your resume, dynamically answers custom form prompts, and submits applications without third-party middleware.'
+    question: 'Is JobMaxxer only for software engineers?',
+    answer: 'No. JobMaxxer is built for anyone searching for a job or internship across any industry — including Product, Marketing, Sales, Design, Finance, Operations, Data Analytics, Customer Success, and Software. The application automation engine fills candidate forms across all standard company job portals regardless of the role.'
+  },
+  {
+    question: 'How does JobMaxxer automate applications across different portals?',
+    answer: 'JobMaxxer runs a local Chromium automation engine on your machine. It navigates directly to authentic company career portals (Greenhouse, Lever, Ashby, Internshala, and custom company pages), inputs your profile data, uploads your resume, dynamically answers custom form prompts, and submits applications without third-party middleware.'
   },
   {
     question: 'Where do the job postings come from?',
-    answer: 'Rather than scraping third-party aggregator websites filled with expired posts, JobMaxxer connects directly to public ATS endpoints and verified company feeds. Postings are cryptographically deduplicated with SHA-256 hashes to guarantee active, live positions.'
+    answer: 'Rather than scraping third-party aggregator websites filled with expired posts, JobMaxxer connects directly to public ATS endpoints and verified company feeds. Postings are cryptographically deduplicated with SHA-256 hashes to guarantee active, live positions across all job roles and departments.'
   },
   {
-    question: 'Is my candidate data and resume secure?',
+    question: 'Is my candidate data, work history, and resume secure?',
     answer: 'Yes. JobMaxxer operates local-first. Your master candidate profile, resume files, and private keys are encrypted and stored in an isolated local SQLite database on your computer. Your files and personal details are never uploaded to tracking or advertising databases.'
   },
   {
@@ -155,11 +174,11 @@ const FAQ_ITEMS = [
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [activeTrackId, setActiveTrackId] = useState<string>('frontend');
+  const [activeDomainId, setActiveDomainId] = useState<string>('product-management');
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const [selectedJobIndex, setSelectedJobIndex] = useState<number>(0);
 
-  const selectedDiscipline = DISCIPLINES.find(d => d.id === activeTrackId) || DISCIPLINES[0];
+  const selectedDomain = CAREER_DOMAINS.find(d => d.id === activeDomainId) || CAREER_DOMAINS[0];
 
   const toggleFaq = (idx: number) => {
     setActiveFaqIndex(activeFaqIndex === idx ? null : idx);
@@ -170,7 +189,7 @@ export default function Home() {
       {/* Top Announcement Bar */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950" />
-        <span>JobMaxxer v2.0.1 Released · Native Windows Client</span>
+        <span>JobMaxxer v2.0.1 Released · Desktop Application for Job Seekers Across All Fields</span>
       </div>
 
       {/* Main Navigation Header */}
@@ -243,16 +262,16 @@ export default function Home() {
       <section id="overview" className="relative pt-24 pb-20 px-6 max-w-5xl mx-auto w-full text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-xs font-mono text-ink-600 mb-8 shadow-fine">
           <span className="w-1.5 h-1.5 rounded-full bg-ink-950" />
-          <span>Desktop Application for Software Engineers</span>
+          <span>Desktop Application for All Job Seekers &amp; Students</span>
         </div>
 
         <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-ink-950 leading-[1.06] mb-6">
-          Learn the skills.<br />
+          Master the skills.<br />
           <span className="text-ink-400">Automate the applications.</span>
         </h1>
 
         <p className="text-base sm:text-lg text-ink-600 mb-10 max-w-2xl mx-auto leading-relaxed font-normal">
-          JobMaxxer is the desktop operating system for software engineers. Master structured technical roadmaps, stream verified direct-company job feeds, and execute client-side stealth automation to apply and connect with hiring teams at scale.
+          JobMaxxer is the desktop automation platform for job seekers, students, and professionals across all industries. Master step-by-step career roadmaps, stream verified direct-company job feeds, and execute client-side stealth batch applications directly from your machine.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3.5 justify-center items-center">
@@ -275,7 +294,8 @@ export default function Home() {
         <div className="mt-16 pt-8 border-t border-ink-100 flex flex-wrap items-center justify-center gap-8 text-xs text-ink-500 font-mono">
           <span className="flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-ink-950" /> Local-first SQLite privacy</span>
           <span className="flex items-center gap-1.5"><Laptop className="w-3.5 h-3.5 text-ink-950" /> Single-laptop hardware lock</span>
-          <span className="flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5 text-ink-950" /> Direct ATS ingest (Zero spam)</span>
+          <span className="flex items-center gap-1.5"><Search className="w-3.5 h-3.5 text-ink-950" /> Direct ATS ingest (Zero spam)</span>
+          <span className="flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5 text-ink-950" /> Works across all career domains</span>
         </div>
       </section>
 
@@ -287,16 +307,16 @@ export default function Home() {
               <div className="w-2.5 h-2.5 rounded-full bg-ink-700" />
               <div className="w-2.5 h-2.5 rounded-full bg-ink-700" />
               <div className="w-2.5 h-2.5 rounded-full bg-ink-700" />
-              <span className="text-xs font-mono text-ink-400 ml-2">JobMaxxer Client / Opportunity Stream</span>
+              <span className="text-xs font-mono text-ink-400 ml-2">JobMaxxer Client / Cross-Industry Opportunity Feed</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono px-2.5 py-0.5 rounded bg-ink-900 text-ink-300 border border-ink-800">
-                Direct ATS Feed Active
+                Live ATS Stream Active
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-left mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 text-left mb-5">
             {SAMPLE_LISTINGS.map((job, idx) => (
               <div
                 key={idx}
@@ -311,10 +331,10 @@ export default function Home() {
                   <span className="text-[10px] font-mono uppercase tracking-wider text-ink-400 font-bold">{job.company}</span>
                   <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white text-ink-950">{job.match}</span>
                 </div>
-                <h4 className="text-sm font-bold text-white">{job.title}</h4>
-                <div className="text-xs text-ink-400 font-mono">{job.compensation}</div>
+                <h4 className="text-sm font-bold text-white line-clamp-1">{job.title}</h4>
+                <div className="text-[11px] text-ink-400 font-mono">{job.field} · {job.type}</div>
                 <div className="flex items-center justify-between pt-2 border-t border-ink-800 text-[11px] text-ink-400 font-mono">
-                  <span>{job.location} · {job.type}</span>
+                  <span>{job.location}</span>
                   <span className="text-white font-semibold flex items-center gap-1">
                     Auto-Fill <ArrowRight className="w-3 h-3" />
                   </span>
@@ -329,7 +349,7 @@ export default function Home() {
               <span>Target: <strong className="text-white">{SAMPLE_LISTINGS[selectedJobIndex].title}</strong> at <strong className="text-white">{SAMPLE_LISTINGS[selectedJobIndex].company}</strong> ({SAMPLE_LISTINGS[selectedJobIndex].source})</span>
             </div>
             <div className="text-[11px] text-ink-400">
-              Playwright Stealth Engine Ready
+              Client-Side Form Automation Ready
             </div>
           </div>
         </div>
@@ -341,7 +361,7 @@ export default function Home() {
           <div className="text-center max-w-xl mx-auto space-y-2">
             <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">The Bottleneck</span>
             <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Why traditional job hunting is broken.</h2>
-            <p className="text-xs text-ink-500">Manual forms and aggregator reposts consume hours of engineering bandwidth with low returns.</p>
+            <p className="text-xs text-ink-500">Manual forms and aggregator reposts waste hours of your time with low response rates.</p>
           </div>
 
           <div className="bg-white border border-ink-200 rounded-3xl p-8 shadow-fine overflow-hidden">
@@ -353,26 +373,26 @@ export default function Home() {
                 <div className="space-y-3 text-ink-600">
                   <div className="flex items-center gap-2 text-ink-700">
                     <X className="w-4 h-4 text-ink-400 shrink-0" />
-                    <span>20-minute manual form entry per position</span>
+                    <span>20-minute manual form re-entry per position</span>
                   </div>
                   <div className="flex items-center gap-2 text-ink-700">
                     <X className="w-4 h-4 text-ink-400 shrink-0" />
-                    <span>Expired &amp; reposted third-party listings</span>
+                    <span>Expired &amp; ghost listings on third-party job boards</span>
                   </div>
                   <div className="flex items-center gap-2 text-ink-700">
                     <X className="w-4 h-4 text-ink-400 shrink-0" />
-                    <span>Guessing recruiter emails with high bounce rates</span>
+                    <span>Guessing recruiter email addresses with high bounce rates</span>
                   </div>
                   <div className="flex items-center gap-2 text-ink-700">
                     <X className="w-4 h-4 text-ink-400 shrink-0" />
-                    <span>Disconnected learning paths with no skill tracking</span>
+                    <span>Scattered self-study without readiness benchmarks</span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4 border-t md:border-t-0 md:border-l border-ink-100 pt-6 md:pt-0 md:pl-8">
                 <div className="text-ink-950 uppercase font-bold tracking-wider border-b border-ink-100 pb-2">
-                  JobMaxxer Operating System
+                  JobMaxxer Desktop OS
                 </div>
                 <div className="space-y-3 text-ink-900 font-semibold">
                   <div className="flex items-center gap-2">
@@ -385,11 +405,11 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                    <span>4-Stage SMTP/DNS verified HR inboxes</span>
+                    <span>4-Stage SMTP/DNS verified HR &amp; Hiring Manager inboxes</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                    <span>Structured roadmaps with 1-click profile skill sync</span>
+                    <span>Structured career roadmaps with 1-click profile skill sync</span>
                   </div>
                 </div>
               </div>
@@ -398,13 +418,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Platform Architecture */}
+      {/* Core Architecture */}
       <section className="py-24 px-6 border-t border-ink-100">
         <div className="max-w-6xl mx-auto space-y-16">
           <div className="text-center max-w-xl mx-auto space-y-2">
             <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Core Architecture</span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Designed for both learning and scaling.</h2>
-            <p className="text-xs text-ink-500">Whether mastering new technologies or executing active application campaigns, JobMaxxer adapts to your phase.</p>
+            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Designed for both learning and applying.</h2>
+            <p className="text-xs text-ink-500">Whether developing foundational domain skills or actively submitting job applications, JobMaxxer adapts to your journey.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -416,21 +436,21 @@ export default function Home() {
               <div className="space-y-2">
                 <h3 className="text-xl font-bold text-ink-950 tracking-tight">The Learner Track</h3>
                 <p className="text-xs text-ink-600 leading-relaxed">
-                  Tailored for students and engineers establishing job-ready competency across modern technical stacks.
+                  Tailored for students, graduates, and professionals building job-ready competency in any field or specialization.
                 </p>
               </div>
               <ul className="space-y-3 text-xs text-ink-700">
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Interactive roadmaps across all software engineering domains and custom specializations</span>
+                  <span>Dynamic step-by-step roadmaps across technical, business, design, and operational careers</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Curated documentation links, open-source repositories &amp; interview flashcards</span>
+                  <span>Curated industry resources, interview question banks &amp; case study preparation</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Job-Readiness score meter with 1-click skill synchronization into your profile</span>
+                  <span>Job-Readiness score meter with 1-click skill synchronization into your candidate profile</span>
                 </li>
               </ul>
             </div>
@@ -449,15 +469,15 @@ export default function Home() {
               <ul className="space-y-3 text-xs text-ink-700">
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Direct ATS job stream from Greenhouse, Lever, Ashby, and top boards</span>
+                  <span>Direct ATS job stream from Greenhouse, Lever, Ashby, Internshala, and top company portals</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Semi-Auto 20-tab review mode + 100% Autonomous form submitter</span>
+                  <span>Semi-Auto 20-tab review mode + 100% Autonomous form auto-submitter</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Direct Hiring Manager discovery with 4-stage verified email outreach</span>
+                  <span>Direct Hiring Manager &amp; HR discovery with 4-stage verified email outreach</span>
                 </li>
               </ul>
             </div>
@@ -465,22 +485,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Interactive Career Track Explorer */}
+      {/* Cross-Industry Career Roadmaps */}
       <section className="py-24 px-6 border-t border-ink-100 bg-white">
         <div className="max-w-6xl mx-auto space-y-12">
           <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Skill Intelligence</span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Dynamic Skill Roadmaps</h2>
-            <p className="text-xs text-ink-500">Unrestricted roadmaps across all engineering disciplines. Inspect sample curriculum structures below or build custom milestone tracks.</p>
+            <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Career Intelligence</span>
+            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Cross-Field Career Roadmaps</h2>
+            <p className="text-xs text-ink-500">Unrestricted career roadmaps for any role or industry. Select a domain below to inspect curriculum structures, or build custom tracks in the app.</p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
-            {DISCIPLINES.map(d => (
+            {CAREER_DOMAINS.map(d => (
               <button
                 key={d.id}
-                onClick={() => setActiveTrackId(d.id)}
+                onClick={() => setActiveDomainId(d.id)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeTrackId === d.id
+                  activeDomainId === d.id
                     ? 'bg-ink-950 text-white shadow-fine'
                     : 'bg-ink-50 text-ink-600 hover:text-ink-950 hover:bg-ink-100 border border-ink-200'
                 }`}
@@ -494,16 +514,16 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ink-200 pb-5">
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h3 className="text-xl font-bold text-ink-950">{selectedDiscipline.title}</h3>
+                  <h3 className="text-xl font-bold text-ink-950">{selectedDomain.title}</h3>
                   <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white text-ink-800 border border-ink-200">
-                    {selectedDiscipline.badge}
+                    {selectedDomain.badge}
                   </span>
                 </div>
-                <p className="text-xs text-ink-500 font-mono mt-1">{selectedDiscipline.tag}</p>
+                <p className="text-xs text-ink-500 font-mono mt-1">{selectedDomain.tag}</p>
               </div>
               <div className="text-right">
-                <span className="text-xs font-mono text-ink-400">Estimated Duration:</span>
-                <div className="text-sm font-bold text-ink-950">{selectedDiscipline.hours}</div>
+                <span className="text-xs font-mono text-ink-400">Target Role Focus:</span>
+                <div className="text-sm font-bold text-ink-950">{selectedDomain.role}</div>
               </div>
             </div>
 
@@ -511,7 +531,7 @@ export default function Home() {
               <div className="space-y-3">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-ink-400 font-bold">Curriculum Modules:</h4>
                 <ul className="space-y-2 text-xs text-ink-700">
-                  {selectedDiscipline.modules.map((m, idx) => (
+                  {selectedDomain.modules.map((m, idx) => (
                     <li key={idx} className="flex items-center gap-2 bg-white p-3 rounded-xl border border-ink-200">
                       <span className="text-[10px] font-mono text-ink-400 font-bold">0{idx + 1}</span>
                       <span>{m}</span>
@@ -523,14 +543,14 @@ export default function Home() {
               <div className="space-y-3">
                 <h4 className="text-xs font-mono uppercase tracking-wider text-ink-400 font-bold">Skills Pushed to Profile:</h4>
                 <div className="flex flex-wrap gap-2">
-                  {selectedDiscipline.skills.map((sk, idx) => (
+                  {selectedDomain.skills.map((sk, idx) => (
                     <span key={idx} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-ink-200 text-ink-900">
                       {sk}
                     </span>
                   ))}
                 </div>
                 <p className="text-xs text-ink-500 pt-3 leading-relaxed">
-                  Completing milestones in the desktop application dynamically calculates your Job-Readiness Score. When ready, 1-click transfers all acquired skills into your Seeker profile for automated matching.
+                  Checking off milestones in the desktop application dynamically updates your Job-Readiness Score. When ready, 1-click transfers all acquired competencies directly into your Seeker candidate profile for automated job matching.
                 </p>
               </div>
             </div>
@@ -543,7 +563,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto space-y-16">
           <div className="text-center max-w-xl mx-auto space-y-2">
             <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Core Capabilities</span>
-            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Precision engineering for your search.</h2>
+            <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Precision automation for every candidate.</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -553,7 +573,7 @@ export default function Home() {
               </div>
               <h4 className="font-bold text-base text-ink-950">Direct ATS Opportunity Stream</h4>
               <p className="text-xs text-ink-600 leading-relaxed">
-                Job listings are ingested directly from public ATS endpoints (Greenhouse, Lever, Ashby, and Internshala) with SHA-256 deduplication. Filter by remote, compensation, experience level, or match score without aggregator noise.
+                Job listings across all departments are ingested directly from verified company ATS portals (Greenhouse, Lever, Ashby, and Internshala) with SHA-256 deduplication. Filter by remote, compensation, experience level, or match score without aggregator noise.
               </p>
             </div>
 
@@ -561,9 +581,9 @@ export default function Home() {
               <div className="w-9 h-9 rounded-xl bg-ink-50 border border-ink-200 flex items-center justify-center text-ink-950">
                 <Zap className="w-4 h-4" />
               </div>
-              <h4 className="font-bold text-base text-ink-950">Playwright Stealth Engine</h4>
+              <h4 className="font-bold text-base text-ink-950">Client-Side Stealth Form Engine</h4>
               <p className="text-xs text-ink-600 leading-relaxed">
-                Launches local Chromium instances with natural interaction patterns, avoiding anti-bot triggers while accurately pre-filling and submitting forms.
+                Launches local Chromium instances with natural interaction patterns, avoiding anti-bot triggers while accurately pre-filling and submitting multi-field application forms.
               </p>
             </div>
 
@@ -573,7 +593,7 @@ export default function Home() {
               </div>
               <h4 className="font-bold text-base text-ink-950">0-Bounce Recruiter Outreach</h4>
               <p className="text-xs text-ink-600 leading-relaxed">
-                4-stage verification (Syntax / Role Filter / DNS MX / Real-time SMTP Handshake) ensures messages reach the hiring manager's primary inbox.
+                4-stage verification (Syntax / Role Filter / DNS MX / Real-time SMTP Handshake) ensures networking messages reach the hiring manager's primary inbox without bouncing.
               </p>
             </div>
 
@@ -583,7 +603,7 @@ export default function Home() {
               </div>
               <h4 className="font-bold text-base text-ink-950">Local-First Storage &amp; Hardware Lock</h4>
               <p className="text-xs text-ink-600 leading-relaxed">
-                Your profile, resume documents, and private keys are saved locally in SQLite (`sql.js`). Hardware fingerprinting guarantees that your active session is securely tied to your authorized machine.
+                Your candidate profile, resume documents, and private data are saved locally in SQLite (`sql.js`). Hardware fingerprinting guarantees that your active session is securely tied to your authorized laptop.
               </p>
             </div>
           </div>
@@ -605,7 +625,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div>
                   <h3 className="font-bold text-lg text-ink-950">Learner &amp; Seeker Free</h3>
-                  <p className="text-xs text-ink-500 mt-1">For exploring roadmaps &amp; live job boards</p>
+                  <p className="text-xs text-ink-500 mt-1">For exploring career roadmaps &amp; live job feeds</p>
                   <div className="text-4xl font-extrabold tracking-tight mt-6 text-ink-950">
                     ₹0 <span className="text-xs text-ink-400 font-normal font-mono">/ forever</span>
                   </div>
@@ -614,15 +634,15 @@ export default function Home() {
                 <ul className="space-y-2.5 text-xs text-ink-700 border-t border-ink-100 pt-6">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                    <span>Access to all Engineering Roadmaps</span>
+                    <span>Access to all Career Roadmaps &amp; Tracks</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                    <span>Curated Resource Vault &amp; Interview Questions</span>
+                    <span>Curated Resource Vault &amp; Interview Question Banks</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                    <span>Live Job Board stream (1,000+ positions)</span>
+                    <span>Live Job Board stream across all industries</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-ink-950 shrink-0" />
@@ -730,7 +750,7 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-white shrink-0" />
-                    <span>Automated referral email sequences</span>
+                    <span>Automated networking email sequences</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-white shrink-0" />
@@ -785,7 +805,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div>
             <div className="text-sm font-extrabold tracking-tight text-ink-950">JobMaxxer</div>
-            <p className="text-[11px] text-ink-400 mt-0.5 font-mono">Desktop Software for Software Engineers / 2026</p>
+            <p className="text-[11px] text-ink-400 mt-0.5 font-mono">Desktop Automation Software for All Job Seekers / 2026</p>
           </div>
           <div className="flex flex-wrap justify-center gap-6 font-semibold">
             <a href="#/terms" className="hover:text-ink-950 transition-colors">Terms of Service</a>
