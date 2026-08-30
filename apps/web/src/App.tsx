@@ -13,7 +13,6 @@ function App() {
 
   if (route.startsWith('#/terms')) return <Legal type="terms" />;
   if (route.startsWith('#/privacy')) return <Legal type="privacy" />;
-  if (route.startsWith('#/refund')) return <Legal type="refund" />;
 
   return <Home />;
 }

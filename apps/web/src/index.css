@@ -2,4 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-html { scroll-behavior: smooth; }
+@layer base {
+  html { 
+    scroll-behavior: smooth;
+    @apply bg-background-deep text-foreground;
+  }
+  
+  body {
+    @apply bg-background-base min-h-screen relative overflow-x-hidden;
+  }
+
+  /* Grid overlay for texture */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 64px 64px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Deep radial ambient lighting over grid */
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(ellipse at top, rgba(10,10,15,0.8) 0%, rgba(5,5,6,0.9) 50%, rgba(2,2,3,1) 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-accent {
+    @apply bg-[linear-gradient(to_right,#5E6AD2,#818cf8,#5E6AD2)] bg-[length:200%_auto] bg-clip-text text-transparent animate-shimmer;
+  }
+}
