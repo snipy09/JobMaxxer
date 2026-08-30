@@ -34,12 +34,12 @@ export default function Legal({ type }: { type: 'terms' | 'privacy' }) {
   return (
     <div className="min-h-screen bg-ink-50 text-ink-900 font-sans flex flex-col antialiased selection:bg-ink-900 selection:text-white">
       <header className="border-b border-ink-200 bg-white sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <a href="#/" className="font-extrabold text-base tracking-tight flex items-center gap-2.5 text-ink-950">
             <img
-              src="./logo.png"
-              alt="Hirestack Logo"
-              className="h-6 w-auto object-contain rounded"
+              src="./logo-icon.png"
+              alt="Hirestack Logo Icon"
+              className="h-6 w-6 rounded object-contain shadow-fine"
             />
             Hirestack
           </a>
