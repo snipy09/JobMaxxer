@@ -356,3 +356,31 @@ export async function syncDeleteResume(
     return { ok: false, error: String(err?.message ?? err) };
   }
 }
+
+export async function handleRazorpaySuccessRpc(
+  supabase: any,
+  params: {
+    userId?: string;
+    email: string;
+    plan: string;
+    amount: string;
+    paymentId: string;
+    orderId?: string;
+  }
+): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('handle_razorpay_payment_success', {
+      p_user_id: params.userId || null,
+      p_email: params.email,
+      p_plan: params.plan,
+      p_amount: params.amount,
+      p_payment_id: params.paymentId,
+      p_order_id: params.orderId || null,
+    });
+    if (error) return { ok: false, reason: error.message };
+    const row = Array.isArray(data) ? data[0] : data;
+    return { ok: Boolean(row?.ok), reason: row?.reason };
+  } catch (err: any) {
+    return { ok: false, reason: String(err?.message ?? err) };
+  }
+}

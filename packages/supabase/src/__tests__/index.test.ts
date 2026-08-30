@@ -9,7 +9,8 @@ import {
   syncPushSavedJob,
   syncRemoveSavedJob,
   syncPushResume,
-  syncDeleteResume
+  syncDeleteResume,
+  handleRazorpaySuccessRpc
 } from '../index.js';
 
 describe('Supabase Package Unit Tests', () => {
@@ -243,6 +244,37 @@ describe('Supabase Package Unit Tests', () => {
 
       const delRes = await syncDeleteResume(mockSupabase, 'user-1', 'tok-1', 'fp-1', 'Resume 2026');
       expect(delRes.ok).toBe(true);
+    });
+  });
+
+  describe('handleRazorpaySuccessRpc', () => {
+    it('updates user tier and inserts billing record on successful payment', async () => {
+      const mockSupabase = {
+        rpc: vi.fn().mockResolvedValue({
+          data: [{ ok: true, user_id: 'user-123', new_tier: 'pro', expires_at: '2026-09-30T00:00:00Z', reason: 'Subscription upgraded successfully!' }],
+          error: null,
+        }),
+      };
+
+      const res = await handleRazorpaySuccessRpc(mockSupabase, {
+        userId: 'user-123',
+        email: 'candidate@example.com',
+        plan: 'pro',
+        amount: '299.00',
+        paymentId: 'pay_ABC12345678',
+        orderId: 'order_XYZ9876543',
+      });
+
+      expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_razorpay_payment_success', {
+        p_user_id: 'user-123',
+        p_email: 'candidate@example.com',
+        p_plan: 'pro',
+        p_amount: '299.00',
+        p_payment_id: 'pay_ABC12345678',
+        p_order_id: 'order_XYZ9876543',
+      });
+      expect(res.ok).toBe(true);
+      expect(res.reason).toBe('Subscription upgraded successfully!');
     });
   });
 });
