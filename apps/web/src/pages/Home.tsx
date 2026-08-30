@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  ArrowRight, Check, ShieldCheck,
-  Search, Zap, Mail, ChevronDown, ChevronUp,
-  Terminal, Laptop, Lock, Globe, Sparkles, BookOpen,
-  Layers, Code, Server, Play, Cpu, CheckCircle2,
-  Menu, X, ExternalLink, Filter, Send, Compass, UserCheck
+  ArrowRight, Check, X, ShieldCheck,
+  Search, Mail, ChevronDown, ChevronUp,
+  Terminal, Laptop, Lock, Globe, BookOpen,
+  Layers, Code2, Server, Database, FileText,
+  CheckCircle2, Menu
 } from 'lucide-react';
 
 const TRACKS_DATA = [
@@ -12,60 +12,90 @@ const TRACKS_DATA = [
     id: 'frontend',
     title: 'Frontend Architecture',
     badge: 'High Demand',
-    tag: 'React 18 · TypeScript · Next.js · Tailwind',
+    tag: 'React 18 / TypeScript / Next.js / Tailwind CSS',
     hours: '140 Hours',
     role: 'UI & Frontend Engineer',
-    topics: ['Semantic HTML5 & Modern Layouts', 'Deep JS (Closures, Event Loop, Async)', 'React State & TanStack Query', 'Performance & Web Vitals'],
+    topics: [
+      'Semantic HTML5 & Modern Layout Systems',
+      'JavaScript Deep Dive (Closures, Event Loop, Async/Await)',
+      'React State Architecture & TanStack Query',
+      'Performance Optimization & Web Vitals'
+    ],
     skills: ['React', 'TypeScript', 'Next.js', 'Tailwind CSS', 'State Management']
   },
   {
     id: 'backend',
     title: 'Backend & Systems',
     badge: 'Top Salary',
-    tag: 'Node.js · Go · PostgreSQL · Redis · Docker',
+    tag: 'Node.js / Go / PostgreSQL / Redis / Docker',
     hours: '130 Hours',
     role: 'Backend & Systems Engineer',
-    topics: ['REST & GraphQL API Architecture', 'PostgreSQL Schema & Indexing', 'Redis Caching & Pub/Sub', 'Microservices & Async Queues'],
+    topics: [
+      'RESTful & GraphQL API Architecture',
+      'PostgreSQL Schema Design & Query Indexing',
+      'Redis Caching & Pub/Sub Messaging',
+      'Asynchronous Task Queues & Microservices'
+    ],
     skills: ['Node.js', 'PostgreSQL', 'Redis', 'Docker', 'System Design']
   },
   {
     id: 'fullstack',
     title: 'Full Stack Engineering',
-    badge: 'Most Versatile',
-    tag: 'TypeScript · MERN / PERN · Cloud Deployment',
+    badge: 'Versatile',
+    tag: 'TypeScript / Full Stack Frameworks / Cloud Deployment',
     hours: '175 Hours',
     role: 'Full Stack Developer',
-    topics: ['End-to-End Type Safety', 'Prisma / Drizzle ORM Integration', 'Authentication & Role-Based Access', 'CI/CD & Cloud Infrastructure'],
+    topics: [
+      'End-to-End Type Safety (TRPC / GraphQL)',
+      'Database ORM Integration (Prisma / Drizzle)',
+      'Authentication, Sessions & Access Control',
+      'CI/CD Pipelines & Cloud Deployment'
+    ],
     skills: ['Full Stack', 'TypeScript', 'Prisma', 'REST APIs', 'Cloud']
   },
   {
-    id: 'ai',
-    title: 'AI & LLM Applications',
-    badge: 'Trending 2026',
-    tag: 'RAG · pgvector · LangChain · Autonomous Agents',
+    id: 'systems-ai',
+    title: 'AI & Data Systems',
+    badge: 'Emerging',
+    tag: 'Vector DBs / RAG Pipelines / pgvector / Python',
     hours: '105 Hours',
-    role: 'AI Engineer / LLM Specialist',
-    topics: ['Vector Embeddings & Similarity Search', 'Retrieval-Augmented Generation (RAG)', 'Tool Calling & Agentic Loops', 'Prompt Evaluation & Guardrails'],
-    skills: ['AI Engineering', 'RAG Pipelines', 'Vector DBs', 'Python', 'LLMs']
+    role: 'AI Application Engineer',
+    topics: [
+      'Vector Embeddings & Semantic Search Architecture',
+      'Retrieval-Augmented Generation (RAG) Pipelines',
+      'Tool Integration & Autonomous Execution Loops',
+      'Model Evaluation, Caching & Guardrails'
+    ],
+    skills: ['AI Architecture', 'RAG Pipelines', 'Vector Databases', 'Python', 'Embeddings']
   },
   {
     id: 'devops',
-    title: 'DevOps & Platform',
+    title: 'DevOps & Platform Engineering',
     badge: 'Infrastructure',
-    tag: 'Kubernetes · Terraform · AWS · CI/CD Pipelines',
+    tag: 'Kubernetes / Terraform / Linux / CI/CD',
     hours: '120 Hours',
-    role: 'DevOps & Cloud Engineer',
-    topics: ['Linux Internals & Networking', 'Infrastructure as Code (Terraform)', 'Container Orchestration (K8s)', 'Observability (Prometheus/Grafana)'],
+    role: 'DevOps & Platform Engineer',
+    topics: [
+      'Linux Kernel Basics & Network Troubleshooting',
+      'Infrastructure as Code with Terraform',
+      'Container Orchestration with Kubernetes',
+      'Observability, Metrics & Telemetry'
+    ],
     skills: ['Kubernetes', 'Terraform', 'CI/CD', 'Linux', 'AWS']
   },
   {
     id: 'mobile',
-    title: 'Mobile App Development',
+    title: 'Mobile Applications',
     badge: 'Cross-Platform',
-    tag: 'React Native · Expo · iOS · Android',
+    tag: 'React Native / Expo / iOS / Android',
     hours: '115 Hours',
     role: 'Mobile Engineer',
-    topics: ['React Native Core Components', 'Native Bridges & Modules', 'Offline-First SQLite Storage', 'App Store & Play Store Release'],
+    topics: [
+      'React Native Core Primitives & Gestures',
+      'Native Module Bridging & Device APIs',
+      'Offline-First Local Storage Architecture',
+      'App Store & Google Play Deployment'
+    ],
     skills: ['React Native', 'Expo', 'Mobile UI', 'Offline Sync']
   }
 ];
@@ -77,7 +107,7 @@ const SAMPLE_JOBS = [
     location: 'Remote',
     source: 'Greenhouse API',
     match: '96% Match',
-    comp: '₹22 LPA · $140k',
+    comp: 'INR 22 LPA / $140k',
     type: 'Full-time'
   },
   {
@@ -86,7 +116,7 @@ const SAMPLE_JOBS = [
     location: 'Hybrid',
     source: 'Ashby API',
     match: '93% Match',
-    comp: '₹65,000 / month',
+    comp: 'INR 65,000 / mo',
     type: 'Internship'
   },
   {
@@ -95,31 +125,31 @@ const SAMPLE_JOBS = [
     location: 'Remote',
     source: 'Lever API',
     match: '89% Match',
-    comp: '₹26 LPA · $155k',
+    comp: 'INR 26 LPA / $155k',
     type: 'Full-time'
   }
 ];
 
 const FAQS = [
   {
-    q: 'How does JobMaxxer auto-apply to jobs?',
-    a: 'JobMaxxer runs a local, user-controlled Chromium instance on your desktop using stealth browser automation. It navigates to authentic company career portals (Greenhouse, Lever, Ashby, etc.), maps your master profile answers, attaches your selected resume, answers custom open-ended prompts dynamically, and submits without triggering bot barriers.'
+    q: 'How does JobMaxxer automate applications?',
+    a: 'JobMaxxer executes a local, client-side Chromium automation engine on your machine. It navigates directly to authentic company career portals (Greenhouse, Lever, Ashby, Internshala), inputs your profile data, uploads your resume, dynamically answers custom prompts, and submits applications without third-party middleware.'
   },
   {
-    q: 'Where do the job postings come from?',
-    a: 'Unlike traditional aggregator boards that scrape outdated third-party listings, JobMaxxer connects directly to public ATS endpoints and verified company feeds. Postings are cryptographically deduplicated with SHA-256 hashes to guarantee active, live positions.'
+    q: 'Where do the job listings originate?',
+    a: 'Rather than scraping aggregator websites with expired posts, JobMaxxer connects directly to public ATS endpoints. Postings are cryptographically deduplicated with SHA-256 hashes to guarantee active, live positions directly from hiring companies.'
   },
   {
-    q: 'Is my personal data and resume secure?',
-    a: 'Yes. JobMaxxer is built on a local-first philosophy. Your master candidate profile, resume documents, and private credentials are encrypted and stored in an isolated local SQLite database on your computer. Your sensitive files never touch advertising or tracking servers.'
+    q: 'Is candidate data and resume storage secure?',
+    a: 'Yes. JobMaxxer operates local-first. Your master candidate profile, resume files, and private keys are encrypted and stored in an isolated local SQLite database on your computer. Your files and personal details are never uploaded to tracking or advertising databases.'
   },
   {
     q: 'What is the difference between Semi-Auto and Autonomous mode?',
-    a: 'Semi-Auto mode launches up to 20 pre-filled browser tabs simultaneously, allowing you to review each application with one click before submission. Autonomous mode evaluates all fields and custom questions, submitting applications hands-off on your behalf.'
+    a: 'Semi-Auto mode launches up to 20 pre-filled browser tabs simultaneously for manual review before submission. Autonomous mode evaluates all fields and custom questions, submitting applications hands-off on your behalf.'
   },
   {
-    q: 'What payment methods do you accept?',
-    a: 'We accept all major payment methods including direct UPI (Google Pay, PhonePe, Paytm, CRED), all Debit/Credit cards, and Netbanking via Razorpay directly inside the desktop application.'
+    q: 'What payment methods are supported for upgrades?',
+    a: 'Upgrades are processed securely through Razorpay inside the desktop application, supporting direct UPI (Google Pay, PhonePe, Paytm, CRED), all major Debit and Credit cards, and Netbanking across Indian and international banks.'
   }
 ];
 
@@ -137,20 +167,18 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-foreground bg-background-base selection:bg-accent/30 relative z-10 antialiased">
-      {/* Ambient Lighting Blobs */}
+      {/* Ambient Lighting Layers */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[550px] bg-accent/20 blur-[170px] pointer-events-none rounded-full animate-float -z-10" />
       <div className="fixed top-1/3 left-4 w-[550px] h-[550px] bg-indigo-900/15 blur-[150px] pointer-events-none rounded-full animate-float-delayed -z-10" />
       <div className="fixed bottom-12 right-6 w-[650px] h-[650px] bg-accent/10 blur-[160px] pointer-events-none rounded-full animate-float -z-10" />
 
       {/* Navigation Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background-base/75 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background-base/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <a href="#/" className="flex items-center gap-2 group">
-              <div className="w-7 h-7 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-black text-xs shadow-glow group-hover:bg-accent/25 transition-all">
-                JM
-              </div>
-              <span className="font-semibold text-base tracking-tight text-foreground group-hover:text-white transition-colors">
+            <a href="#/" className="flex items-center gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span className="font-semibold text-base tracking-tight text-foreground hover:text-white transition-colors">
                 JobMaxxer
               </span>
             </a>
@@ -170,66 +198,29 @@ export default function Home() {
               href="https://github.com/snipy09/JobMaxxer/releases/latest"
               className="text-xs font-semibold bg-accent hover:bg-accent-bright text-white px-4 py-2 rounded-lg transition-all shadow-glow flex items-center gap-1.5"
             >
-              <span>Download Desktop App</span>
+              <span>Download App</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </a>
 
-            {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg border border-border text-foreground-muted hover:text-foreground hover:bg-surface transition-colors"
-              aria-label="Toggle Navigation Menu"
+              aria-label="Toggle Navigation"
             >
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile menu dropdown */}
+        {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-b border-border bg-background-base/95 backdrop-blur-xl px-6 py-4 space-y-3 text-sm animate-fade-up">
-            <a
-              href="#features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-foreground-muted hover:text-foreground py-1"
-            >
-              Features
-            </a>
-            <a
-              href="#learner"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-foreground-muted hover:text-foreground py-1"
-            >
-              Learner Track
-            </a>
-            <a
-              href="#seeker"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-foreground-muted hover:text-foreground py-1"
-            >
-              Seeker Track
-            </a>
-            <a
-              href="#preview"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-foreground-muted hover:text-foreground py-1"
-            >
-              Live Preview
-            </a>
-            <a
-              href="#pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-foreground-muted hover:text-foreground py-1"
-            >
-              Pricing
-            </a>
-            <a
-              href="#faq"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-foreground-muted hover:text-foreground py-1"
-            >
-              FAQ
-            </a>
+            <a href="#features" onClick={() => setMobileMenuOpen(false)} className="block text-foreground-muted hover:text-foreground py-1">Features</a>
+            <a href="#learner" onClick={() => setMobileMenuOpen(false)} className="block text-foreground-muted hover:text-foreground py-1">Learner Track</a>
+            <a href="#seeker" onClick={() => setMobileMenuOpen(false)} className="block text-foreground-muted hover:text-foreground py-1">Seeker Track</a>
+            <a href="#preview" onClick={() => setMobileMenuOpen(false)} className="block text-foreground-muted hover:text-foreground py-1">Live Preview</a>
+            <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="block text-foreground-muted hover:text-foreground py-1">Pricing</a>
+            <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="block text-foreground-muted hover:text-foreground py-1">FAQ</a>
           </div>
         )}
       </header>
@@ -237,8 +228,8 @@ export default function Home() {
       {/* Hero Section */}
       <main className="flex-1 flex flex-col items-center justify-center text-center px-6 pt-24 pb-20 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-surface border border-border rounded-full text-xs font-mono tracking-wide text-foreground-muted mb-8 backdrop-blur-md">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
-          <span>Dual-Track Career Operating System · v2.0.1</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+          <span>Desktop Career Operating System / v2.0.1</span>
         </div>
 
         <h1 className="text-5xl sm:text-7xl font-semibold tracking-[-0.03em] leading-[1.08] mb-6 text-gradient">
@@ -247,7 +238,7 @@ export default function Home() {
         </h1>
 
         <p className="text-base sm:text-lg text-foreground-muted mb-10 max-w-2xl leading-relaxed font-normal">
-          JobMaxxer is the high-performance desktop platform for software engineers and students. Master structured career roadmaps, discover direct ATS job streams, and let stealth automation pre-fill applications and connect with hiring managers.
+          JobMaxxer is the desktop operating system for software engineers. Master structured technical roadmaps, stream verified direct-company job feeds, and execute client-side automation to apply and connect with hiring teams at scale.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3.5 w-full sm:w-auto">
@@ -262,13 +253,13 @@ export default function Home() {
             href="#preview"
             className="bg-surface hover:bg-surface-hover text-foreground border border-border px-7 py-3.5 rounded-lg font-medium text-sm flex items-center justify-center transition-all"
           >
-            Explore Live Mockup
+            Inspect Interactive Preview
           </a>
         </div>
 
         {/* Feature Badges */}
         <div className="mt-16 flex flex-wrap items-center justify-center gap-8 text-xs text-foreground-muted font-mono tracking-wider">
-          <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-accent" /> Local-first SQLite privacy</span>
+          <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-accent" /> Local-first SQLite security</span>
           <span className="flex items-center gap-1.5"><Laptop className="w-4 h-4 text-accent" /> Single-device hardware lock</span>
           <span className="flex items-center gap-1.5"><Terminal className="w-4 h-4 text-accent" /> Direct ATS ingest (Zero spam)</span>
         </div>
@@ -279,14 +270,14 @@ export default function Home() {
         <div className="bg-background-elevated border border-border/70 rounded-3xl p-5 sm:p-7 shadow-card overflow-hidden backdrop-blur-xl">
           <div className="flex items-center justify-between border-b border-border/40 pb-4 mb-5">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
-              <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
-              <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
-              <span className="text-xs font-mono text-foreground-muted ml-2">JobMaxxer Desktop Client — Opportunity Stream</span>
+              <div className="w-3 h-3 rounded-full bg-rose-500/80" />
+              <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+              <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+              <span className="text-xs font-mono text-foreground-muted ml-2">JobMaxxer Desktop Client / Opportunity Stream</span>
             </div>
             <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Live Cron Feed Active
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live Ingest Stream Active
             </span>
           </div>
 
@@ -320,16 +311,16 @@ export default function Home() {
           <div className="bg-surface/50 border border-border/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-foreground-muted">
               <Terminal className="w-4 h-4 text-accent" />
-              <span>Selected: <strong className="text-foreground">{SAMPLE_JOBS[selectedJobIndex].title}</strong> at <strong className="text-foreground">{SAMPLE_JOBS[selectedJobIndex].company}</strong> ({SAMPLE_JOBS[selectedJobIndex].source})</span>
+              <span>Selected Position: <strong className="text-foreground">{SAMPLE_JOBS[selectedJobIndex].title}</strong> at <strong className="text-foreground">{SAMPLE_JOBS[selectedJobIndex].company}</strong> ({SAMPLE_JOBS[selectedJobIndex].source})</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono text-foreground-muted">Playwright Stealth Engine Ready</span>
+              <span className="text-[11px] font-mono text-foreground-muted">Stealth Automation Ready</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* The Problem Section */}
+      {/* The Bottleneck Section */}
       <section className="py-24 px-6 border-t border-border/40 max-w-5xl mx-auto w-full">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="space-y-4">
@@ -345,38 +336,54 @@ export default function Home() {
 
           <div className="bg-surface border border-border rounded-2xl p-6 shadow-card space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between border-b border-border/40 pb-3 text-foreground-muted">
-              <span>TRADITIONAL APPLICATION PROCESS</span>
+              <span>TRADITIONAL WORKFLOW</span>
               <span className="text-accent">JOBMAXXER OS</span>
             </div>
-            <div className="space-y-2.5 text-foreground-muted">
-              <div className="flex justify-between py-1 border-b border-border/20">
-                <span className="text-rose-400/90">✕ Manual 20-minute form entry</span>
-                <span className="text-emerald-400">✓ 1-Click Stealth Batch Apply</span>
+            <div className="space-y-3 text-foreground-muted">
+              <div className="flex items-center justify-between py-1 border-b border-border/20">
+                <span className="flex items-center gap-1.5 text-rose-400/90">
+                  <X className="w-3.5 h-3.5" /> Manual 20-minute form entry
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <Check className="w-3.5 h-3.5" /> 1-Click Batch Stealth Apply
+                </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-border/20">
-                <span className="text-rose-400/90">✕ Reposted &amp; stale aggregator jobs</span>
-                <span className="text-emerald-400">✓ Direct ATS JSON streaming</span>
+              <div className="flex items-center justify-between py-1 border-b border-border/20">
+                <span className="flex items-center gap-1.5 text-rose-400/90">
+                  <X className="w-3.5 h-3.5" /> Reposted &amp; expired job listings
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <Check className="w-3.5 h-3.5" /> Direct ATS JSON stream
+                </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-border/20">
-                <span className="text-rose-400/90">✕ Cold email deliverability guessing</span>
-                <span className="text-emerald-400">✓ 4-Stage Verified HR inboxes</span>
+              <div className="flex items-center justify-between py-1 border-b border-border/20">
+                <span className="flex items-center gap-1.5 text-rose-400/90">
+                  <X className="w-3.5 h-3.5" /> Cold outreach inbox guesswork
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <Check className="w-3.5 h-3.5" /> 4-Stage Verified HR inboxes
+                </span>
               </div>
-              <div className="flex justify-between py-1">
-                <span className="text-rose-400/90">✕ Disconnected skill roadmaps</span>
-                <span className="text-emerald-400">✓ 1-Click Profile Skill Sync</span>
+              <div className="flex items-center justify-between py-1">
+                <span className="flex items-center gap-1.5 text-rose-400/90">
+                  <X className="w-3.5 h-3.5" /> Disconnected skill learning
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <Check className="w-3.5 h-3.5" /> 1-Click Profile Skill Sync
+                </span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Dual Persona Section */}
+      {/* Dual Persona Architecture */}
       <section className="py-24 px-6 border-t border-border/40 bg-background-elevated/40">
         <div className="max-w-6xl mx-auto space-y-16">
           <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-xs font-mono tracking-widest text-accent uppercase">Dual-Persona Platform</span>
-            <h2 className="text-3xl font-semibold tracking-tight text-foreground">Engineered for both learning and scaling.</h2>
-            <p className="text-sm text-foreground-muted">Whether you are building career fundamentals or actively landing interviews, JobMaxxer is tailored to your workflow.</p>
+            <span className="text-xs font-mono tracking-widest text-accent uppercase">Dual-Persona Architecture</span>
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground">Built for learning and scaling.</h2>
+            <p className="text-sm text-foreground-muted">Whether you are building core fundamentals or actively submitting applications, JobMaxxer is tailored to your phase.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -388,13 +395,13 @@ export default function Home() {
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold text-foreground tracking-tight">The Learner Track</h3>
                 <p className="text-xs text-foreground-muted leading-relaxed">
-                  Tailored for students and developers who want a clear, milestone-driven path to becoming job-ready.
+                  Tailored for students and developers seeking a structured roadmap to becoming job-ready.
                 </p>
               </div>
               <ul className="space-y-3 text-xs text-foreground-muted">
                 <li className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
-                  <span>Structured Engineering Roadmaps covering modern tech stacks</span>
+                  <span>Structured Engineering Roadmaps across all major disciplines</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
@@ -445,7 +452,7 @@ export default function Home() {
           <p className="text-sm text-foreground-muted">Select a discipline to inspect milestones and structured skill modules.</p>
         </div>
 
-        {/* Track selector buttons */}
+        {/* Track Selector Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {TRACKS_DATA.map(t => (
             <button
@@ -462,7 +469,7 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Selected Track Details Card */}
+        {/* Selected Track Card */}
         <div className="bg-surface border border-border rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-5">
             <div>
@@ -475,7 +482,7 @@ export default function Home() {
               <p className="text-xs text-foreground-muted font-mono mt-1">{selectedTrack.tag}</p>
             </div>
             <div className="text-right">
-              <span className="text-xs font-mono text-foreground-muted">Est. Duration:</span>
+              <span className="text-xs font-mono text-foreground-muted">Estimated Curriculum:</span>
               <div className="text-sm font-bold text-foreground">{selectedTrack.hours}</div>
             </div>
           </div>
@@ -494,7 +501,7 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-xs font-mono uppercase tracking-wider text-foreground-muted font-semibold">Skills Pushed to Profile:</h4>
+              <h4 className="text-xs font-mono uppercase tracking-wider text-foreground-muted font-semibold">Skills Synchronized to Profile:</h4>
               <div className="flex flex-wrap gap-2">
                 {selectedTrack.skills.map((sk, idx) => (
                   <span key={idx} className="text-xs font-medium px-3 py-1.5 rounded-lg bg-surface border border-border text-foreground">
@@ -503,14 +510,14 @@ export default function Home() {
                 ))}
               </div>
               <p className="text-xs text-foreground-muted pt-3 leading-relaxed">
-                Checking off milestones in the desktop app dynamically updates your Job-Readiness Score. When ready, 1-click transfers all acquired skills into your Seeker profile for instant job matching.
+                Checking off milestones in the desktop application dynamically calculates your Job-Readiness Score. When ready, 1-click transfers all acquired skills into your Seeker profile for automated matching.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Feature Deep Dive (Bento Grid Style) */}
+      {/* Feature Deep Dive */}
       <section id="features" className="py-24 px-6 border-t border-border/40 max-w-6xl mx-auto w-full space-y-16">
         <div className="text-center max-w-xl mx-auto space-y-2">
           <span className="text-xs font-mono tracking-widest text-accent uppercase">Core Capabilities</span>
@@ -534,7 +541,7 @@ export default function Home() {
             </div>
             <h4 className="font-semibold text-base text-foreground">Playwright Stealth Engine</h4>
             <p className="text-xs text-foreground-muted leading-relaxed">
-              Launches local Chromium instances with natural interaction patterns, avoiding anti-bot triggers while accurately filling application forms.
+              Launches local Chromium instances with natural interaction patterns, avoiding anti-bot triggers while accurately pre-filling and submitting forms.
             </p>
           </div>
 
@@ -544,7 +551,7 @@ export default function Home() {
             </div>
             <h4 className="font-semibold text-base text-foreground">0-Bounce Recruiter Outreach</h4>
             <p className="text-xs text-foreground-muted leading-relaxed">
-              4-stage verification (Syntax → Role Filter → DNS MX → Real-time SMTP Handshake) ensures messages reach the hiring manager's primary inbox.
+              4-stage verification (Syntax / Role Filter / DNS MX / Real-time SMTP Handshake) ensures messages reach the hiring manager's primary inbox.
             </p>
           </div>
 
@@ -577,7 +584,7 @@ export default function Home() {
                   <h3 className="font-semibold text-lg text-foreground">Learner &amp; Seeker Free</h3>
                   <p className="text-xs text-foreground-muted mt-1">For exploring roadmaps &amp; live job boards</p>
                   <div className="text-4xl font-semibold tracking-tight mt-6 text-foreground">
-                    ₹0 <span className="text-xs text-foreground-muted font-normal">/ forever</span>
+                    INR 0 <span className="text-xs text-foreground-muted font-normal">/ forever</span>
                   </div>
                 </div>
 
@@ -623,7 +630,7 @@ export default function Home() {
                   <h3 className="font-semibold text-lg text-foreground">Seeker Pro</h3>
                   <p className="text-xs text-foreground-muted mt-1">Accelerate applications with review mode</p>
                   <div className="text-4xl font-semibold tracking-tight mt-6 text-foreground">
-                    ₹299 <span className="text-xs text-foreground-muted font-normal">/ month</span>
+                    INR 299 <span className="text-xs text-foreground-muted font-normal">/ month</span>
                   </div>
                 </div>
 
@@ -659,7 +666,7 @@ export default function Home() {
                 href="https://github.com/snipy09/JobMaxxer/releases/latest"
                 className="mt-8 block text-center w-full py-2.5 bg-accent hover:bg-accent-bright text-white rounded-lg font-medium text-xs transition-colors shadow-glow"
               >
-                Get Seeker Pro (₹299)
+                Get Seeker Pro (INR 299)
               </a>
             </div>
 
@@ -677,7 +684,7 @@ export default function Home() {
                   <h3 className="font-semibold text-lg text-foreground">Seeker Turbo</h3>
                   <p className="text-xs text-foreground-muted mt-1">Full hands-off autonomous workflow</p>
                   <div className="text-4xl font-semibold tracking-tight mt-6 text-foreground">
-                    ₹599 <span className="text-xs text-foreground-muted font-normal">/ month</span>
+                    INR 599 <span className="text-xs text-foreground-muted font-normal">/ month</span>
                   </div>
                 </div>
 
@@ -713,7 +720,7 @@ export default function Home() {
                 href="https://github.com/snipy09/JobMaxxer/releases/latest"
                 className="mt-8 block text-center w-full py-2.5 bg-accent hover:bg-accent-bright text-white rounded-lg font-medium text-xs transition-colors shadow-glow"
               >
-                Get Seeker Turbo (₹599)
+                Get Seeker Turbo (INR 599)
               </a>
             </div>
           </div>
@@ -755,9 +762,9 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div>
             <div className="text-sm font-semibold tracking-tight text-foreground">JobMaxxer</div>
-            <p className="text-[11px] text-foreground-muted mt-0.5">Desktop Career Operating System &copy; 2026</p>
+            <p className="text-[11px] text-foreground-muted mt-0.5">Desktop Career Operating System / 2026</p>
           </div>
-          <div className="flex flex-wrap justify-center gap-6">
+          <div className="flex flex-wrap justify-center gap-5">
             <a href="#/terms" className="hover:text-foreground transition-colors">Terms &amp; Conditions</a>
             <a href="#/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
             <a href="mailto:support@jobmaxxer.app" className="hover:text-foreground transition-colors">Contact Support</a>
