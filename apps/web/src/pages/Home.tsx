@@ -152,7 +152,7 @@ export default function Home() {
               <ul className="space-y-2.5 text-xs text-foreground-muted">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
-                  <span>4 Interactive Career Roadmaps (Frontend, Backend, Fullstack, AI)</span>
+                  <span>Interactive Career Roadmaps across all major engineering disciplines</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
@@ -269,7 +269,7 @@ export default function Home() {
                 <ul className="space-y-2.5 text-xs text-foreground-muted border-t border-border/40 pt-6">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-foreground shrink-0" />
-                    <span>Full access to all 4 Career Roadmaps</span>
+                    <span>Access to all major engineering roadmaps</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-foreground shrink-0" />
