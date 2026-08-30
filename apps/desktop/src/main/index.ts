@@ -51,9 +51,11 @@ app.disableHardwareAcceleration();
 // ── Deep Linking & OAuth ──────────────────────────────────────────────
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('hirestack', process.execPath, [path.resolve(process.argv[1])]);
     app.setAsDefaultProtocolClient('jobmaxxer', process.execPath, [path.resolve(process.argv[1])]);
   }
 } else {
+  app.setAsDefaultProtocolClient('hirestack');
   app.setAsDefaultProtocolClient('jobmaxxer');
 }
 
@@ -65,7 +67,7 @@ if (!gotTheLock) {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
-      const url = commandLine.find(arg => arg.startsWith('jobmaxxer://auth'));
+      const url = commandLine.find(arg => arg.startsWith('hirestack://auth') || arg.startsWith('jobmaxxer://auth'));
       if (url) mainWindow.webContents.send('oauth-callback', url);
     }
   });
@@ -81,7 +83,7 @@ ipcMain.handle('auth-google', async () => {
   if (!supabase) return { success: false, error: 'Supabase URL missing for OAuth.' };
   
   // Need to ensure redirect_to is registered in Supabase Dashboard -> Auth -> URL Configuration
-  const authUrl = `${process.env.SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=jobmaxxer://auth-callback`;
+  const authUrl = `${process.env.SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=hirestack://auth-callback`;
   shell.openExternal(authUrl);
   return { success: true };
 });
@@ -509,7 +511,7 @@ function createWindow(): void {
     height: 860,
     minWidth: 980,
     minHeight: 680,
-    title: 'JobMaxxer — Commercial Automation Platform',
+    title: 'Hirestack — Job Search & Application Automation Platform',
     backgroundColor: '#0f172a',
     autoHideMenuBar: true,
     show: true,

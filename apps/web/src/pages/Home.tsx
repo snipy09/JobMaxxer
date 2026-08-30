@@ -147,20 +147,20 @@ const SAMPLE_LISTINGS = [
 
 const FAQ_ITEMS = [
   {
-    question: 'Is JobMaxxer only for software engineers?',
-    answer: 'No. JobMaxxer is built for anyone searching for a job or internship across any industry — including Product, Marketing, Sales, Design, Finance, Operations, Data Analytics, Customer Success, and Software. The application automation engine fills candidate forms across all standard company job portals regardless of the role.'
+    question: 'Is Hirestack only for software engineers?',
+    answer: 'No. Hirestack is built for anyone searching for a job or internship across any industry — including Product, Marketing, Sales, Design, Finance, Operations, Data Analytics, Customer Success, and Software. The application automation engine fills candidate forms across all standard company job portals regardless of the role.'
   },
   {
-    question: 'How does JobMaxxer automate applications across different portals?',
-    answer: 'JobMaxxer runs a local Chromium automation engine on your machine. It navigates directly to authentic company career portals (Greenhouse, Lever, Ashby, Internshala, and custom company pages), inputs your profile data, uploads your resume, dynamically answers custom form prompts, and submits applications without third-party middleware.'
+    question: 'How does Hirestack automate applications across different portals?',
+    answer: 'Hirestack runs a local Chromium automation engine on your machine. It navigates directly to authentic company career portals (Greenhouse, Lever, Ashby, Internshala, and custom company career pages), inputs your profile data, uploads your resume, dynamically answers custom form prompts, and submits applications without third-party middleware.'
   },
   {
     question: 'Where do the job postings come from?',
-    answer: 'Rather than scraping third-party aggregator websites filled with expired posts, JobMaxxer connects directly to public ATS endpoints and verified company feeds. Postings are cryptographically deduplicated with SHA-256 hashes to guarantee active, live positions across all job roles and departments.'
+    answer: 'Rather than scraping third-party aggregator websites filled with expired posts, Hirestack connects directly to public ATS endpoints and verified company feeds. Postings are cryptographically deduplicated with SHA-256 hashes to guarantee active, live positions across all job roles and departments.'
   },
   {
     question: 'Is my candidate data, work history, and resume secure?',
-    answer: 'Yes. JobMaxxer operates local-first. Your master candidate profile, resume files, and private keys are encrypted and stored in an isolated local SQLite database on your computer. Your files and personal details are never uploaded to tracking or advertising databases.'
+    answer: 'Yes. Hirestack operates local-first. Your master candidate profile, resume files, and private keys are encrypted and stored in an isolated local SQLite database on your computer. Your files and personal details are never uploaded to tracking or advertising databases.'
   },
   {
     question: 'What is the difference between Semi-Auto and Autonomous mode?',
@@ -189,19 +189,21 @@ export default function Home() {
       {/* Top Announcement Bar */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950" />
-        <span>JobMaxxer v2.0.1 Released · Desktop Application for Job Seekers Across All Fields</span>
+        <span>Hirestack v2.0.1 Released · Desktop Application for Job Seekers Across All Fields</span>
       </div>
 
       {/* Main Navigation Header */}
       <header className="border-b border-ink-100 bg-white/90 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-10">
-            <a href="#/" className="flex items-center gap-2 group">
-              <div className="w-6 h-6 rounded bg-ink-950 text-white flex items-center justify-center font-bold text-xs tracking-tighter shadow-fine">
-                JM
-              </div>
+            <a href="#/" className="flex items-center gap-2.5 group">
+              <img
+                src="./logo.png"
+                alt="Hirestack Logo"
+                className="h-7 w-auto object-contain rounded"
+              />
               <span className="font-extrabold text-base tracking-tight text-ink-950">
-                JobMaxxer
+                Hirestack
               </span>
             </a>
 
@@ -271,7 +273,7 @@ export default function Home() {
         </h1>
 
         <p className="text-base sm:text-lg text-ink-600 mb-10 max-w-2xl mx-auto leading-relaxed font-normal">
-          JobMaxxer is the desktop automation platform for job seekers, students, and professionals across all industries. Master step-by-step career roadmaps, stream verified direct-company job feeds, and execute client-side stealth batch applications directly from your machine.
+          Hirestack is the desktop automation platform for job seekers, students, and professionals across all industries. Master step-by-step career roadmaps, stream verified direct-company job feeds, and execute client-side stealth batch applications directly from your machine.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3.5 justify-center items-center">
@@ -307,7 +309,7 @@ export default function Home() {
               <div className="w-2.5 h-2.5 rounded-full bg-ink-700" />
               <div className="w-2.5 h-2.5 rounded-full bg-ink-700" />
               <div className="w-2.5 h-2.5 rounded-full bg-ink-700" />
-              <span className="text-xs font-mono text-ink-400 ml-2">JobMaxxer Client / Cross-Industry Opportunity Feed</span>
+              <span className="text-xs font-mono text-ink-400 ml-2">Hirestack Client / Cross-Industry Opportunity Feed</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono px-2.5 py-0.5 rounded bg-ink-900 text-ink-300 border border-ink-800">
@@ -392,7 +394,7 @@ export default function Home() {
 
               <div className="space-y-4 border-t md:border-t-0 md:border-l border-ink-100 pt-6 md:pt-0 md:pl-8">
                 <div className="text-ink-950 uppercase font-bold tracking-wider border-b border-ink-100 pb-2">
-                  JobMaxxer Desktop OS
+                  Hirestack Desktop OS
                 </div>
                 <div className="space-y-3 text-ink-900 font-semibold">
                   <div className="flex items-center gap-2">
@@ -424,7 +426,7 @@ export default function Home() {
           <div className="text-center max-w-xl mx-auto space-y-2">
             <span className="text-xs font-mono tracking-widest text-ink-400 uppercase font-semibold">Core Architecture</span>
             <h2 className="text-3xl font-extrabold tracking-tight text-ink-950">Designed for both learning and applying.</h2>
-            <p className="text-xs text-ink-500">Whether developing foundational domain skills or actively submitting job applications, JobMaxxer adapts to your journey.</p>
+            <p className="text-xs text-ink-500">Whether developing foundational domain skills or actively submitting job applications, Hirestack adapts to your journey.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -803,14 +805,21 @@ export default function Home() {
       {/* Minimalist Monochrome Footer */}
       <footer className="border-t border-ink-100 py-12 px-6 bg-white text-xs text-ink-500">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          <div>
-            <div className="text-sm font-extrabold tracking-tight text-ink-950">JobMaxxer</div>
-            <p className="text-[11px] text-ink-400 mt-0.5 font-mono">Desktop Automation Software for All Job Seekers / 2026</p>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="./logo.png"
+              alt="Hirestack Logo"
+              className="h-6 w-auto object-contain rounded"
+            />
+            <div>
+              <div className="text-sm font-extrabold tracking-tight text-ink-950">Hirestack</div>
+              <p className="text-[11px] text-ink-400 mt-0.5 font-mono">Desktop Automation Software for All Job Seekers / 2026</p>
+            </div>
           </div>
           <div className="flex flex-wrap justify-center gap-6 font-semibold">
             <a href="#/terms" className="hover:text-ink-950 transition-colors">Terms of Service</a>
             <a href="#/privacy" className="hover:text-ink-950 transition-colors">Privacy Policy</a>
-            <a href="mailto:support@jobmaxxer.app" className="hover:text-ink-950 transition-colors">Contact Support</a>
+            <a href="mailto:support@hirestack.app" className="hover:text-ink-950 transition-colors">Contact Support</a>
           </div>
         </div>
       </footer>

@@ -30,13 +30,13 @@ export const TopBar: React.FC<TopBarProps> = ({
     : activeTab === 'logs' ? 'Activity Logs'
     : activeTab === 'settings' ? 'Settings'
     : activeTab.startsWith('learner') ? 'Learner Track'
-    : 'JobMaxxer';
+    : 'Hirestack';
 
   return (
     <header className="h-14 border-b border-slate-200 bg-white px-5 flex items-center justify-between z-10 select-none">
       <div className="flex items-center gap-3">
         <span className="font-black text-sm tracking-tight text-slate-900 font-sans">
-          Job<span className="text-brand-600">Maxxer</span> <span className="opacity-40 px-1 font-normal">|</span> {pageTitle}
+          Hire<span className="text-brand-600">stack</span> <span className="opacity-40 px-1 font-normal">|</span> {pageTitle}
         </span>
 
         {isAdmin && (

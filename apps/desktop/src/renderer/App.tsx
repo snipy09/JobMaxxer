@@ -222,7 +222,7 @@ export default function App() {
   if (!onboardingLoaded) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500 font-mono text-xs">
-        Initializing JobMaxxer...
+        Initializing Hirestack...
       </div>
     );
   }

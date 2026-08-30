@@ -1,8 +1,8 @@
 {
   "name": "@job-automator/desktop",
   "version": "2.0.1",
-  "description": "JobMaxxer — Commercial Grade Job Automator & Referral Platform",
-  "author": "JobMaxxer",
+  "description": "Hirestack — Desktop Job Search & Application Automation Platform",
+  "author": "Hirestack",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {
@@ -15,8 +15,8 @@
     "package:win": "node build-main.mjs && vite build && electron-builder --win nsis portable"
   },
   "build": {
-    "appId": "com.jobmaxxer.desktop",
-    "productName": "JobMaxxer",
+    "appId": "com.hirestack.desktop",
+    "productName": "Hirestack",
     "electronVersion": "31.7.7",
     "directories": {
       "output": "dist-electron"
@@ -39,12 +39,12 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
-      "shortcutName": "JobMaxxer",
-      "artifactName": "JobMaxxer Setup ${version}.exe",
-      "uninstallDisplayName": "JobMaxxer ${version}"
+      "shortcutName": "Hirestack",
+      "artifactName": "Hirestack Setup ${version}.exe",
+      "uninstallDisplayName": "Hirestack ${version}"
     },
     "portable": {
-      "artifactName": "JobMaxxer ${version}.exe",
+      "artifactName": "Hirestack ${version}.exe",
       "requestExecutionLevel": "admin"
     },
     "mac": {
