@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { ROADMAPS, calculateReadinessScore } from '../data/roadmaps';
 import { MasterProfile, getApi } from '../types';
-import { BookOpen, CheckCircle2, Circle, Sparkles, Award } from 'lucide-react';
+import {
+  BookOpen, CheckCircle2, Circle, ArrowRight,
+  ExternalLink, ChevronDown, ChevronUp, Check,
+  Sparkles, Award, Layers, HelpCircle, FileText
+} from 'lucide-react';
 
 export const LearnerView: React.FC<{
   profile: MasterProfile;
@@ -9,13 +13,15 @@ export const LearnerView: React.FC<{
   onNavigateToSeeker: () => void;
   onLog: (msg: string) => void;
 }> = ({ profile, onUpdateProfile, onNavigateToSeeker, onLog }) => {
-  const [activeRoadmap, setActiveRoadmap] = useState<string>('frontend');
+  const [activeRoadmapId, setActiveRoadmapId] = useState<string>('product-management');
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
+  const [expandedMilestoneId, setExpandedMilestoneId] = useState<string | null>(null);
 
-  const roadmap = ROADMAPS.find(r => r.id === activeRoadmap) || ROADMAPS[0];
-  const score = calculateReadinessScore(activeRoadmap, completedNodes);
+  const roadmap = ROADMAPS.find(r => r.id === activeRoadmapId) || ROADMAPS[0];
+  const score = calculateReadinessScore(activeRoadmapId, completedNodes);
 
-  const toggleNode = (nodeId: string) => {
+  const toggleNode = (nodeId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setCompletedNodes(prev => prev.includes(nodeId) ? prev.filter(id => id !== nodeId) : [...prev, nodeId]);
   };
 
@@ -34,29 +40,36 @@ export const LearnerView: React.FC<{
     
     await getApi().saveMasterProfile({ ...profile, techStack: newTechStack, desiredTitle: newDesiredTitle });
     onUpdateProfile({ techStack: newTechStack, desiredTitle: newDesiredTitle });
-    onLog(`[Learner] Skills transferred to Seeker profile: ${Array.from(skillsGained).join(', ')}`);
+    onLog(`[Hirestack] Transferred competencies to Seeker candidate profile: ${Array.from(skillsGained).join(', ')}`);
     onNavigateToSeeker();
   };
 
   return (
-    <div className="space-y-6 font-sans select-none max-w-5xl mx-auto pb-12 animate-fade-in">
-      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
-            <BookOpen className="w-6 h-6" />
+    <div className="space-y-6 font-sans select-none max-w-6xl mx-auto pb-12">
+      {/* Header Banner */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-slate-950 text-white dark:bg-white dark:text-slate-950 flex items-center justify-center shadow-sm">
+            <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900">Career Roadmaps</h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Master the skills. When you're ready, switch to Seeker Mode to auto-apply.</p>
+            <h1 className="text-lg font-extrabold text-slate-950 dark:text-white">Career Roadmaps &amp; Resource Vault</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Check off milestones as you learn. When ready, 1-click transfer competencies into your Seeker candidate profile.
+            </p>
           </div>
         </div>
-        <div className="flex gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 overflow-x-auto">
+
+        {/* Roadmap Switcher Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 md:pb-0 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
           {ROADMAPS.map(r => (
             <button
               key={r.id}
-              onClick={() => setActiveRoadmap(r.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                activeRoadmap === r.id ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-900'
+              onClick={() => setActiveRoadmapId(r.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                activeRoadmapId === r.id
+                  ? 'bg-white dark:bg-slate-900 text-slate-950 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
               }`}
             >
               {r.title}
@@ -65,73 +78,167 @@ export const LearnerView: React.FC<{
         </div>
       </div>
 
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Milestones Column */}
         <div className="lg:col-span-2 space-y-4">
-          {roadmap.milestones.map((m, idx) => {
-            const isCompleted = completedNodes.includes(m.id);
-            return (
-              <div key={m.id} className={`p-5 rounded-2xl border transition-all cursor-pointer ${
-                isCompleted ? 'bg-emerald-50/30 border-emerald-200' : 'bg-white border-slate-200 hover:border-slate-300'
-              }`} onClick={() => toggleNode(m.id)}>
-                <div className="flex gap-4">
-                  <div className="mt-0.5 shrink-0">
-                    {isCompleted ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <Circle className="w-6 h-6 text-slate-300" />}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Step {idx + 1}</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">{m.category}</span>
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <h2 className="text-sm font-extrabold text-slate-950 dark:text-white">{roadmap.title}</h2>
+              <p className="text-xs text-slate-500 font-mono mt-0.5">
+                Target Roles: {roadmap.targetRoles.join(' · ')}
+              </p>
+            </div>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              Comp: {roadmap.salaryRangeIndia}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {roadmap.milestones.map((m, idx) => {
+              const isCompleted = completedNodes.includes(m.id);
+              const isExpanded = expandedMilestoneId === m.id;
+
+              return (
+                <div
+                  key={m.id}
+                  className={`border rounded-2xl p-5 transition-all bg-white dark:bg-slate-900 shadow-sm ${
+                    isCompleted
+                      ? 'border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/10'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <button
+                      type="button"
+                      onClick={(e) => toggleNode(m.id, e)}
+                      className="mt-0.5 shrink-0 transition-transform active:scale-90"
+                      title={isCompleted ? 'Mark Incomplete' : 'Mark Completed'}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-slate-300 dark:text-slate-700 hover:text-slate-500" />
+                      )}
+                    </button>
+
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold text-slate-400">0{idx + 1}</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            {m.category}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">~{m.estimatedHours}h</span>
                       </div>
-                      <h3 className="text-base font-bold text-slate-900 mt-1">{m.title}</h3>
-                      <p className="text-xs text-slate-500 mt-1">{m.description}</p>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-1.5">
-                      {m.skillsGained.map((s: string) => (
-                        <span key={s} className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                          {s}
-                        </span>
-                      ))}
+
+                      <h3 className={`text-sm font-bold ${isCompleted ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-950 dark:text-white'}`}>
+                        {m.title}
+                      </h3>
+                      
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {m.description}
+                      </p>
+
+                      {/* Skills Gained Badges */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {m.skillsGained.map((skill) => (
+                          <span
+                            key={skill}
+                            className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Expandable Interview Prep & Resources */}
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedMilestoneId(isExpanded ? null : m.id)}
+                          className="text-[11px] font-semibold text-slate-500 hover:text-slate-950 dark:hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                          <span>{isExpanded ? 'Hide Details' : 'View Topics & Interview Questions'}</span>
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="mt-3 space-y-3 text-xs bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 animate-fade-up">
+                            <div>
+                              <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">Core Topics:</span>
+                              <ul className="mt-1 space-y-1 text-slate-600 dark:text-slate-300 text-xs">
+                                {m.topics.map((tp, i) => (
+                                  <li key={i} className="flex items-center gap-1.5">
+                                    <span className="w-1 h-1 rounded-full bg-slate-400" />
+                                    <span>{tp}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            {m.interviewQuestions.length > 0 && (
+                              <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">Mock Interview Questions:</span>
+                                <ul className="mt-1 space-y-1 text-slate-700 dark:text-slate-200 font-medium">
+                                  {m.interviewQuestions.map((q, i) => (
+                                    <li key={i} className="flex items-start gap-1.5">
+                                      <HelpCircle className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
+                                      <span>{q}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm sticky top-6">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Award className="w-4 h-4 text-brand-600" /> Readiness Score
-            </h3>
-            <div className="mt-4 flex items-end gap-2">
-              <span className="text-4xl font-black text-slate-900">{score}%</span>
-              <span className="text-xs text-slate-500 mb-1 font-medium">Job Ready</span>
-            </div>
-            
-            <div className="h-3 w-full bg-slate-100 rounded-full mt-4 overflow-hidden">
-              <div 
-                className="h-full bg-brand-500 transition-all duration-1000 ease-out rounded-full"
-                style={{ width: `${score}%` }}
-              />
+        {/* Right Readiness Meter Column */}
+        <div className="space-y-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm sticky top-20 space-y-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono uppercase tracking-wider font-bold text-slate-400">Job-Readiness</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                  {completedNodes.length} / {roadmap.milestones.length} Milestones
+                </span>
+              </div>
+
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-5xl font-black text-slate-950 dark:text-white tracking-tight">{score}%</span>
+                <span className="text-xs text-slate-500 font-semibold">Readiness Score</span>
+              </div>
+
+              <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
+                <div
+                  className="h-full bg-slate-950 dark:bg-white transition-all duration-700 rounded-full"
+                  style={{ width: `${score}%` }}
+                />
+              </div>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
               <button
+                type="button"
                 onClick={handleTransferSkills}
-                disabled={score < 30}
-                className={`w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                  score >= 30 ? 'brand-gradient text-white shadow-brand hover:opacity-95' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                }`}
+                className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
               >
-                <Sparkles className="w-4 h-4" />
-                Transfer Skills & Start Applying
+                <span>Transfer Skills to Profile</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
-              {score < 30 && (
-                <p className="text-[10px] text-slate-400 text-center">Complete at least 30% of milestones to unlock the Job Seeker tools.</p>
-              )}
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed text-center">
+                Pushes all acquired milestone skills into your master candidate profile so you can match and auto-apply in Seeker mode.
+              </p>
             </div>
           </div>
         </div>
