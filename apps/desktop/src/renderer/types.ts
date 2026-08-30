@@ -27,6 +27,7 @@ export interface MasterProfile {
 }
 
 export interface Job {
+  id?: number | string;
   title: string;
   company: string;
   applyUrl: string;
@@ -36,6 +37,10 @@ export interface Job {
   score?: number;
   tags?: string[];
   description?: string;
+  employmentType?: 'job' | 'internship';
+  workplaceType?: 'remote' | 'hybrid' | 'onsite';
+  experienceLevel?: 'entry' | 'mid' | 'senior';
+  createdAt?: string;
 }
 
 export interface Application {
@@ -53,7 +58,7 @@ export interface OutreachContact {
   name?: string;
   company?: string;
   role?: string;
-  verificationStatus?: 'valid' | 'invalid' | 'pending' | 'catch-all';
+  verificationStatus?: 'valid' | 'invalid' | 'pending' | 'risky' | 'catch-all';
   sentStatus?: 'unsent' | 'sent' | 'failed';
   sentAt?: string;
 }
@@ -93,7 +98,7 @@ export interface ResumeRecord {
 }
 
 export interface AppUser {
-  id: number;
+  id: number | string;
   email: string;
   fullName: string;
   role: 'admin' | 'user';
@@ -104,10 +109,13 @@ export interface AppUser {
   createdAt: string;
   expiresAt?: string;
   lastLogin?: string;
+  sessionToken?: string;
+  deviceFingerprint?: string;
+  deviceName?: string;
 }
 
 export interface BillingRecord {
-  id: number;
+  id: number | string;
   userEmail: string;
   amount: string;
   plan: string;
@@ -142,11 +150,14 @@ export interface ElectronAPI {
   launchSemiAuto: (jobUrls: string[]) => Promise<{ success: boolean; error?: string }>;
   launchAutonomous: (jobUrls: string[]) => Promise<{ success: boolean; applied?: number; error?: string }>;
   verifyEmail: (email: string) => Promise<{ isValid: boolean; stageFailed?: number; reason?: string }>;
+  getHrContacts: (targetRole?: string) => Promise<{ success: boolean; contacts: OutreachContact[]; error?: string }>;
   sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string }>) =>
     Promise<{ success: boolean; sent?: number; error?: string }>;
   startHeartbeat: (userId: string, sessionToken: string, deviceFingerprint: string) =>
     Promise<{ success: boolean }>;
   stopHeartbeat: () => Promise<{ success: boolean }>;
+  syncCloudData: () => Promise<{ success: boolean; pulled?: boolean; error?: string }>;
+  getDeviceInfo: () => Promise<{ deviceFingerprint: string; deviceName: string }>;
   onHeartbeatStatus: (callback: (status: HeartbeatStatus) => void) => () => void;
   checkDependencies: () => Promise<DependencyStatus>;
   installDependencies: () => Promise<{ success: boolean; error?: string }>;
@@ -156,10 +167,22 @@ export interface ElectronAPI {
   getSavedJobs: () => Promise<Job[]>;
   saveJob: (job: Job) => Promise<{ success: boolean; error?: string }>;
   removeSavedJob: (applyUrl: string) => Promise<{ success: boolean; error?: string }>;
+  openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
 
   // Admin & Auth Handlers
-  authLogin: (credentials: { username?: string; email?: string; password?: string; licenseKey?: string }) =>
-    Promise<{ success: boolean; user?: AppUser; error?: string }>;
+  authLogin: (credentials: {
+    username?: string;
+    email?: string;
+    password?: string;
+    licenseKey?: string;
+    forceTakeover?: boolean;
+  }) => Promise<{
+    success: boolean;
+    conflict?: boolean;
+    activeDevice?: string;
+    user?: AppUser;
+    error?: string;
+  }>;
   adminGetUsers: () => Promise<AppUser[]>;
   adminCreateUser: (user: {
     email: string;
@@ -168,9 +191,9 @@ export interface ElectronAPI {
     tier: 'trial' | 'pro' | 'max' | 'lifetime';
     licenseKey?: string;
     role?: 'admin' | 'user';
-  }) => Promise<{ success: boolean; id?: number; error?: string }>;
-  adminUpdateUserStatus: (id: number, status: 'active' | 'suspended') => Promise<{ success: boolean; error?: string }>;
-  adminDeleteUser: (id: number) => Promise<{ success: boolean; error?: string }>;
+  }) => Promise<{ success: boolean; id?: number | string; error?: string }>;
+  adminUpdateUserStatus: (id: number | string, status: 'active' | 'suspended') => Promise<{ success: boolean; error?: string }>;
+  adminDeleteUser: (id: number | string) => Promise<{ success: boolean; error?: string }>;
   adminGetBilling: () => Promise<BillingRecord[]>;
   adminCreateBillingRecord: (record: {
     userEmail: string;
@@ -184,6 +207,7 @@ export interface ElectronAPI {
 declare global {
   interface Window {
     api?: ElectronAPI;
+    electronAPI?: ElectronAPI;
   }
 }
 
@@ -192,8 +216,9 @@ import { createBrowserApiShim } from './browserApiShim';
 let browserShimInstance: ElectronAPI | null = null;
 
 export function getApi(): ElectronAPI {
-  if (typeof window !== 'undefined' && window.api) {
-    return window.api;
+  if (typeof window !== 'undefined') {
+    if (window.api) return window.api;
+    if (window.electronAPI) return window.electronAPI;
   }
   if (!browserShimInstance) {
     browserShimInstance = createBrowserApiShim();

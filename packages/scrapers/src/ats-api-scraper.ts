@@ -18,29 +18,35 @@ export interface AtsBoardConfig {
 }
 
 export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
+  // Greenhouse Verified Boards
   { name: 'Stripe', type: 'greenhouse', boardId: 'stripe' },
-  { name: 'Vercel', type: 'greenhouse', boardId: 'vercel' },
-  { name: 'Linear', type: 'lever', boardId: 'linear' },
-  { name: 'Figma', type: 'greenhouse', boardId: 'figma' },
-  { name: 'Notion', type: 'lever', boardId: 'notion' },
-  { name: 'Supabase', type: 'ashby', boardId: 'supabase' },
-  { name: 'Retool', type: 'greenhouse', boardId: 'retool' },
-  { name: 'Ramp', type: 'ashby', boardId: 'ramp' },
   { name: 'Anthropic', type: 'greenhouse', boardId: 'anthropic' },
-  { name: 'OpenAI', type: 'greenhouse', boardId: 'openai' },
   { name: 'Datadog', type: 'greenhouse', boardId: 'datadog' },
+  { name: 'Cloudflare', type: 'greenhouse', boardId: 'cloudflare' },
   { name: 'Brex', type: 'greenhouse', boardId: 'brex' },
-  { name: 'Canva', type: 'greenhouse', boardId: 'canva' },
-  { name: 'Coinbase', type: 'greenhouse', boardId: 'coinbase' },
-  { name: 'Discord', type: 'greenhouse', boardId: 'discord' },
-  { name: 'Docker', type: 'greenhouse', boardId: 'docker' },
+  { name: 'Scale AI', type: 'greenhouse', boardId: 'scaleai' },
+  { name: 'Affirm', type: 'greenhouse', boardId: 'affirm' },
   { name: 'GitLab', type: 'greenhouse', boardId: 'gitlab' },
-  { name: 'Plaid', type: 'greenhouse', boardId: 'plaid' },
+  { name: 'Coinbase', type: 'greenhouse', boardId: 'coinbase' },
+  { name: 'Flexport', type: 'greenhouse', boardId: 'flexport' },
+  { name: 'Figma', type: 'greenhouse', boardId: 'figma' },
+  { name: 'Reddit', type: 'greenhouse', boardId: 'reddit' },
   { name: 'Postman', type: 'greenhouse', boardId: 'postman' },
-  { name: 'Replit', type: 'ashby', boardId: 'replit' },
-  { name: 'Sentry', type: 'greenhouse', boardId: 'sentry' },
+  { name: 'Gusto', type: 'greenhouse', boardId: 'gusto' },
+  { name: 'Vercel', type: 'greenhouse', boardId: 'vercel' },
+  { name: 'Discord', type: 'greenhouse', boardId: 'discord' },
+  { name: 'Checkr', type: 'greenhouse', boardId: 'checkr' },
   { name: 'Webflow', type: 'greenhouse', boardId: 'webflow' },
-  { name: 'Zapier', type: 'greenhouse', boardId: 'zapier' },
+
+  // Ashby Verified Boards
+  { name: 'Ramp', type: 'ashby', boardId: 'ramp' },
+  { name: 'Cursor', type: 'ashby', boardId: 'cursor' },
+  { name: 'Perplexity', type: 'ashby', boardId: 'perplexity' },
+  { name: 'Replit', type: 'ashby', boardId: 'replit' },
+  { name: 'Supabase', type: 'ashby', boardId: 'supabase' },
+  { name: 'Linear', type: 'ashby', boardId: 'linear' },
+  { name: 'Modal', type: 'ashby', boardId: 'modal' },
+  { name: 'Resend', type: 'ashby', boardId: 'resend' },
 ];
 
 export async function scrapeAtsApis(
@@ -57,6 +63,7 @@ export async function scrapeAtsApis(
           if (data && Array.isArray(data.jobs)) {
             for (const item of data.jobs) {
               const applyUrl = item.absolute_url;
+              if (!applyUrl || typeof applyUrl !== 'string') continue;
               const hash = computeJobHash(board.name, item.title, applyUrl);
               jobs.push({
                 company: board.name,
@@ -76,7 +83,8 @@ export async function scrapeAtsApis(
           const data: any = await res.json();
           if (Array.isArray(data)) {
             for (const item of data) {
-              const applyUrl = item.hostedUrl;
+              const applyUrl = item.applyUrl || item.hostedUrl;
+              if (!applyUrl || typeof applyUrl !== 'string') continue;
               const hash = computeJobHash(board.name, item.text, applyUrl);
               jobs.push({
                 company: board.name,
@@ -97,6 +105,7 @@ export async function scrapeAtsApis(
           if (data && Array.isArray(data.jobs)) {
             for (const item of data.jobs) {
               const applyUrl = item.jobUrl || `https://jobs.ashbyhq.com/${board.boardId}/${item.id}`;
+              if (!applyUrl || typeof applyUrl !== 'string') continue;
               const hash = computeJobHash(board.name, item.title, applyUrl);
               jobs.push({
                 company: board.name,

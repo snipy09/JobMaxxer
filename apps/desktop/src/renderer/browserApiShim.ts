@@ -4,109 +4,11 @@ import { ElectronAPI, Job, Application, AppUser, BillingRecord, AdminMetrics, De
 export function createBrowserApiShim(): ElectronAPI {
   console.info('🌐 [JobMaxxer] Initializing Interactive Browser Mode Provider');
 
-  const INITIAL_USERS: AppUser[] = [
-    {
-      id: 1,
-      email: 'raksha@jobmaxxer.com',
-      fullName: 'Raksha (Master Admin)',
-      role: 'admin',
-      tier: 'lifetime',
-      licenseKey: 'RAKSHA-MASTER-ADMIN-2026',
-      status: 'active',
-      appsCount: 0,
-      createdAt: '2026-08-01 10:00:00',
-    },
-    {
-      id: 2,
-      email: 'lucas.trial@gmail.com',
-      fullName: 'Lucas Meyer',
-      role: 'user',
-      tier: 'trial',
-      licenseKey: 'JMX-TRL-1092-7712',
-      status: 'active',
-      appsCount: 15,
-      createdAt: '2026-08-20 14:30:00',
-      expiresAt: '2026-08-27 14:30:00',
-      lastLogin: '2026-08-22 18:00:00',
-    },
-    {
-      id: 3,
-      email: 'alex.dev@gmail.com',
-      fullName: 'Alex Vance',
-      role: 'user',
-      tier: 'pro',
-      licenseKey: 'JMX-PRO-9842-8821',
-      status: 'active',
-      appsCount: 142,
-      createdAt: '2026-08-10 09:15:00',
-      expiresAt: '2026-09-10 09:15:00',
-      lastLogin: '2026-08-22 16:45:00',
-    },
-    {
-      id: 4,
-      email: 'elena.cloud@outlook.com',
-      fullName: 'Elena Rostova',
-      role: 'user',
-      tier: 'max',
-      licenseKey: 'JMX-MAX-4412-9901',
-      status: 'active',
-      appsCount: 318,
-      createdAt: '2026-07-28 11:20:00',
-      expiresAt: '2026-08-28 11:20:00',
-      lastLogin: '2026-08-22 19:15:00',
-    },
-    {
-      id: 5,
-      email: 'sarah.react@yahoo.com',
-      fullName: 'Sarah Jenkins',
-      role: 'user',
-      tier: 'lifetime',
-      licenseKey: 'JMX-LIFE-5501-3329',
-      status: 'active',
-      appsCount: 450,
-      createdAt: '2026-07-15 08:00:00',
-      lastLogin: '2026-08-22 15:30:00',
-    }
-  ];
-
-  const INITIAL_BILLING: BillingRecord[] = [
-    {
-      id: 1,
-      userEmail: 'elena.cloud@outlook.com',
-      amount: '$99.00',
-      plan: 'Max Plan ($99/mo)',
-      status: 'paid',
-      paymentMethod: 'Stripe Card (Visa •••• 4242)',
-      createdAt: '2026-07-28',
-    },
-    {
-      id: 2,
-      userEmail: 'sarah.react@yahoo.com',
-      amount: '$299.00',
-      plan: 'Lifetime Founder License',
-      status: 'paid',
-      paymentMethod: 'Stripe Card (Mastercard •••• 8821)',
-      createdAt: '2026-07-15',
-    },
-    {
-      id: 3,
-      userEmail: 'alex.dev@gmail.com',
-      amount: '$49.00',
-      plan: 'Pro Plan ($49/mo)',
-      status: 'paid',
-      paymentMethod: 'Stripe Card (Visa •••• 1092)',
-      createdAt: '2026-08-10',
-    },
-    {
-      id: 4,
-      userEmail: 'lucas.trial@gmail.com',
-      amount: '$0.00',
-      plan: '7-Day Free Trial',
-      status: 'paid',
-      paymentMethod: 'Direct Trial Grant',
-      createdAt: '2026-08-20',
-    }
-  ];
+  // Preview mode ships no demo accounts or fake billing. Real accounts live in
+  // Supabase and are managed only by the operator (service role). The admin
+  // panel is inert in browser preview.
+  const INITIAL_USERS: AppUser[] = [];
+  const INITIAL_BILLING: BillingRecord[] = [];
 
   const getStoredUsers = (): AppUser[] => {
     try {
@@ -134,88 +36,51 @@ export function createBrowserApiShim(): ElectronAPI {
     localStorage.setItem('jobmaxxer_mock_billing', JSON.stringify(billing));
   };
 
-  const SAMPLE_JOBS: Job[] = [
-    {
-      title: 'Senior Full Stack Engineer',
-      company: 'Microsoft',
-      location: 'Remote / Hybrid, US',
-      salary: '$165,000 - $215,000',
-      applyUrl: 'https://www.linkedin.com/jobs/view/3991204821',
-      source: 'LinkedIn',
-      score: 97,
-      description: 'Building next-generation cloud developer tooling and distributed services with TypeScript, React, and Node.js.',
-    },
-    {
-      title: 'Full Stack Software Engineer',
-      company: 'Vercel',
-      location: 'Remote, Worldwide',
-      salary: '$160,000 - $210,000',
-      applyUrl: 'https://boards.greenhouse.io/vercel/jobs/5412093004',
-      source: 'Greenhouse',
-      score: 96,
-      description: 'Join the Next.js and Vercel edge runtime team building high-performance web infrastructure.',
-    },
-    {
-      title: 'Software Development Intern / Junior Developer',
-      company: 'Urban Tech Innovations',
-      location: 'Remote / India',
-      salary: '$60,000 - $95,000',
-      applyUrl: 'https://internshala.com/internship/detail/software-development-internship-172901',
-      source: 'Internshala',
-      score: 94,
-      description: 'Featured Internshala high-growth startup internship for passionate full stack engineers.',
-    },
-    {
-      title: 'Staff Frontend Engineer',
-      company: 'Linear',
-      location: 'Remote',
-      salary: '$170,000 - $225,000',
-      applyUrl: 'https://jobs.lever.co/linear/4819a820-21a4-4f51-bfa0',
-      source: 'Lever',
-      score: 93,
-      description: 'Craft beautiful, high-speed project management tools with React, WebGL, and optimized sync engines.',
-    },
-    {
-      title: 'Cloud Systems Engineer',
-      company: 'Amazon Web Services',
-      location: 'Remote, US',
-      salary: '$185,000 - $245,000',
-      applyUrl: 'https://www.linkedin.com/jobs/view/3981029412',
-      source: 'LinkedIn',
-      score: 92,
-      description: 'AWS high-scale distributed backend teams hiring for core cloud virtualization and serverless architectures.',
-    },
-    {
-      title: 'Backend & Infrastructure Engineer',
-      company: 'Supabase',
-      location: 'Remote',
-      salary: '$150,000 - $200,000',
-      applyUrl: 'https://boards.greenhouse.io/supabase/jobs/4019283002',
-      source: 'Greenhouse',
-      score: 91,
-      description: 'Build open source Firebase alternatives with PostgreSQL, Elixir, Go, and TypeScript.',
-    },
-    {
-      title: 'Junior Web Developer / Associate',
-      company: 'Zeta Technologies',
-      location: 'Remote',
-      salary: '$75,000 - $110,000',
-      applyUrl: 'https://internshala.com/job/detail/junior-fullstack-developer-189201',
-      source: 'Internshala',
-      score: 89,
-      description: 'Direct hire placement for junior developers with strong fundamentals in modern web frameworks.',
-    },
-    {
-      title: 'Senior Software Engineer',
-      company: 'Stripe',
-      location: 'Remote / Hybrid',
-      salary: '$180,000 - $240,000',
-      applyUrl: 'https://boards.greenhouse.io/stripe/jobs/6192834002',
-      source: 'Greenhouse',
-      score: 88,
-      description: 'Design and scale the economic infrastructure for the global internet.',
+  // Read from Vite env at build time. The anon key is safe to expose in the
+  // client because RLS (migration 002) restricts it to reading the public job
+  // feed + calling the auth RPC. Never hardcode keys in source.
+  const _env = ((import.meta as unknown as { env?: Record<string, string> }).env) ?? {};
+  const SUPABASE_URL_BASE = String(_env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
+  const SUPABASE_REST_URL = SUPABASE_URL_BASE ? `${SUPABASE_URL_BASE}/rest/v1` : '';
+  const SUPABASE_ANON_KEY = String(_env.VITE_SUPABASE_ANON_KEY ?? '');
+
+  const fetchLiveDatabaseJobs = async (): Promise<Job[]> => {
+    if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) return [];
+    try {
+      const res = await fetch(`${SUPABASE_REST_URL}/jobs?is_active=eq.true&order=created_at.desc&limit=500`, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      });
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data
+          .filter((j: any) => {
+            const url = (j.apply_url || '').toLowerCase();
+            const src = (j.source || '').toLowerCase();
+            return !url.includes('linkedin.com') && !src.includes('linkedin');
+          })
+          .map((j: any, idx: number) => ({
+            title: j.title || 'Software Engineer',
+            company: j.company || 'Tech Company',
+            location: j.location || 'Remote',
+            salary: j.salary_range || undefined,
+            applyUrl: j.apply_url || '#',
+            source: j.source || 'Cloud Feed',
+            score: Math.max(60, 98 - (idx % 30)),
+            employmentType: j.employment_type || (j.title?.toLowerCase().includes('intern') ? 'internship' : 'job'),
+            workplaceType: j.workplace_type || 'remote',
+            experienceLevel: j.experience_level || 'mid',
+            createdAt: j.created_at || new Date().toISOString(),
+            description: j.description || '',
+          }));
+      }
+    } catch (err: any) {
+      console.warn('[Cloud Feed] Note querying Supabase:', err);
     }
-  ];
+    return [];
+  };
 
   let logCallbacks: Array<(msg: string) => void> = [];
 
@@ -321,30 +186,61 @@ export function createBrowserApiShim(): ElectronAPI {
     },
 
     runScrapers: async () => {
-      emitLog('[Scrapers] Executing multi-source scraper engine...');
-      return { success: true, jobs: SAMPLE_JOBS };
+      emitLog('[Scrapers] Querying live opportunity pipeline...');
+      const jobs = await fetchLiveDatabaseJobs();
+      return { success: true, jobs };
     },
 
     getCloudFeed: async () => {
-      return { success: true, jobs: SAMPLE_JOBS };
+      emitLog('[Cloud Sync] Fetching live positions from Supabase repository...');
+      const jobs = await fetchLiveDatabaseJobs();
+      return { success: true, jobs };
     },
 
     launchSemiAuto: async (jobUrls: string[]) => {
-      emitLog(`[AutoApply] Review Mode: Opening ${jobUrls.length} pre-filled tabs...`);
+      emitLog(`[AutoApply] Review Mode: Opening ${jobUrls.length} pre-filled tabs in Chrome...`);
       jobUrls.forEach(url => window.open(url, '_blank'));
       return { success: true };
     },
 
     launchAutonomous: async (jobUrls: string[]) => {
-      emitLog(`[AutoApply] Mass Apply Mode: Processing ${jobUrls.length} positions in batches of 20...`);
+      emitLog(`[AutoApply] Mass Apply Mode: Processing ${jobUrls.length} positions with stealth form filling...`);
       for (const url of jobUrls) {
-        emitLog(`[AutoApply] Stealth form filling completed for ${url}`);
+        emitLog(`[AutoApply] Form auto-filled and submitted for ${url}`);
       }
       return { success: true, applied: jobUrls.length };
     },
 
     verifyEmail: async (email: string) => {
       return { isValid: true };
+    },
+
+    getHrContacts: async () => {
+      if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) return { success: true, contacts: [] };
+      try {
+        const res = await fetch(`${SUPABASE_REST_URL}/hr_contacts?order=created_at.desc&limit=100`, {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+        });
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const contacts = data.map((c: any) => ({
+            name: c.name || 'Hiring Lead',
+            company: c.company || 'Tech Company',
+            role: c.role || 'Talent Acquisition',
+            email: c.email || '',
+            verificationStatus: (c.verification_status || 'valid') as 'valid' | 'invalid' | 'risky' | 'pending',
+            verifiedAt: c.verified_at || 'Just now',
+            sentStatus: 'unsent' as const,
+          }));
+          return { success: true, contacts };
+        }
+      } catch (err: any) {
+        emitLog(`[Recruiters] Note: ${err?.message}`);
+      }
+      return { success: true, contacts: [] };
     },
 
     sendOutreach: async (contacts) => {
@@ -354,6 +250,14 @@ export function createBrowserApiShim(): ElectronAPI {
 
     startHeartbeat: async () => ({ success: true }),
     stopHeartbeat: async () => ({ success: true }),
+    syncCloudData: async () => {
+      emitLog('[Cloud Sync] Browser simulation: local and cloud synchronized ✓');
+      return { success: true, pulled: true };
+    },
+    getDeviceInfo: async () => ({
+      deviceFingerprint: 'browser-shim-fingerprint-001',
+      deviceName: 'Web Browser Preview',
+    }),
     onHeartbeatStatus: () => () => {},
 
     checkDependencies: async (): Promise<DependencyStatus> => ({
@@ -413,55 +317,62 @@ export function createBrowserApiShim(): ElectronAPI {
     getSavedJobs: async (): Promise<Job[]> => [],
     saveJob: async () => ({ success: true }),
     removeSavedJob: async () => ({ success: true }),
+    openExternalUrl: async (url: string) => {
+      try {
+        window.open(url, '_blank');
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    },
 
     // Auth & Admin Handlers
+    // Server-authoritative: preview mode calls the SAME authenticate_user RPC
+    // the desktop app uses. No hardcoded admin, no auto-provisioning.
     authLogin: async (credentials) => {
-      const u = (credentials.username || credentials.email || '').trim().toLowerCase();
-      const p = (credentials.password || credentials.licenseKey || '').trim();
+      const email = (credentials.email || credentials.username || '').trim().toLowerCase();
+      const password = (credentials.password || credentials.licenseKey || '').trim();
 
-      if (u === 'raksha' && p === 'raksha@sajal') {
-        const adminUser: AppUser = {
-          id: 1,
-          email: 'raksha@jobmaxxer.com',
-          fullName: 'Raksha (Master Admin)',
-          role: 'admin',
-          tier: 'lifetime',
-          licenseKey: 'RAKSHA-MASTER-ADMIN-2026',
-          status: 'active',
-          appsCount: 0,
-          createdAt: new Date().toISOString(),
+      if (!email || !password) {
+        return { success: false, error: 'Email and password are required.' };
+      }
+      if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) {
+        return { success: false, error: 'Preview mode: licensing server not configured (set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).' };
+      }
+
+      try {
+        const res = await fetch(`${SUPABASE_REST_URL}/rpc/authenticate_user`, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ p_email: email, p_password: password }),
+        });
+        const data = await res.json();
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row || !row.ok) {
+          return { success: false, error: (row && row.reason) || 'Login failed.' };
+        }
+        const tier: AppUser['tier'] = ['trial', 'pro', 'max', 'lifetime'].includes(row.tier) ? row.tier : 'pro';
+        const user: AppUser = {
+          id: String(row.id),
+          email: String(row.email),
+          fullName: String(row.full_name || ''),
+          role: row.role === 'admin' ? 'admin' : 'user',
+          tier,
+          licenseKey: String(row.license_key || ''),
+          status: row.status === 'suspended' ? 'suspended' : 'active',
+          appsCount: Number(row.apps_count || 0),
+          createdAt: '',
+          expiresAt: row.expires_at ? String(row.expires_at) : undefined,
+          lastLogin: new Date().toISOString(),
         };
-        return { success: true, user: adminUser };
+        return { success: true, user };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Network error contacting licensing server.' };
       }
-
-      const users = getStoredUsers();
-      const found = users.find(user => 
-        (user.email.toLowerCase() === u || user.licenseKey.toLowerCase() === u || user.fullName.toLowerCase().includes(u))
-      );
-
-      if (found) {
-        if (found.status === 'suspended') {
-          return { success: false, error: 'This account has been suspended.' };
-        }
-        if (found.expiresAt && new Date(found.expiresAt).getTime() < Date.now()) {
-          return { success: false, error: 'Your 7-day trial has expired. Contact administrator to renew.' };
-        }
-        return { success: true, user: found };
-      }
-
-      // Default fallback for client buyers
-      const clientUser: AppUser = {
-        id: Date.now(),
-        email: u.includes('@') ? u : `${u}@gmail.com`,
-        fullName: u.split('@')[0].toUpperCase(),
-        role: 'user',
-        tier: 'pro',
-        licenseKey: 'JMX-PRO-9842-8821',
-        status: 'active',
-        appsCount: 0,
-        createdAt: new Date().toISOString(),
-      };
-      return { success: true, user: clientUser };
     },
 
     adminGetUsers: async () => getStoredUsers(),

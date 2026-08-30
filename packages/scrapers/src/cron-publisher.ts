@@ -2,8 +2,26 @@ import { runAllScrapers } from './index.js';
 import { scrapeRecruiterLeads } from './recruiter-scraper.js';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jympejesevicwleptfzq.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bXBlamVzZXZpY3dsZXB0ZnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczOTU5NzQsImV4cCI6MjEwMjk3MTk3NH0.1b6XFrIxH1hLVdjp2arHLdJ4fkiKV-0gb6yNZ7eMbPA';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+// Writes to jobs / hr_contacts require the SERVICE ROLE key after the secure
+// RLS migration (002) — the anon key can only READ the feed. Prefer the service
+// role key; fall back to anon only so misconfigured setups fail loudly.
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error(
+    'Missing required env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. ' +
+    'Set them in GitHub Secrets (CI) or a local .env file — never hardcode credentials.'
+  );
+}
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn(
+    '[Scraper] WARNING: SUPABASE_SERVICE_ROLE_KEY is not set. The anon key cannot ' +
+    'write to jobs/hr_contacts under the secure RLS policy — publishing will fail. ' +
+    'Add SUPABASE_SERVICE_ROLE_KEY to your GitHub Actions secrets.'
+  );
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 

@@ -18,11 +18,20 @@ export const TopBar: React.FC<TopBarProps> = ({
   const isAdmin = currentUser?.role === 'admin';
   const isInAdminView = activeTab.startsWith('admin');
 
+  const pageTitle = isInAdminView
+    ? 'Admin Dashboard'
+    : activeTab === 'home' ? 'Home'
+    : activeTab === 'feed' ? 'Job Feed'
+    : activeTab === 'outreach' ? 'Outreach'
+    : activeTab === 'logs' ? 'Activity Logs'
+    : activeTab === 'settings' ? 'Settings'
+    : 'JobMaxxer';
+
   return (
     <header className="h-12 border-b border-slate-200 bg-white px-5 flex items-center justify-between z-10 select-none">
       <div className="flex items-center gap-3">
         <span className="font-bold text-sm tracking-tight text-slate-900 font-sans">
-          JobMaxxer
+          {pageTitle}
         </span>
 
         {isAdmin && (

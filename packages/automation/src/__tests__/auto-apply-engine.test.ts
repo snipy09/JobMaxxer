@@ -16,6 +16,7 @@ const { mockChromium, mockBrowser, mockContext, mockPage } = vi.hoisted(() => {
   const mockContext = {
     newPage: vi.fn().mockResolvedValue(mockPage),
     close: vi.fn().mockResolvedValue(undefined),
+    addInitScript: vi.fn().mockResolvedValue(undefined),
   };
 
   const mockBrowser = {
@@ -60,7 +61,7 @@ describe('AutoApplyEngine', () => {
   describe('prefillParallelTabs', () => {
     it('launches browser and opens tabs for job URLs', async () => {
       await AutoApplyEngine.prefillParallelTabs(['https://example.com/job/1'], mockProfile, 1);
-      expect(mockChromium.launch).toHaveBeenCalledWith({ headless: false });
+      expect(mockChromium.launch).toHaveBeenCalledWith(expect.objectContaining({ headless: false }));
       expect(mockBrowser.newContext).toHaveBeenCalled();
     });
 

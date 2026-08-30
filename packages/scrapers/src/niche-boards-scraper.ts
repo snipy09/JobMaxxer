@@ -1,4 +1,4 @@
-﻿import { RawJob } from './ats-api-scraper.js';
+import { RawJob } from './ats-api-scraper.js';
 import { computeJobHash } from './hasher.js';
 
 export async function scrapeNicheBoards(): Promise<RawJob[]> {

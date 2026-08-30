@@ -84,69 +84,70 @@ export default function App() {
     };
   }, [addLog]);
 
+  const loadProfileFromDb = async () => {
+    const api = getApi();
+    const localOnboardingFlag = localStorage.getItem('job_automator_onboarding_completed') === 'true';
+
+    if (!api) {
+      setShowOnboarding(!localOnboardingFlag);
+      setOnboardingLoaded(true);
+      return;
+    }
+
+    try {
+      const data = await api.getMasterProfile();
+      if (data) {
+        const isCompleted =
+          Boolean(data.onboarding_completed) ||
+          Boolean(data.onboardingCompleted) ||
+          localOnboardingFlag;
+
+        setProfile({
+          firstName: String(data.first_name || data.firstName || ''),
+          lastName: String(data.last_name || data.lastName || ''),
+          email: String(data.email || ''),
+          phone: String(data.phone || ''),
+          linkedin: String(data.linkedin || data.linkedin_url || ''),
+          github: String(data.github || data.github_url || ''),
+          sponsorship: String(data.sponsorship || 'No'),
+          desiredSalary: String(data.desired_salary || data.desiredSalary || ''),
+          noticePeriod: String(data.notice_period || data.noticePeriod || '2 weeks'),
+          groqApiKey: String(data.groq_api_key || data.groqApiKey || ''),
+          smtpPassword: String(data.smtp_password || data.smtpPassword || ''),
+          resumeText: String(data.resume_text || data.resumeText || ''),
+          desiredTitle: String(data.desired_title || data.desiredTitle || ''),
+          techStack: String(data.tech_stack || data.techStack || ''),
+          customAnswers: (() => {
+            try {
+              return JSON.parse(String(data.custom_answers_json || data.customAnswersJson || '{}'));
+            } catch {
+              return {};
+            }
+          })(),
+          onboardingCompleted: isCompleted,
+        });
+
+        setShowOnboarding(!isCompleted);
+      } else {
+        setShowOnboarding(!localOnboardingFlag);
+      }
+    } catch (err) {
+      console.error('Failed to load startup profile:', err);
+      setShowOnboarding(!localOnboardingFlag);
+    } finally {
+      setOnboardingLoaded(true);
+    }
+  };
+
   // Load master profile & check onboarding state on startup
   useEffect(() => {
-    const loadStartupData = async () => {
-      const api = getApi();
-      const localOnboardingFlag = localStorage.getItem('job_automator_onboarding_completed') === 'true';
-
-      if (!api) {
-        setShowOnboarding(!localOnboardingFlag);
-        setOnboardingLoaded(true);
-        return;
-      }
-
-      try {
-        const data = await api.getMasterProfile();
-        if (data) {
-          const isCompleted =
-            Boolean(data.onboarding_completed) ||
-            Boolean(data.onboardingCompleted) ||
-            localOnboardingFlag;
-
-          setProfile({
-            firstName: String(data.first_name || data.firstName || ''),
-            lastName: String(data.last_name || data.lastName || ''),
-            email: String(data.email || ''),
-            phone: String(data.phone || ''),
-            linkedin: String(data.linkedin || data.linkedin_url || ''),
-            github: String(data.github || data.github_url || ''),
-            sponsorship: String(data.sponsorship || 'No'),
-            desiredSalary: String(data.desired_salary || data.desiredSalary || ''),
-            noticePeriod: String(data.notice_period || data.noticePeriod || '2 weeks'),
-            groqApiKey: String(data.groq_api_key || data.groqApiKey || ''),
-            smtpPassword: String(data.smtp_password || data.smtpPassword || ''),
-            resumeText: String(data.resume_text || data.resumeText || ''),
-            desiredTitle: String(data.desired_title || data.desiredTitle || ''),
-            techStack: String(data.tech_stack || data.techStack || ''),
-            customAnswers: (() => {
-              try {
-                return JSON.parse(String(data.custom_answers_json || data.customAnswersJson || '{}'));
-              } catch {
-                return {};
-              }
-            })(),
-            onboardingCompleted: isCompleted,
-          });
-
-          setShowOnboarding(!isCompleted);
-        } else {
-          setShowOnboarding(!localOnboardingFlag);
-        }
-      } catch (err) {
-        console.error('Failed to load startup profile:', err);
-        setShowOnboarding(!localOnboardingFlag);
-      } finally {
-        setOnboardingLoaded(true);
-      }
-    };
-
-    loadStartupData();
+    loadProfileFromDb();
   }, []);
 
-  const handleLoginSuccess = (user: AppUser) => {
+  const handleLoginSuccess = async (user: AppUser) => {
     setCurrentUser(user);
     localStorage.setItem('jobmaxxer_user', JSON.stringify(user));
+    await loadProfileFromDb();
     if (user.role === 'admin') {
       setActiveTab('admin-overview');
     } else {

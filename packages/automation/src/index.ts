@@ -1,8 +1,32 @@
-﻿import { AutoApplyEngine, type MasterProfile, type ApplyResult } from './auto-apply-engine.js';
-import { answerCustomQuestionWithGroq } from './groq-ai.js';
-import { ATS_FIELD_ALIASES } from './alias-dictionary.js';
+import {
+  AutoApplyEngine,
+  type MasterProfile,
+  type ApplyResult,
+  type ResumeItem,
+} from './auto-apply-engine.ts';
+import { answerCustomQuestionWithGroq } from './groq-ai.ts';
+import { ATS_FIELD_ALIASES } from './alias-dictionary.ts';
+import {
+  findChromeExecutable,
+  ensureChromeForTesting,
+  launchExternalStealthBrowser,
+  type BrowserLaunchOptions,
+  type BrowserSession,
+} from './chrome-manager.ts';
 
-export { AutoApplyEngine, answerCustomQuestionWithGroq, ATS_FIELD_ALIASES };
-export type { MasterProfile, ApplyResult };
+export {
+  AutoApplyEngine,
+  answerCustomQuestionWithGroq,
+  ATS_FIELD_ALIASES,
+  findChromeExecutable,
+  ensureChromeForTesting,
+  launchExternalStealthBrowser,
+};
 
-console.log('[Auto-Apply Engine] Initialized Playwright Stealth & Groq Free AI integration.');
+export type {
+  MasterProfile,
+  ApplyResult,
+  ResumeItem,
+  BrowserLaunchOptions,
+  BrowserSession,
+};

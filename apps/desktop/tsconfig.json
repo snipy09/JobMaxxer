@@ -1,14 +1,21 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "out",
-    "rootDir": "src",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "target": "ES2022",
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM"],
-    "types": ["node", "react", "react-dom"]
+    "types": ["node", "react", "react-dom"],
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "@job-automator/automation": ["../../packages/automation/src/index.ts"],
+      "@job-automator/scrapers": ["../../packages/scrapers/src/index.ts"],
+      "@job-automator/supabase": ["../../packages/supabase/src/index.ts"],
+      "@job-automator/email-verifier": ["../../packages/email-verifier/src/index.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "out"]

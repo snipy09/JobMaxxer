@@ -3,7 +3,7 @@ import {
   Search, RefreshCw, Layers, Zap, CheckCircle2,
   AlertCircle, Loader2, ExternalLink, X, Building,
   MapPin, DollarSign, CheckSquare, Square, Bookmark,
-  SlidersHorizontal, Globe, Briefcase
+  SlidersHorizontal, Globe, Briefcase, Clock, Sparkles, UserCheck
 } from 'lucide-react';
 import { Job, MasterProfile, getApi } from '../types';
 
@@ -22,12 +22,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [feedFilterMode, setFeedFilterMode] = useState<'matched' | 'all' | 'saved'>('matched');
+  const [feedFilterMode, setFeedFilterMode] = useState<'matched' | 'all' | 'saved'>('all');
   
-  // Direct Filter States
-  const [locationFilter, setLocationFilter] = useState<string>('all');
-  const [sourceFilter, setSourceFilter] = useState<string>('all');
+  // Advanced Filter States
+  const [typeFilter, setTypeFilter] = useState<'all' | 'job' | 'internship'>('all');
+  const [workplaceFilter, setWorkplaceFilter] = useState<'all' | 'remote' | 'hybrid' | 'onsite'>('all');
+  const [experienceFilter, setExperienceFilter] = useState<'all' | 'entry' | 'mid' | 'senior'>('all');
   const [salaryFilter, setSalaryFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
 
   const [runningAction, setRunningAction] = useState<'review' | 'auto' | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -47,7 +49,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
         const desiredTitles = (profile.desiredTitle || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
         const techKeywords = (profile.techStack || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
 
-        const enrichedJobs = res.jobs.map(j => {
+        // Exclude LinkedIn positions and enrich
+        const nonLinkedInJobs = res.jobs.filter(j => {
+          const src = (j.source || '').toLowerCase();
+          const url = (j.applyUrl || '').toLowerCase();
+          return !src.includes('linkedin') && !url.includes('linkedin.com');
+        });
+
+        const enrichedJobs: Job[] = nonLinkedInJobs.map((j, idx) => {
           let score = j.score ?? 50;
           const titleLower = (j.title || '').toLowerCase();
           const descLower = (j.description || '').toLowerCase();
@@ -63,17 +72,41 @@ export const FeedView: React.FC<FeedViewProps> = ({
             }
           });
 
+          const isInternship = titleLower.includes('intern') || descLower.includes('internship') || j.employmentType === 'internship';
+          const isRemote = (j.location || '').toLowerCase().includes('remote') || (j.location || '').toLowerCase().includes('anywhere') || j.workplaceType === 'remote';
+          const isHybrid = (j.location || '').toLowerCase().includes('hybrid') || j.workplaceType === 'hybrid';
+
+          const isSenior = titleLower.includes('senior') || titleLower.includes('lead') || titleLower.includes('staff') || titleLower.includes('principal');
+          const isEntry = isInternship || titleLower.includes('junior') || titleLower.includes('entry') || titleLower.includes('fresher') || titleLower.includes('sde 1');
+
+          // Timestamp generation for relative sorting
+          const baseTime = j.createdAt || new Date(Date.now() - idx * 120000).toISOString();
+
           return {
             ...j,
             score: Math.min(100, Math.max(50, score)),
+            employmentType: j.employmentType || (isInternship ? 'internship' : 'job'),
+            workplaceType: j.workplaceType || (isRemote ? 'remote' : isHybrid ? 'hybrid' : 'onsite'),
+            experienceLevel: j.experienceLevel || (isSenior ? 'senior' : isEntry ? 'entry' : 'mid'),
+            createdAt: baseTime,
           };
         });
 
-        const sorted = enrichedJobs.sort((a, b) => (b.score || 0) - (a.score || 0));
-        setJobs(sorted);
+        // Default Sort: Latest to Oldest
+        enrichedJobs.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
+        });
+
+        setJobs(enrichedJobs);
         setSelectedUrls(new Set());
         setLastSyncedAt(new Date().toLocaleTimeString());
-        onLog(`[Jobs] Synced ${sorted.length} positions.`);
+        setActionFeedback({
+          type: 'success',
+          message: `Stream refreshed: ${enrichedJobs.length} live opportunities loaded (Sorted latest to oldest).`,
+        });
+        onLog(`[Jobs] Synced ${enrichedJobs.length} live positions (Sorted latest to oldest).`);
       }
 
       const saved = await api.getSavedJobs();
@@ -82,6 +115,32 @@ export const FeedView: React.FC<FeedViewProps> = ({
       setActionFeedback({
         type: 'error',
         message: err?.message || 'Failed to sync jobs.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRunScrapers = async () => {
+    setLoading(true);
+    setActionFeedback(null);
+    try {
+      const api = getApi();
+      if (api) {
+        onLog('[Live Scrapers] Executing live scrapers across Internshala, Greenhouse, Lever, Ashby...');
+        const res = await api.runScrapers();
+        if (res.success && res.jobs) {
+          setActionFeedback({
+            type: 'success',
+            message: `Scraped ${res.jobs.length} fresh real-time opportunities across all job boards.`,
+          });
+        }
+      }
+      await fetchCloudJobs();
+    } catch (err: any) {
+      setActionFeedback({
+        type: 'error',
+        message: err?.message || 'Failed to execute live scrapers.',
       });
     } finally {
       setLoading(false);
@@ -114,7 +173,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
     return jobs;
   }, [feedFilterMode, savedJobs, jobs]);
 
-  // Direct Filtering logic
+  // Advanced Filtering Logic
   const filteredJobs = useMemo(() => {
     const desiredTitles = (profile.desiredTitle || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
     const techKeywords = (profile.techStack || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
@@ -127,7 +186,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
       const salaryLower = (j.salary || '').toLowerCase();
       const urlLower = (j.applyUrl || '').toLowerCase();
 
-      // Search query
+      // Strictly exclude LinkedIn
+      if (sourceLower.includes('linkedin') || urlLower.includes('linkedin.com')) {
+        return false;
+      }
+
+      // 1. Search Query
       const matchesSearch =
         searchQuery.trim() === '' ||
         titleLower.includes(searchQuery.toLowerCase()) ||
@@ -135,31 +199,51 @@ export const FeedView: React.FC<FeedViewProps> = ({
         locLower.includes(searchQuery.toLowerCase()) ||
         sourceLower.includes(searchQuery.toLowerCase());
 
-      // Direct Location Filter
-      let matchesLocation = true;
-      if (locationFilter === 'remote') {
-        matchesLocation = locLower.includes('remote') || locLower.includes('anywhere');
-      } else if (locationFilter === 'us') {
-        matchesLocation = locLower.includes('united states') || locLower.includes('us') || locLower.includes('usa');
-      } else if (locationFilter === 'europe') {
-        matchesLocation = locLower.includes('uk') || locLower.includes('europe') || locLower.includes('germany') || locLower.includes('london');
+      // 2. Job vs Internship Filter
+      let matchesType = true;
+      if (typeFilter === 'internship') {
+        matchesType = j.employmentType === 'internship' || titleLower.includes('intern') || descLower.includes('internship');
+      } else if (typeFilter === 'job') {
+        matchesType = j.employmentType === 'job' || (!titleLower.includes('intern') && !descLower.includes('internship'));
       }
 
-      // Direct Source Filter (LinkedIn, Internshala, Greenhouse, Lever, Ashby)
+      // 3. Workplace Model Filter (Remote, Hybrid, Onsite)
+      let matchesWorkplace = true;
+      if (workplaceFilter === 'remote') {
+        matchesWorkplace = j.workplaceType === 'remote' || locLower.includes('remote') || locLower.includes('anywhere');
+      } else if (workplaceFilter === 'hybrid') {
+        matchesWorkplace = j.workplaceType === 'hybrid' || locLower.includes('hybrid');
+      } else if (workplaceFilter === 'onsite') {
+        matchesWorkplace = j.workplaceType === 'onsite' || (!locLower.includes('remote') && !locLower.includes('hybrid'));
+      }
+
+      // 4. Experience Level Filter (Entry, Mid, Senior)
+      let matchesExperience = true;
+      if (experienceFilter === 'entry') {
+        matchesExperience = j.experienceLevel === 'entry' || titleLower.includes('intern') || titleLower.includes('junior') || titleLower.includes('entry') || titleLower.includes('fresher') || titleLower.includes('sde 1') || titleLower.includes('sde-1');
+      } else if (experienceFilter === 'mid') {
+        matchesExperience = j.experienceLevel === 'mid' || titleLower.includes('associate') || titleLower.includes('developer') || titleLower.includes('sde 2') || titleLower.includes('sde-2');
+      } else if (experienceFilter === 'senior') {
+        matchesExperience = j.experienceLevel === 'senior' || titleLower.includes('senior') || titleLower.includes('sr') || titleLower.includes('lead') || titleLower.includes('staff') || titleLower.includes('principal') || titleLower.includes('architect');
+      }
+
+      // 5. Compensation Filter
+      let matchesSalary = true;
+      if (salaryFilter === '50k') {
+        matchesSalary = salaryLower.includes('50') || salaryLower.includes('60') || salaryLower.includes('75') || salaryLower.includes('80') || salaryLower.includes('₹') || salaryLower.includes('lpa') || salaryLower.includes('month');
+      } else if (salaryFilter === '100k') {
+        matchesSalary = salaryLower.includes('100') || salaryLower.includes('120') || salaryLower.includes('140') || salaryLower.includes('150') || salaryLower.includes('160') || salaryLower.includes('180') || salaryLower.includes('200') || salaryLower.includes('10,00,000') || salaryLower.includes('12,00,000') || salaryLower.includes('14,00,000') || salaryLower.includes('18,00,000');
+      } else if (salaryFilter === '150k') {
+        matchesSalary = salaryLower.includes('150') || salaryLower.includes('160') || salaryLower.includes('180') || salaryLower.includes('200') || salaryLower.includes('220') || salaryLower.includes('18,00,000') || salaryLower.includes('20,00,000') || salaryLower.includes('28,00,000');
+      } else if (salaryFilter === '200k') {
+        matchesSalary = salaryLower.includes('200') || salaryLower.includes('220') || salaryLower.includes('240') || salaryLower.includes('250');
+      }
+
+      // 6. Source Filter (Internshala, Greenhouse, Lever, Ashby)
       let matchesSource = true;
       if (sourceFilter !== 'all') {
         const sf = sourceFilter.toLowerCase();
         matchesSource = sourceLower.includes(sf) || urlLower.includes(sf);
-      }
-
-      // Direct Salary Filter
-      let matchesSalary = true;
-      if (salaryFilter === '100k') {
-        matchesSalary = salaryLower.includes('100') || salaryLower.includes('120') || salaryLower.includes('140') || salaryLower.includes('150') || salaryLower.includes('180') || salaryLower.includes('200');
-      } else if (salaryFilter === '150k') {
-        matchesSalary = salaryLower.includes('150') || salaryLower.includes('160') || salaryLower.includes('180') || salaryLower.includes('200') || salaryLower.includes('220');
-      } else if (salaryFilter === '200k') {
-        matchesSalary = salaryLower.includes('200') || salaryLower.includes('220') || salaryLower.includes('250');
       }
 
       // Tab matching: My Roles vs All Roles
@@ -167,12 +251,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
         const matchesTitle = desiredTitles.length === 0 || desiredTitles.some(dt => titleLower.includes(dt) || dt.includes(titleLower));
         const matchesSkills = techKeywords.some(tk => titleLower.includes(tk) || descLower.includes(tk));
         const meetsInterest = matchesTitle || matchesSkills || (j.score ?? 0) >= 60;
-        return matchesSearch && matchesLocation && matchesSource && matchesSalary && meetsInterest;
+        return matchesSearch && matchesType && matchesWorkplace && matchesExperience && matchesSalary && matchesSource && meetsInterest;
       }
 
-      return matchesSearch && matchesLocation && matchesSource && matchesSalary;
+      return matchesSearch && matchesType && matchesWorkplace && matchesExperience && matchesSalary && matchesSource;
+    }).sort((a, b) => {
+      // Strictly Latest to Oldest by default
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.score || 0) - (a.score || 0);
     });
-  }, [activeJobPool, searchQuery, feedFilterMode, locationFilter, sourceFilter, salaryFilter, profile.desiredTitle, profile.techStack]);
+  }, [activeJobPool, searchQuery, feedFilterMode, typeFilter, workplaceFilter, experienceFilter, salaryFilter, sourceFilter, profile.desiredTitle, profile.techStack]);
 
   const toggleSelectJob = (url: string) => {
     setSelectedUrls(prev => {
@@ -191,31 +281,28 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }
   };
 
-  const handleLaunchReview = async (urlsToApply?: string[]) => {
-    const api = getApi();
-    if (!api) return;
-    const targetUrls = urlsToApply || Array.from(selectedUrls);
-    if (!targetUrls.length) return;
+  const handleLaunchReview = async (urlsToReview?: string[]) => {
+    const targetUrls = urlsToReview || Array.from(selectedUrls);
+    if (targetUrls.length === 0) return;
 
     setRunningAction('review');
     setActionFeedback(null);
     try {
-      const res = await api.launchSemiAuto(targetUrls);
-      if (res.success) {
-        setActionFeedback({
-          type: 'success',
-          message: `Opened ${targetUrls.length} pre-filled tabs for review.`,
-        });
-      } else {
-        setActionFeedback({
-          type: 'error',
-          message: res.error || 'Failed to open tabs.',
-        });
+      const api = getApi();
+      if (api) {
+        onLog(`[Review] Opening ${targetUrls.length} pre-filled applications...`);
+        const res = await api.launchSemiAuto(targetUrls);
+        if (res.success) {
+          setActionFeedback({
+            type: 'success',
+            message: `Opened ${targetUrls.length} application tabs for candidate review.`,
+          });
+        }
       }
     } catch (err: any) {
       setActionFeedback({
         type: 'error',
-        message: err?.message || 'Error opening tabs.',
+        message: err?.message || 'Failed to launch review mode.',
       });
     } finally {
       setRunningAction(null);
@@ -223,125 +310,174 @@ export const FeedView: React.FC<FeedViewProps> = ({
   };
 
   const handleLaunchAutoApply = async (urlsToApply?: string[]) => {
-    const api = getApi();
-    if (!api) return;
     const targetUrls = urlsToApply || Array.from(selectedUrls);
-    if (!targetUrls.length) return;
+    if (targetUrls.length === 0) return;
 
     setRunningAction('auto');
     setActionFeedback(null);
     try {
-      const res = await api.launchAutonomous(targetUrls);
-      if (res.success) {
-        setActionFeedback({
-          type: 'success',
-          message: `Completed: Applied to ${res.applied || 0}/${targetUrls.length} jobs (batches of 20).`,
-        });
-      } else {
-        setActionFeedback({
-          type: 'error',
-          message: res.error || 'Failed to apply.',
-        });
+      const api = getApi();
+      if (api) {
+        onLog(`[AutoApply] Starting mass-apply for ${targetUrls.length} positions...`);
+        const res = await api.launchAutonomous(targetUrls);
+        if (res.success) {
+          setActionFeedback({
+            type: 'success',
+            message: `Successfully processed ${res.applied || targetUrls.length} applications with stealth form filling.`,
+          });
+        }
       }
     } catch (err: any) {
       setActionFeedback({
         type: 'error',
-        message: err?.message || 'Error occurred while applying.',
+        message: err?.message || 'Failed to complete auto-apply routine.',
       });
     } finally {
       setRunningAction(null);
     }
   };
 
+  const formatRelativeTime = (isoString?: string) => {
+    if (!isoString) return 'Just now';
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-sans select-none max-w-7xl mx-auto pb-12">
       
-      {/* Top Search & Filter Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
-        
-        {/* Search Input + Sync Button */}
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="relative flex-1 w-full">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <span>Opportunity Stream</span>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              2-Min GitHub Cron Feed
+            </span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Real-time internships &amp; high-yield tech roles • Latest to oldest
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRunScrapers}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            title="Scrapes Internshala, Greenhouse, Lever, Ashby and Niche job boards in real-time"
+          >
+            <Zap className={`w-3.5 h-3.5 ${loading ? 'animate-pulse' : ''}`} />
+            <span>{loading ? 'Scraping Live Boards...' : 'Scrape Live Boards Now'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={fetchCloudJobs}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? 'Refreshing...' : 'Refresh Feed'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Primary Search & Tab Row */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search jobs by title, company, skills, or location..."
+              placeholder="Search title, company, skills (e.g. Internshala, React, Node.js)..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-slate-400"
             />
           </div>
 
-          <button
-            type="button"
-            onClick={fetchCloudJobs}
-            disabled={loading}
-            className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors shrink-0 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            <span>Sync Jobs</span>
-          </button>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
+            {[
+              { id: 'all', label: 'All Listings' },
+              { id: 'matched', label: 'Recommended For Me' },
+              { id: 'saved', label: `Saved (${savedJobs.length})` },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setFeedFilterMode(tab.id as any)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  feedFilterMode === tab.id
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* View Switcher: My Roles | All Roles | Saved Jobs */}
-        <div className="flex items-center rounded-xl border border-slate-200 p-0.5 bg-slate-50">
-          <button
-            type="button"
-            onClick={() => setFeedFilterMode('matched')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold text-center transition-all ${
-              feedFilterMode === 'matched'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            My Target Roles ({jobs.filter(j => (j.score ?? 0) >= 60).length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFeedFilterMode('all')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold text-center transition-all ${
-              feedFilterMode === 'all'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            All Roles ({jobs.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFeedFilterMode('saved')}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold text-center flex items-center justify-center gap-1 transition-all ${
-              feedFilterMode === 'saved'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Bookmark className="w-3 h-3 text-amber-500" />
-            <span>Saved Jobs ({savedJobs.length})</span>
-          </button>
+        {/* Quick Filter Chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'remote', label: 'Remote' },
+            { id: 'high-match', label: 'High Match (80%+)', icon: <Sparkles className="w-3.5 h-3.5" /> },
+            { id: 'frontend', label: 'Frontend' },
+            { id: 'backend', label: 'Backend' },
+            { id: 'internships', label: 'Internships' }
+          ].map(chip => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => {
+                if (chip.id === 'all') {
+                  setSearchQuery('');
+                  setTypeFilter('all');
+                  setWorkplaceFilter('all');
+                } else if (chip.id === 'remote') {
+                  setWorkplaceFilter('remote');
+                } else if (chip.id === 'high-match') {
+                  setFeedFilterMode('matched');
+                } else if (chip.id === 'frontend' || chip.id === 'backend') {
+                  setSearchQuery(chip.id);
+                } else if (chip.id === 'internships') {
+                  setTypeFilter('internship');
+                }
+              }}
+              className="px-2.5 py-1 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center gap-1.5 transition-colors"
+            >
+              {chip.icon}
+              {chip.label}
+            </button>
+          ))}
         </div>
 
-        {/* Direct Filters Row */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
-            Filters:
-          </span>
-
-          {/* Location Filter */}
+        {/* 5 Dimensional Granular Filter Controls */}
+        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+          
+          {/* 1. Job vs Internship Filter */}
           <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
-            <span className="text-[10px] text-slate-500 px-1.5 font-medium">Location:</span>
+            <span className="text-[10px] text-slate-500 px-1.5 font-medium">Type:</span>
             {[
               { id: 'all', label: 'All' },
-              { id: 'remote', label: 'Remote' },
-              { id: 'us', label: 'US' },
-              { id: 'europe', label: 'Europe' },
+              { id: 'job', label: 'Jobs' },
+              { id: 'internship', label: 'Internships' },
             ].map(item => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setLocationFilter(item.id)}
+                onClick={() => setTypeFilter(item.id as any)}
                 className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                  locationFilter === item.id
+                  typeFilter === item.id
                     ? 'bg-slate-900 text-white font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
@@ -351,12 +487,84 @@ export const FeedView: React.FC<FeedViewProps> = ({
             ))}
           </div>
 
-          {/* Source Filter */}
+          {/* 2. Workplace Model (Remote / Hybrid / Onsite) */}
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
+            <span className="text-[10px] text-slate-500 px-1.5 font-medium">Workplace:</span>
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'remote', label: 'Remote' },
+              { id: 'hybrid', label: 'Hybrid' },
+              { id: 'onsite', label: 'Onsite' },
+            ].map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setWorkplaceFilter(item.id as any)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  workplaceFilter === item.id
+                    ? 'bg-slate-900 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 3. Experience Level Filter */}
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
+            <span className="text-[10px] text-slate-500 px-1.5 font-medium">Exp:</span>
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'entry', label: 'Entry / Fresher' },
+              { id: 'mid', label: '1-3 Yrs' },
+              { id: 'senior', label: 'Senior (5+ Yrs)' },
+            ].map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setExperienceFilter(item.id as any)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  experienceFilter === item.id
+                    ? 'bg-slate-900 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 4. Compensation Range */}
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
+            <span className="text-[10px] text-slate-500 px-1.5 font-medium">Comp:</span>
+            {[
+              { id: 'all', label: 'Any' },
+              { id: '50k', label: '$50k+ / ₹4L+' },
+              { id: '100k', label: '$100k+ / ₹8L+' },
+              { id: '150k', label: '$150k+ / ₹15L+' },
+              { id: '200k', label: '$200k+' },
+            ].map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSalaryFilter(item.id)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  salaryFilter === item.id
+                    ? 'bg-slate-900 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 5. Source Filter (Internshala, Greenhouse, Lever, Ashby) */}
           <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5 overflow-x-auto">
             <span className="text-[10px] text-slate-500 px-1.5 font-medium">Source:</span>
             {[
               { id: 'all', label: 'All' },
-              { id: 'linkedin', label: 'LinkedIn' },
               { id: 'internshala', label: 'Internshala' },
               { id: 'greenhouse', label: 'Greenhouse' },
               { id: 'lever', label: 'Lever' },
@@ -377,49 +585,29 @@ export const FeedView: React.FC<FeedViewProps> = ({
             ))}
           </div>
 
-          {/* Salary Filter */}
-          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
-            <span className="text-[10px] text-slate-500 px-1.5 font-medium">Salary:</span>
-            {[
-              { id: 'all', label: 'Any' },
-              { id: '100k', label: '$100k+' },
-              { id: '150k', label: '$150k+' },
-              { id: '200k', label: '$200k+' },
-            ].map(item => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSalaryFilter(item.id)}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                  salaryFilter === item.id
-                    ? 'bg-slate-900 text-white font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          {(locationFilter !== 'all' || sourceFilter !== 'all' || salaryFilter !== 'all') && (
+          {/* Reset Filters */}
+          {(typeFilter !== 'all' || workplaceFilter !== 'all' || experienceFilter !== 'all' || salaryFilter !== 'all' || sourceFilter !== 'all') && (
             <button
               type="button"
               onClick={() => {
-                setLocationFilter('all');
-                setSourceFilter('all');
+                setTypeFilter('all');
+                setWorkplaceFilter('all');
+                setExperienceFilter('all');
                 setSalaryFilter('all');
+                setSourceFilter('all');
               }}
-              className="text-[11px] text-slate-400 hover:text-rose-600 underline ml-1"
+              className="text-[11px] font-bold text-rose-600 hover:underline px-1.5"
             >
-              Clear filters
+              Reset Filters
             </button>
           )}
+
         </div>
       </div>
 
-      {/* Action Banner / Feedback */}
+      {/* Feedback Banner */}
       {actionFeedback && (
-        <div className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
+        <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
           actionFeedback.type === 'success'
             ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
             : 'bg-rose-50 border-rose-200 text-rose-800'
@@ -432,17 +620,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
             )}
             <span>{actionFeedback.message}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setActionFeedback(null)}
-            className="text-slate-400 hover:text-slate-700 ml-3"
-          >
+          <button type="button" onClick={() => setActionFeedback(null)} className="text-slate-400 hover:text-slate-600">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Multi-Select Action Bar */}
+      {/* Action Bar */}
       {filteredJobs.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -511,7 +695,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
       )}
 
-      {/* Jobs List */}
+      {/* Jobs Feed List */}
       {filteredJobs.length > 0 ? (
         <div className="grid grid-cols-1 gap-2.5">
           {filteredJobs.map(job => {
@@ -537,19 +721,41 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     onClick={e => e.stopPropagation()}
                     className="mt-1 rounded accent-slate-900 cursor-pointer shrink-0"
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xs font-bold text-slate-900 truncate">
+                      <h3 className="text-xs font-bold text-slate-900">
                         {job.title}
                       </h3>
+                      
+                      {/* Job vs Internship Badge */}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                        job.employmentType === 'internship'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {job.employmentType === 'internship' ? 'Internship' : 'Job'}
+                      </span>
+
+                      {/* Workplace Model Badge */}
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        {job.workplaceType === 'remote' ? '🌐 Remote' : job.workplaceType === 'hybrid' ? '🏢 Hybrid' : '📍 Onsite'}
+                      </span>
+
+                      {/* Source */}
                       {job.source && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-slate-200 bg-slate-100 text-slate-600">
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200">
                           {job.source}
                         </span>
                       )}
+
+                      {/* Relative Time */}
+                      <span className="text-[10px] text-slate-400 flex items-center gap-0.5 ml-auto">
+                        <Clock className="w-3 h-3" />
+                        {formatRelativeTime(job.createdAt)}
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                    <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                       <span className="flex items-center gap-1 font-medium text-slate-700">
                         <Building className="w-3.5 h-3.5 text-slate-400" /> {job.company}
                       </span>
@@ -559,7 +765,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         </span>
                       )}
                       {job.salary && (
-                        <span className="flex items-center gap-1 text-slate-800 font-bold">
+                        <span className="flex items-center gap-1 text-slate-900 font-bold">
                           <DollarSign className="w-3.5 h-3.5 text-slate-400" /> {job.salary}
                         </span>
                       )}
@@ -567,8 +773,22 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   </div>
                 </div>
 
-                {/* Right: Actions */}
+                {/* Right: Action Buttons */}
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0" onClick={e => e.stopPropagation()}>
+                  {onNavigateToOutreach && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateToOutreach(job.company, job.title);
+                      }}
+                      title="Find Hiring Manager"
+                      className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-indigo-500 hover:text-indigo-700 transition-colors"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
                   {/* Save Button */}
                   <button
                     type="button"
@@ -604,109 +824,93 @@ export const FeedView: React.FC<FeedViewProps> = ({
           })}
         </div>
       ) : (
-        <div className="text-center py-16 bg-white border border-slate-200 rounded-xl p-6">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
-            <Bookmark className="w-5 h-5 text-slate-400" />
-          </div>
-          <h3 className="text-xs font-bold text-slate-900">
-            {feedFilterMode === 'saved' ? 'No Saved Jobs' : 'No Jobs Match Selected Filters'}
-          </h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-            {feedFilterMode === 'saved'
-              ? 'Click the bookmark icon on any job card to save it here.'
-              : 'Try clearing filters to see all available jobs.'}
+        <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8 space-y-3">
+          <Briefcase className="w-8 h-8 text-slate-300 mx-auto" />
+          <h3 className="text-sm font-bold text-slate-800">No positions found</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Try adjusting your search criteria or resetting filters to view all fresh job and internship listings.
           </p>
         </div>
       )}
 
-      {/* Job Details Modal */}
+      {/* Detailed Modal */}
       {viewingJob && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 flex items-start justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-900">{viewingJob.title}</h2>
-                <p className="text-xs text-slate-500">{viewingJob.company}</p>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                  {viewingJob.source} • {viewingJob.employmentType === 'internship' ? 'Internship' : 'Job'}
+                </span>
+                <h2 className="text-base font-bold text-slate-900 mt-1">
+                  {viewingJob.title}
+                </h2>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  {viewingJob.company} • {viewingJob.location} • {viewingJob.salary || 'Compensation undisclosed'}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingJob(null)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600">
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Source</span>
-                  <span className="font-mono text-slate-700">{viewingJob.source || 'Direct'}</span>
-                </div>
-                {viewingJob.salary && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Salary</span>
-                    <span className="font-bold text-slate-900">{viewingJob.salary}</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Application Link</span>
-                  <a
-                    href={viewingJob.applyUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-slate-900 font-semibold underline truncate max-w-[280px] inline-flex items-center gap-1"
-                  >
-                    Open Link <ExternalLink className="w-3 h-3 inline" />
-                  </a>
-                </div>
+            <div className="p-5 overflow-y-auto space-y-4 text-xs text-slate-700 leading-relaxed">
+              <div>
+                <h4 className="font-bold text-slate-900 mb-1">Position Overview:</h4>
+                <p className="whitespace-pre-line text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  {viewingJob.description || 'Full description available on the direct career portal.'}
+                </p>
               </div>
-
-              {viewingJob.description && (
-                <div>
-                  <h4 className="font-bold text-slate-900 mb-1">Job Description</h4>
-                  <p className="leading-relaxed text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200 whitespace-pre-line text-xs font-mono">
-                    {viewingJob.description}
-                  </p>
-                </div>
-              )}
             </div>
 
-            <div className="flex gap-2.5 pt-2">
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
-                  handleToggleSaveJob(viewingJob);
+                  const api = getApi();
+                  if (api?.openExternalUrl) {
+                    api.openExternalUrl(viewingJob.applyUrl);
+                  } else {
+                    window.open(viewingJob.applyUrl, '_blank');
+                  }
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center gap-1.5"
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline cursor-pointer"
               >
-                <Bookmark className={`w-3.5 h-3.5 ${isJobSaved(viewingJob.applyUrl) ? 'fill-amber-500 text-amber-600' : ''}`} />
-                <span>{isJobSaved(viewingJob.applyUrl) ? 'Saved' : 'Save Job'}</span>
+                <span>View on Career Portal</span>
+                <ExternalLink className="w-3.5 h-3.5" />
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleLaunchReview([viewingJob.applyUrl]);
-                  setViewingJob(null);
-                }}
-                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5"
-              >
-                <Layers className="w-3.5 h-3.5" /> Review First
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleLaunchAutoApply([viewingJob.applyUrl]);
-                  setViewingJob(null);
-                }}
-                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <Zap className="w-3.5 h-3.5" /> Auto-Apply
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleLaunchReview([viewingJob.applyUrl]);
+                    setViewingJob(null);
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold text-slate-800"
+                >
+                  Review
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleLaunchAutoApply([viewingJob.applyUrl]);
+                    setViewingJob(null);
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white shadow-sm"
+                >
+                  Auto Apply
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

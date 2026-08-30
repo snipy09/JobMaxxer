@@ -1,4 +1,4 @@
-﻿import { runAllScrapers } from './index.js';
+import { runAllScrapers } from './index.js';
 
 async function test() {
   const jobs = await runAllScrapers();

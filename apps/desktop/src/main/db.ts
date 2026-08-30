@@ -1,6 +1,7 @@
 import initSqlJs, { Database } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 let db: Database | null = null;
 let dbFilePath = '';
@@ -13,7 +14,24 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
 
   dbFilePath = path.join(userDataPath, 'job_automator_local.db');
 
-  const SQL = await initSqlJs();
+  const locateWasm = (file: string) => {
+    let baseDir = process.cwd();
+    try {
+      baseDir = path.dirname(fileURLToPath(import.meta.url));
+    } catch {}
+
+    const candidates = [
+      path.join(baseDir, file),
+      path.join(baseDir, '..', '..', 'node_modules', 'sql.js', 'dist', file),
+      path.join(process.cwd(), 'node_modules', 'sql.js', 'dist', file),
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+    return file;
+  };
+
+  const SQL = await initSqlJs({ locateFile: locateWasm });
 
   // Load existing DB file if present, otherwise create fresh
   if (fs.existsSync(dbFilePath)) {
@@ -93,29 +111,25 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS app_users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL,
-      full_name TEXT NOT NULL,
-      role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),
-      tier TEXT DEFAULT 'pro' CHECK (tier IN ('pro', 'enterprise', 'lifetime')),
-      license_key TEXT UNIQUE,
-      status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
-      apps_count INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      expires_at DATETIME,
-      last_login DATETIME
-    );
-
-    CREATE TABLE IF NOT EXISTS billing_records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_email TEXT NOT NULL,
-      amount TEXT NOT NULL,
-      plan TEXT NOT NULL,
-      status TEXT DEFAULT 'paid' CHECK (status IN ('paid', 'pending', 'refunded')),
-      payment_method TEXT DEFAULT 'Stripe Card',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    -- Offline login cache. Supabase is the source of truth for accounts &
+    -- licensing (see migration 002_secure_rls.sql). We only cache the profile
+    -- of users who have ALREADY authenticated successfully against Supabase, so
+    -- the app keeps working for a short offline window. We never store plaintext
+    -- passwords — only the sha256("email:password") hash the server also stores.
+    CREATE TABLE IF NOT EXISTS user_cache (
+      email         TEXT PRIMARY KEY,
+      supabase_id   TEXT,
+      password_hash TEXT NOT NULL,
+      full_name     TEXT,
+      role          TEXT DEFAULT 'user',
+      tier          TEXT DEFAULT 'pro',
+      license_key   TEXT,
+      status        TEXT DEFAULT 'active',
+      apps_count    INTEGER DEFAULT 0,
+      created_at    TEXT,
+      expires_at    TEXT,
+      last_login    TEXT,
+      cached_at     DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
@@ -124,46 +138,25 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
   try { db.run(`ALTER TABLE master_profile ADD COLUMN onboarding_completed INTEGER DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN desired_title TEXT`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN tech_stack TEXT`); } catch {}
-  try { db.run(`ALTER TABLE app_users ADD COLUMN username TEXT`); } catch {}
 
-  // Clean up any legacy admin entries and ensure single master admin exists
+  // Purge v1 tables that stored plaintext credentials, demo accounts and the
+  // hardcoded master-admin login on the customer's machine. These are gone for
+  // good — accounts now live server-side in Supabase.
+  try { db.run(`DROP TABLE IF EXISTS app_users`); } catch {}
+  try { db.run(`DROP TABLE IF EXISTS billing_records`); } catch {}
+
+  // Ensure default master profile row exists
   try {
-    db.run(`DELETE FROM app_users WHERE username = 'admin' OR email = 'admin@jobmaxxer.com'`);
-    db.run(
-      `INSERT OR REPLACE INTO app_users (id, username, email, password, full_name, role, tier, license_key, status, apps_count, created_at)
-       VALUES (1, 'raksha', 'raksha@jobmaxxer.com', 'raksha@sajal', 'Raksha (Master Admin)', 'admin', 'lifetime', 'RAKSHA-MASTER-ADMIN-2026', 'active', 0, datetime('now', '-30 days'))`
-    );
-  } catch (err: any) {
-    console.warn('[SQLite] Error configuring master admin user:', err.message);
-  }
-
-  // Seed demo clients if app_users only has admin
-  try {
-    const userCheck = db.exec('SELECT COUNT(*) as count FROM app_users');
-    const userCount = userCheck.length && userCheck[0].values.length ? Number(userCheck[0].values[0][0]) : 0;
-    if (userCount <= 1) {
-      // 1. Seed Demo Active Buyers
+    const profCheck = db.exec('SELECT COUNT(*) as count FROM master_profile WHERE id = 1');
+    const profCount = profCheck.length && profCheck[0].values.length ? Number(profCheck[0].values[0][0]) : 0;
+    if (profCount === 0) {
       db.run(
-        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at, last_login)
-         VALUES 
-         ('lucas.trial@gmail.com', 'pass123', 'Lucas Meyer', 'user', 'trial', 'JMX-TRL-1092-7712', 'active', 15, datetime('now', '-2 days'), datetime('now', '+5 days'), datetime('now', '-1 hour')),
-         ('alex.dev@gmail.com', 'pass123', 'Alex Vance', 'user', 'pro', 'JMX-PRO-9842-8821', 'active', 142, datetime('now', '-12 days'), datetime('now', '+18 days'), datetime('now', '-2 hours')),
-         ('elena.cloud@outlook.com', 'pass123', 'Elena Rostova', 'user', 'max', 'JMX-MAX-4412-9901', 'active', 318, datetime('now', '-25 days'), datetime('now', '+5 days'), datetime('now', '-30 minutes')),
-         ('sarah.react@yahoo.com', 'pass123', 'Sarah Jenkins', 'user', 'lifetime', 'JMX-LIFE-5501-3329', 'active', 450, datetime('now', '-40 days'), NULL, datetime('now', '-4 hours'))`
-      );
-
-      // 2. Seed Initial Billing Transactions
-      db.run(
-        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
-         VALUES
-         ('elena.cloud@outlook.com', '$99.00', 'Max Plan ($99/mo)', 'paid', 'Stripe Card (Visa •••• 4242)', datetime('now', '-25 days')),
-         ('sarah.react@yahoo.com', '$299.00', 'Lifetime Founder License', 'paid', 'Stripe Card (Mastercard •••• 8821)', datetime('now', '-40 days')),
-         ('alex.dev@gmail.com', '$49.00', 'Pro Plan ($49/mo)', 'paid', 'Stripe Card (Visa •••• 1092)', datetime('now', '-12 days')),
-         ('lucas.trial@gmail.com', '$0.00', '7-Day Free Trial', 'paid', 'Direct Trial Activation', datetime('now', '-2 days'))`
+        `INSERT OR IGNORE INTO master_profile (id, first_name, last_name, email, phone, desired_title, tech_stack, sponsorship, onboarding_completed)
+         VALUES (1, 'Candidate', 'User', 'candidate@example.com', '+1 555-0100', 'Software Engineer, Full Stack Engineer', 'TypeScript, React, Node.js', 'No', 1)`
       );
     }
   } catch (err: any) {
-    console.warn('[SQLite] Error seeding admin/billing defaults:', err.message);
+    console.warn('[SQLite] Error seeding master profile default:', err.message);
   }
 
   persistDb();

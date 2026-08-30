@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-contextBridge.exposeInMainWorld('electronAPI', {
+const apiObj = {
   getMasterProfile: () => ipcRenderer.invoke('get-master-profile'),
   saveMasterProfile: (data: Record<string, unknown>) => ipcRenderer.invoke('save-master-profile', data),
   getResumes: () => ipcRenderer.invoke('get-resumes'),
@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   launchSemiAuto: (jobUrls: string[]) => ipcRenderer.invoke('launch-semi-auto', jobUrls),
   launchAutonomous: (jobUrls: string[]) => ipcRenderer.invoke('launch-autonomous', jobUrls),
   verifyEmail: (email: string) => ipcRenderer.invoke('verify-email', email),
+  getHrContacts: (targetRole?: string) => ipcRenderer.invoke('get-hr-contacts', targetRole),
   sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string }>) =>
     ipcRenderer.invoke('send-outreach', contacts),
   getApplications: () => ipcRenderer.invoke('get-applications'),
@@ -25,6 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startHeartbeat: (userId: string, sessionToken: string, deviceFingerprint: string) =>
     ipcRenderer.invoke('start-heartbeat', { userId, sessionToken, deviceFingerprint }),
   stopHeartbeat: () => ipcRenderer.invoke('stop-heartbeat'),
+  syncCloudData: () => ipcRenderer.invoke('sync-cloud-data'),
+  getDeviceInfo: () => ipcRenderer.invoke('get-device-info'),
   onLog: (cb: (m: string) => void) => {
     const handler = (_: unknown, msg: string) => cb(msg);
     ipcRenderer.on('log', handler);
@@ -35,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('heartbeat-status', handler);
     return () => ipcRenderer.removeListener('heartbeat-status', handler);
   },
+  openExternalUrl: (url: string) => ipcRenderer.invoke('open-external-url', url),
 
   // Admin & Authentication APIs
   authLogin: (credentials: Record<string, unknown>) => ipcRenderer.invoke('auth-login', credentials),
@@ -45,4 +49,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adminGetBilling: () => ipcRenderer.invoke('admin-get-billing'),
   adminCreateBillingRecord: (record: Record<string, unknown>) => ipcRenderer.invoke('admin-create-billing-record', record),
   adminGetMetrics: () => ipcRenderer.invoke('admin-get-metrics'),
-});
+};
+
+contextBridge.exposeInMainWorld('api', apiObj);
+contextBridge.exposeInMainWorld('electronAPI', apiObj);

@@ -1,9 +1,10 @@
-﻿{
+{
   "name": "@job-automator/email-verifier",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {
+    "@job-automator/automation": "file:../automation",
     "nodemailer": "^6.9.9"
   },
   "devDependencies": {

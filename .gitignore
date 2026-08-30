@@ -11,6 +11,7 @@ pnpm-debug.log*
 dist/
 out/
 build/
+dist-electron/
 .vite/
 *.tsbuildinfo
 

@@ -18,20 +18,20 @@ const DEFAULT_TEMPLATES: TemplateOption[] = [
   {
     id: 'direct_referral',
     name: 'Direct Referral Request',
-    subject: 'Referral inquiry regarding {{role}} at {{company}}',
-    body: `Hi {{name}},\n\nHope you're having a great week! I came across your profile at {{company}} and wanted to reach out regarding the open {{role}} role. With my background in {{skills}}, I'd be very grateful for a referral or any advice on navigating the application process.\n\nWould you be open to a brief chat?\n\nBest regards,\n{{senderName}}`,
+    subject: 'Inquiry regarding {{role}} role at {{company}}',
+    body: `Hi {{name}},\n\nHope you're having a great week! I came across your profile at {{company}} and wanted to reach out regarding the open {{role}} role.\n\nWith my background in {{skills}}, I believe I'd be a strong fit for the team. I'd be very grateful for a referral or any advice on navigating the application process.\n\nWould you be open to a brief chat?\n\nBest regards,\n{{senderName}}`,
   },
   {
-    id: 'tech_match',
-    name: 'Technical Skill Match',
-    subject: '{{senderName}} - {{skills}} engineer interested in {{company}} {{role}}',
-    body: `Hi {{name}},\n\nI noticed {{company}} is scaling its engineering efforts for the {{role}} position. Having built high-performance systems using {{skills}}, I'd love to connect and learn more about your team's technical roadmap. Would you be open to referring me?\n\nBest,\n{{senderName}}`,
+    id: 'coffee_chat',
+    name: 'Alumni / Peer Coffee Chat',
+    subject: 'Fellow engineer reaching out / quick chat about {{company}}',
+    body: `Hey {{name}},\n\nI've been admiring the engineering culture at {{company}} and noticed we share similar interests in {{skills}}. I'm currently exploring {{role}} opportunities and would love to hear about your experience there.\n\nAre you free for a quick 5-minute virtual coffee chat sometime this week?\n\nBest,\n{{senderName}}`,
   },
   {
-    id: 'casual_intro',
-    name: 'Casual Networking Intro',
-    subject: 'Quick hello from a {{role}} / {{company}} admirer',
-    body: `Hey {{name}},\n\nI've been following {{company}}'s recent work and saw the open {{role}} role. Given my background across {{skills}}, I thought it made sense to reach out directly. Are you free for a quick 5-minute chat sometime soon?\n\nCheers,\n{{senderName}}`,
+    id: 'direct_pitch',
+    name: 'Direct Pitch with Portfolio',
+    subject: '{{senderName}} - {{role}} application for {{company}}',
+    body: `Hi {{name}},\n\nI noticed {{company}} is actively hiring for the {{role}} position. Having built high-performance systems using {{skills}}, I wanted to reach out directly.\n\nYou can view my recent work and portfolio on my GitHub/website. I'd love to connect and learn more about your team's technical roadmap.\n\nWould you be open to a quick intro?\n\nCheers,\n{{senderName}}`,
   },
 ];
 
@@ -56,127 +56,29 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog }) =>
   const [customBody, setCustomBody] = useState<string>(DEFAULT_TEMPLATES[0].body);
   const [showTemplateEditor, setShowTemplateEditor] = useState<boolean>(false);
 
-  // Sync role contacts based on candidate's profile
-  const syncRoleContacts = () => {
+  // Sync role contacts dynamically from Supabase database
+  const syncRoleContacts = async () => {
     setLoadingContacts(true);
     const desiredTitle = (profile.desiredTitle || 'Software Engineer').split(',')[0].trim();
+    const api = getApi();
 
-    const tailoredLeads: OutreachContact[] = [
-      // 1. MNC Engineering & Talent Leaders
-      {
-        name: 'David Chen',
-        company: 'Google',
-        role: `Director of Engineering (${desiredTitle})`,
-        email: 'davidchen@google.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Sarah Jenkins',
-        company: 'Microsoft',
-        role: `Lead Technical Recruiter - Azure Core`,
-        email: 'sarah.jenkins@microsoft.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Marcus Vance',
-        company: 'Amazon Web Services',
-        role: `Software Development Manager (SDM)`,
-        email: 'marcusv@amazon.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Rachel Miller',
-        company: 'Meta',
-        role: `Group Product Manager (GPM)`,
-        email: 'rachelmiller@meta.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Alex Rivera',
-        company: 'Stripe',
-        role: `Staff Engineer & Infrastructure Tech Lead`,
-        email: 'arivera@stripe.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'James Wilson',
-        company: 'Apple',
-        role: `Engineering Manager - Core OS & Cloud`,
-        email: 'j_wilson@apple.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
+    try {
+      if (api && typeof api.getHrContacts === 'function') {
+        const res = await api.getHrContacts(desiredTitle);
+        if (res.success && res.contacts && res.contacts.length > 0) {
+          setContacts(res.contacts);
+          setLoadingContacts(false);
+          setLastSyncedAt(new Date().toLocaleTimeString());
+          onLog(`[Referral Stream] Synced ${res.contacts.length} verified hiring managers from Supabase.`);
+          return;
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching HR contacts:', err);
+    }
 
-      // 2. High-Growth Startup Decision Makers & Founders
-      {
-        name: 'Elena Rostova',
-        company: 'Vercel',
-        role: `Head of Technical Talent & Recruiting`,
-        email: 'elena@vercel.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Priya Sharma',
-        company: 'Linear',
-        role: `Co-Founder & Head of Engineering`,
-        email: 'priya@linear.app',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Kevin Zhang',
-        company: 'Supabase',
-        role: `Engineering Lead (${desiredTitle})`,
-        email: 'kevin@supabase.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Chloe Taylor',
-        company: 'OpenAI',
-        role: `Technical Recruiting Partner - Systems`,
-        email: 'chloe@openai.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Daniel Novak',
-        company: 'Retool',
-        role: `Head of Product Management`,
-        email: 'daniel.novak@retool.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Sophia Patel',
-        company: 'Ramp',
-        role: `Senior Engineering Manager`,
-        email: 'sophia.patel@ramp.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-      {
-        name: 'Arjun Gupta',
-        company: 'PostHog',
-        role: `Lead Product Manager`,
-        email: 'arjun@posthog.com',
-        verificationStatus: 'valid',
-        sentStatus: 'unsent',
-      },
-    ];
-
-    setTimeout(() => {
-      setContacts(tailoredLeads);
-      setLoadingContacts(false);
-      setLastSyncedAt(new Date().toLocaleTimeString());
-      onLog(`[Referral Stream] Synced ${tailoredLeads.length} verified contacts for role: ${desiredTitle}`);
-    }, 400);
+    setLoadingContacts(false);
+    setLastSyncedAt(new Date().toLocaleTimeString());
   };
 
   useEffect(() => {
@@ -588,6 +490,18 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog }) =>
                         {isSent ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Sent ({contact.sentAt || 'Today'})
+                          </span>
+                        ) : contact.verificationStatus === 'valid' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Valid
+                          </span>
+                        ) : contact.verificationStatus === 'invalid' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                            <XCircle className="w-3 h-3 text-rose-600" /> Invalid
+                          </span>
+                        ) : contact.verificationStatus === 'risky' || contact.verificationStatus === 'catch-all' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                            <AlertCircle className="w-3 h-3 text-amber-600" /> Risky
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">

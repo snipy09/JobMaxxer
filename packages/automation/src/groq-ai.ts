@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Zero-Cost Dynamic Open-Ended Question Resolver
  * Uses Groq Free LLaMA 3.1 8B Cloud API (14,400 free requests/day)
  * Uses native fetch -- no axios or external HTTP libraries required.

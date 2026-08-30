@@ -1,4 +1,4 @@
-﻿export const ATS_FIELD_ALIASES: Record<string, string[]> = {
+export const ATS_FIELD_ALIASES: Record<string, string[]> = {
   firstName: ["first_name", "given-name", "fname", "first name", "applicant_first_name"],
   lastName: ["last_name", "family-name", "lname", "last name", "applicant_last_name"],
   fullName: ["name", "full_name", "full name", "applicant_name"],

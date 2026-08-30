@@ -1,8 +1,8 @@
 {
   "name": "job-automator-monorepo",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "private": true,
-  "description": "Commercial Grade Job Automator: High-Throughput Scrapers, Auto-Apply Engine, 4-Stage Email Verifier, Single-IP Security Desktop App",
+  "description": "JobMaxxer — Commercial Grade Job Automator: High-Throughput Scrapers, Auto-Apply Engine, 4-Stage Email Verifier, Single-IP Security Desktop App",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -17,6 +17,7 @@
     "email:verify": "tsx packages/email-verifier/src/index.ts",
     "postinstall": "npx playwright install chromium",
     "build:desktop": "npm run build --prefix apps/desktop",
+    "package:desktop": "npm run package:win --prefix apps/desktop",
     "dev:desktop": "npm run dev --prefix apps/desktop",
     "start:desktop": "npm run start --prefix apps/desktop"
   },
@@ -28,6 +29,10 @@
   "allowScripts": {
     "esbuild@0.28.2": true,
     "esbuild@0.21.5": true,
-    "electron@28.3.3": true
+    "electron@28.3.3": true,
+    "electron@31.7.7": true
+  },
+  "dependencies": {
+    "playwright": "^1.62.1"
   }
 }

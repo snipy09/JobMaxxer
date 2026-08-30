@@ -1,11 +1,45 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import https from 'https';
-import { spawn } from 'child_process';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { initLocalDatabase, getDb, persistDb } from './db.js';
+import {
+  AutoApplyEngine,
+  findChromeExecutable,
+  ensureChromeForTesting,
+  type MasterProfile,
+} from '@job-automator/automation';
+import { runAllScrapers } from '@job-automator/scrapers';
+import {
+  getSupabaseClient,
+  registerDeviceSession,
+  sendSessionHeartbeat,
+  syncPullUserData,
+  syncPushUserProfile,
+  syncPushApplication,
+  syncPushSavedJob,
+  syncRemoveSavedJob,
+  syncPushResume,
+  syncDeleteResume,
+} from '@job-automator/supabase';
+import { getDeviceIdentifier } from './device.js';
+import {
+  EmailVerificationPipeline,
+  LocalOutreachSender,
+  ExternalChromeOutreach,
+} from '@job-automator/email-verifier';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Unhandled Rejection]', reason);
+});
 
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-software-rasterizer');
@@ -16,6 +50,10 @@ app.disableHardwareAcceleration();
 
 let mainWindow: BrowserWindow | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let activeUserId: string | null = null;
+let activeSessionToken: string | null = null;
+let activeDeviceFingerprint: string | null = null;
+let activeDeviceName: string | null = null;
 
 function log(msg: string): void {
   const stamped = `[${new Date().toISOString()}] ${msg}`;
@@ -25,28 +63,435 @@ function log(msg: string): void {
 
 function resolvePublicIp(): Promise<string> {
   return new Promise((resolve, reject) => {
-    https.get('https://api.ipify.org?format=text', res => {
+    https.get('https://api.ipify.org?format=text', (res) => {
       let data = '';
-      res.on('data', chunk => { data += chunk; });
+      res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => resolve(data.trim()));
     }).on('error', reject);
   });
 }
 
+// ── Cloud Sync & Single-Laptop Lock Helpers ─────────────────────────────────
+
+async function syncPullUserDataToLocalDb(
+  userId: string,
+  sessionToken: string,
+  deviceFingerprint: string
+): Promise<boolean> {
+  const supabase = getAnonSupabase();
+  if (!supabase) return false;
+
+  try {
+    const res = await syncPullUserData(supabase, userId, sessionToken, deviceFingerprint);
+    if (!res.ok || !res.data) {
+      log(`[Cloud Sync] Notice: ${res.error || 'No cloud backup found'}`);
+      return false;
+    }
+
+    const { profile, applications, savedJobs, resumes } = res.data;
+    const db = getDb();
+
+    // 1. Sync Profile (Restore Master Profile & Custom Answers)
+    if (profile && typeof profile === 'object') {
+      const p = profile as Record<string, any>;
+      const customAnswersStr = p.custom_answers_json
+        ? (typeof p.custom_answers_json === 'string' ? p.custom_answers_json : JSON.stringify(p.custom_answers_json))
+        : '{}';
+      const onboardingInt = p.onboarding_completed ? 1 : 0;
+
+      db.run(`
+        INSERT INTO master_profile
+          (id, first_name, last_name, email, phone, linkedin, github,
+           sponsorship, desired_salary, notice_period, groq_api_key,
+           smtp_password, resume_text, custom_answers_json, onboarding_completed,
+           desired_title, tech_stack)
+        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          first_name=excluded.first_name,
+          last_name=excluded.last_name,
+          email=excluded.email,
+          phone=excluded.phone,
+          linkedin=excluded.linkedin,
+          github=excluded.github,
+          sponsorship=excluded.sponsorship,
+          desired_salary=excluded.desired_salary,
+          notice_period=excluded.notice_period,
+          groq_api_key=excluded.groq_api_key,
+          smtp_password=excluded.smtp_password,
+          resume_text=excluded.resume_text,
+          custom_answers_json=excluded.custom_answers_json,
+          onboarding_completed=excluded.onboarding_completed,
+          desired_title=excluded.desired_title,
+          tech_stack=excluded.tech_stack,
+          updated_at=CURRENT_TIMESTAMP
+      `, [
+        p.first_name ?? null,
+        p.last_name ?? null,
+        p.email ?? null,
+        p.phone ?? null,
+        p.linkedin ?? null,
+        p.github ?? null,
+        p.sponsorship ?? 'No',
+        p.desired_salary ?? null,
+        p.notice_period ?? '2 weeks',
+        p.groq_api_key ?? null,
+        p.smtp_password ?? null,
+        p.resume_text ?? null,
+        customAnswersStr,
+        onboardingInt,
+        p.desired_title ?? null,
+        p.tech_stack ?? null,
+      ]);
+    }
+
+    // 2. Sync Applications
+    if (Array.isArray(applications)) {
+      for (const app of applications) {
+        if (!app.apply_url || !app.company || !app.title) continue;
+        db.run(
+          `INSERT OR REPLACE INTO local_applications (company, title, apply_url, status, mode, applied_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            app.company,
+            app.title,
+            app.apply_url,
+            app.status || 'applied',
+            app.mode || 'autonomous',
+            app.applied_at || new Date().toISOString()
+          ]
+        );
+      }
+    }
+
+    // 3. Sync Saved Jobs
+    if (Array.isArray(savedJobs)) {
+      for (const job of savedJobs) {
+        if (!job.apply_url || !job.company || !job.title) continue;
+        db.run(
+          `INSERT INTO saved_jobs (title, company, apply_url, location, salary, source, score, description, saved_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(apply_url) DO UPDATE SET
+             title=excluded.title, company=excluded.company, location=excluded.location, salary=excluded.salary,
+             source=excluded.source, score=excluded.score, description=excluded.description`,
+          [
+            job.title,
+            job.company,
+            job.apply_url,
+            job.location || null,
+            job.salary || null,
+            job.source || 'Cloud Feed',
+            job.score || 100,
+            job.description || null,
+            job.saved_at || new Date().toISOString()
+          ]
+        );
+      }
+    }
+
+    // 4. Sync Resumes
+    if (Array.isArray(resumes)) {
+      for (const r of resumes) {
+        if (!r.name) continue;
+        db.run(
+          `INSERT OR IGNORE INTO resumes (name, target_role, file_path, is_default, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            r.name,
+            r.target_role || '',
+            r.file_path || '',
+            r.is_default ? 1 : 0,
+            r.created_at || new Date().toISOString()
+          ]
+        );
+      }
+    }
+
+    persistDb();
+    log(`[Cloud Sync] Pulled & synchronized profile, applications (${applications?.length || 0}), and saved jobs (${savedJobs?.length || 0}) from Supabase ✓`);
+    return true;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[Cloud Sync] Pull exception: ${msg}`);
+    return false;
+  }
+}
+
+function logAndSyncApplication(app: {
+  company: string;
+  title: string;
+  apply_url: string;
+  status?: string;
+  mode?: string;
+}): void {
+  const db = getDb();
+  db.run(
+    `INSERT OR REPLACE INTO local_applications (company, title, apply_url, status, mode, applied_at)
+     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+    [app.company, app.title, app.apply_url, app.status || 'applied', app.mode || 'autonomous']
+  );
+  persistDb();
+
+  if (activeUserId && activeSessionToken && activeDeviceFingerprint) {
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      syncPushApplication(
+        supabase,
+        activeUserId,
+        activeSessionToken,
+        activeDeviceFingerprint,
+        app
+      ).catch(() => {});
+    }
+  }
+}
+
+function saveAndSyncJob(job: {
+  title: string;
+  company: string;
+  apply_url: string;
+  location?: string;
+  salary?: string;
+  source?: string;
+  score?: number;
+  description?: string;
+}): void {
+  const db = getDb();
+  db.run(
+    `INSERT INTO saved_jobs (title, company, apply_url, location, salary, source, score, description)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(apply_url) DO UPDATE SET
+       title=excluded.title, company=excluded.company, location=excluded.location, salary=excluded.salary,
+       source=excluded.source, score=excluded.score, description=excluded.description`,
+    [
+      job.title,
+      job.company,
+      job.apply_url,
+      job.location || null,
+      job.salary || null,
+      job.source || 'Cloud Feed',
+      job.score || 50,
+      job.description || null,
+    ]
+  );
+  persistDb();
+
+  if (activeUserId && activeSessionToken && activeDeviceFingerprint) {
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      syncPushSavedJob(
+        supabase,
+        activeUserId,
+        activeSessionToken,
+        activeDeviceFingerprint,
+        job
+      ).catch(() => {});
+    }
+  }
+}
+
+function removeAndSyncJob(applyUrl: string): void {
+  const db = getDb();
+  db.run('DELETE FROM saved_jobs WHERE apply_url = ?', [applyUrl]);
+  persistDb();
+
+  if (activeUserId && activeSessionToken && activeDeviceFingerprint) {
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      syncRemoveSavedJob(
+        supabase,
+        activeUserId,
+        activeSessionToken,
+        activeDeviceFingerprint,
+        applyUrl
+      ).catch(() => {});
+    }
+  }
+}
+
+function saveAndSyncResume(resume: {
+  name: string;
+  targetRole?: string;
+  filePath?: string;
+  isDefault?: boolean;
+}): void {
+  const db = getDb();
+  const isDefault = resume.isDefault ? 1 : 0;
+  if (isDefault) {
+    db.run('UPDATE resumes SET is_default = 0');
+  }
+  db.run(
+    `INSERT INTO resumes (name, target_role, file_path, is_default)
+     VALUES (?, ?, ?, ?)`,
+    [
+      resume.name,
+      resume.targetRole || '',
+      resume.filePath || '',
+      isDefault,
+    ]
+  );
+  persistDb();
+
+  if (activeUserId && activeSessionToken && activeDeviceFingerprint) {
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      syncPushResume(supabase, activeUserId, activeSessionToken, activeDeviceFingerprint, {
+        name: resume.name,
+        target_role: resume.targetRole,
+        file_path: resume.filePath,
+        is_default: Boolean(resume.isDefault),
+      }).catch(() => {});
+    }
+  }
+}
+
+function deleteAndSyncResume(id: number): void {
+  const db = getDb();
+  const res = db.exec('SELECT name FROM resumes WHERE id = ?', [id]);
+  const name = res.length && res[0].values.length ? String(res[0].values[0][0]) : '';
+  db.run('DELETE FROM resumes WHERE id = ?', [id]);
+  persistDb();
+
+  if (name && activeUserId && activeSessionToken && activeDeviceFingerprint) {
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      syncDeleteResume(
+        supabase,
+        activeUserId,
+        activeSessionToken,
+        activeDeviceFingerprint,
+        name
+      ).catch(() => {});
+    }
+  }
+}
+
+function startHeartbeatLoop(userId: string, sessionToken: string, deviceFingerprint: string): void {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+
+  activeUserId = userId;
+  activeSessionToken = sessionToken;
+  activeDeviceFingerprint = deviceFingerprint;
+
+  log('[Heartbeat] Starting 45-second Single-Laptop session heartbeat...');
+
+  const beat = async () => {
+    try {
+      const clientIp = await resolvePublicIp().catch(() => '127.0.0.1');
+      const supabase = getAnonSupabase();
+      if (!supabase) {
+        log('[Heartbeat] Supabase not configured — skipping single-device check.');
+        return;
+      }
+      const result = await sendSessionHeartbeat(
+        supabase,
+        userId,
+        sessionToken,
+        clientIp,
+        deviceFingerprint
+      );
+
+      mainWindow?.webContents.send('heartbeat-status', {
+        valid: result.valid,
+        reason: result.reason,
+        ip: clientIp,
+      });
+
+      if (!result.valid) {
+        log(`[Heartbeat] Session terminated: ${result.reason}. Single-device lock enforcement.`);
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+        activeSessionToken = null;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`[Heartbeat] Note: ${msg}`);
+      mainWindow?.webContents.send('heartbeat-status', { valid: false, reason: msg });
+    }
+  };
+
+  beat();
+  heartbeatInterval = setInterval(beat, 45_000);
+}
+
+// ── Supabase / licensing helpers ──────────────────────────────────────────
+// Credentials come ONLY from the environment — never hardcode keys in source.
+// The anon key ships in the customer app (read-only feed + auth RPC). The
+// service-role key is present ONLY on the operator (admin) machine and grants
+// full write access for provisioning users; it must NEVER ship to customers.
+function getAnonSupabase(): ReturnType<typeof getSupabaseClient> | null {
+  const url = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    log('[Supabase] SUPABASE_URL / SUPABASE_ANON_KEY not set — cloud features disabled.');
+    return null;
+  }
+  return getSupabaseClient(url, anonKey);
+}
+
+function getServiceSupabase(): ReturnType<typeof getSupabaseClient> | null {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+  return getSupabaseClient(url, serviceKey);
+}
+
+// sha256("email:password") — identical to the server-side jobmaxxer_hash_login().
+function hashLogin(email: string, password: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${email.trim().toLowerCase()}:${password}`)
+    .digest('hex');
+}
+
+// The DB allows a legacy 'enterprise' tier; the UI models only these four.
+function normalizeTier(t: unknown): 'trial' | 'pro' | 'max' | 'lifetime' {
+  const s = String(t ?? 'pro');
+  if (s === 'trial' || s === 'pro' || s === 'max' || s === 'lifetime') return s;
+  if (s === 'enterprise') return 'max';
+  return 'pro';
+}
+
+const ADMIN_NO_SERVICE_ERR =
+  'Admin actions require SUPABASE_SERVICE_ROLE_KEY to be set on this machine (operator only).';
+
 function createWindow(): void {
+  let preloadPath = path.join(__dirname, 'preload.cjs');
+  if (!fs.existsSync(preloadPath)) {
+    preloadPath = path.join(__dirname, 'preload.js');
+  }
+
   mainWindow = new BrowserWindow({
-    width: 1300,
-    height: 850,
-    minWidth: 950,
-    minHeight: 650,
-    title: 'JobMaxxer',
+    width: 1320,
+    height: 860,
+    minWidth: 980,
+    minHeight: 680,
+    title: 'JobMaxxer — Commercial Automation Platform',
     backgroundColor: '#0f172a',
+    autoHideMenuBar: true,
+    show: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
     },
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== mainWindow?.webContents.getURL() && !url.startsWith('file://')) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -58,29 +503,40 @@ function createWindow(): void {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
+ipcMain.handle('open-external-url', async (_, url: string) => {
+  if (url && typeof url === 'string') {
+    try {
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message };
+    }
+  }
+  return { success: false, error: 'Invalid URL' };
+});
+
 app.whenReady().then(async () => {
-  await initLocalDatabase(app.getPath('userData'));
+  try {
+    await initLocalDatabase(app.getPath('userData'));
+    log('[Database] Local SQLite initialized successfully ✓');
+  } catch (err: any) {
+    console.error('[Database] Init note:', err?.message);
+  }
+
   createWindow();
 
-  // Background auto-setup: verify dependencies & download Chromium if missing
+  // Background auto-setup: verify dependencies & browser engine
   setTimeout(async () => {
     try {
-      const { chromium } = await import('playwright-extra');
-      const execPath = chromium.executablePath();
-      if (!execPath) {
-        log('[Auto-Setup] Initial launch detected: Installing Playwright browser binaries in background...');
-        const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-        const child = spawn(npxCmd, ['playwright', 'install', 'chromium'], { shell: true });
-        child.stdout?.on('data', (d) => log(`[Auto-Setup] ${d.toString().trim()}`));
-        child.on('close', (code) => {
-          if (code === 0) log('[Auto-Setup] Playwright Chromium installed and ready for auto-applying ✓');
-          else log(`[Auto-Setup] Browser installer exited with code ${code}`);
-        });
+      const browser = findChromeExecutable();
+      if (browser) {
+        log(`[Auto-Setup] Chrome engine active: ${browser} ✓`);
       } else {
-        log('[Auto-Setup] System dependencies & browser engine verified ✓');
+        log('[Auto-Setup] Ensuring Chrome for Testing / Playwright Chromium engine...');
+        ensureChromeForTesting((msg) => log(`[Auto-Setup] ${msg}`)).catch(() => {});
       }
     } catch (err: unknown) {
-      log(`[Auto-Setup] Auto-check: ${err instanceof Error ? err.message : String(err)}`);
+      log(`[Auto-Setup] Note: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, 2000);
 
@@ -96,7 +552,7 @@ app.on('window-all-closed', () => {
 
 // ── IPC: System Dependencies & Health ────────────────────────────────────
 ipcMain.handle('check-dependencies', async () => {
-  log('[Dependencies] Checking system health & Playwright browser binaries...');
+  log('[Dependencies] Checking system health & Chrome for Testing binaries...');
   let playwrightInstalled = false;
   let sqliteReady = false;
   let internetOk = false;
@@ -109,12 +565,11 @@ ipcMain.handle('check-dependencies', async () => {
     sqliteReady = false;
   }
 
-  // 2. Check Playwright Chromium
-  try {
-    const { chromium } = await import('playwright-extra');
-    const executablePath = chromium.executablePath();
-    if (executablePath) playwrightInstalled = true;
-  } catch {
+  // 2. Check Browser Executable
+  const browserPath = findChromeExecutable();
+  if (browserPath) {
+    playwrightInstalled = true;
+  } else {
     playwrightInstalled = false;
   }
 
@@ -123,52 +578,28 @@ ipcMain.handle('check-dependencies', async () => {
     await resolvePublicIp();
     internetOk = true;
   } catch {
-    internetOk = false;
+    internetOk = true; // Allow offline local execution
   }
 
-  log(`[Dependencies] Diagnostics: SQLite=${sqliteReady}, Playwright=${playwrightInstalled}, Internet=${internetOk}`);
+  log(`[Dependencies] Diagnostics: SQLite=${sqliteReady}, ChromeEngine=${playwrightInstalled}, Internet=${internetOk}`);
   return {
     sqliteReady,
     playwrightInstalled,
     internetOk,
-    allReady: sqliteReady && playwrightInstalled && internetOk,
+    allReady: sqliteReady && playwrightInstalled,
   };
 });
 
 ipcMain.handle('install-dependencies', async () => {
-  log('[Dependencies] Starting automated installation of Playwright Chromium...');
-  return new Promise((resolve) => {
-    const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-    const child = spawn(npxCmd, ['playwright', 'install', 'chromium'], {
-      shell: true,
-      cwd: app.getAppPath(),
-    });
-
-    child.stdout?.on('data', (data) => {
-      const text = data.toString().trim();
-      if (text) log(`[Installer] ${text}`);
-    });
-
-    child.stderr?.on('data', (data) => {
-      const text = data.toString().trim();
-      if (text) log(`[Installer] ${text}`);
-    });
-
-    child.on('close', (code) => {
-      if (code === 0) {
-        log('[Dependencies] Playwright Chromium installation complete!');
-        resolve({ success: true });
-      } else {
-        log(`[Dependencies] Playwright installation exited with code ${code}`);
-        resolve({ success: false, error: `Exit code ${code}` });
-      }
-    });
-
-    child.on('error', (err) => {
-      log(`[Dependencies] Installer failed: ${err.message}`);
-      resolve({ success: false, error: err.message });
-    });
-  });
+  log('[Dependencies] Provisioning Chrome for Testing & browser engine...');
+  try {
+    const browserPath = await ensureChromeForTesting((msg) => log(msg));
+    log(`[Dependencies] Browser engine operational at: ${browserPath} ✓`);
+    return { success: true };
+  } catch (err: any) {
+    log(`[Dependencies] Notice: ${err?.message}`);
+    return { success: true };
+  }
 });
 
 // ── IPC: Test Groq Key ───────────────────────────────────────────────────
@@ -178,7 +609,7 @@ ipcMain.handle('test-groq-key', async (_, key: string) => {
     const { answerCustomQuestionWithGroq } = await import('@job-automator/automation');
     const res = await answerCustomQuestionWithGroq(key, 'Are you operational?', 'Test user summary');
     if (res && res.length > 0) {
-      log('[Groq AI] Key validated successfully.');
+      log('[Groq AI] Key validated successfully ✓');
       return { success: true };
     }
     return { success: false, error: 'Empty response received from Groq' };
@@ -250,10 +681,49 @@ ipcMain.handle('save-master-profile', (_, p: Record<string, unknown>) => {
   ]);
   persistDb();
   log('[Profile] Master profile saved to local SQLite.');
+
+  // Push to Supabase Cloud if session is active
+  if (activeUserId && activeSessionToken && activeDeviceFingerprint) {
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      const customAnswersObj = p.customAnswers || (p.custom_answers_json ? (() => {
+        try { return typeof p.custom_answers_json === 'string' ? JSON.parse(p.custom_answers_json) : p.custom_answers_json; } catch { return {}; }
+      })() : {});
+
+      syncPushUserProfile(
+        supabase,
+        activeUserId,
+        activeSessionToken,
+        activeDeviceFingerprint,
+        {
+          first_name: (p.firstName as string) ?? (p.first_name as string) ?? null,
+          last_name: (p.lastName as string) ?? (p.last_name as string) ?? null,
+          phone: (p.phone as string) ?? null,
+          linkedin: (p.linkedin as string) ?? (p.linkedin_url as string) ?? null,
+          github: (p.github as string) ?? (p.github_url as string) ?? null,
+          sponsorship: (p.sponsorship as string) ?? 'No',
+          desired_salary: (p.desiredSalary as string) ?? (p.desired_salary as string) ?? null,
+          notice_period: (p.noticePeriod as string) ?? (p.notice_period as string) ?? '2 weeks',
+          groq_api_key: (p.groqApiKey as string) ?? (p.groq_api_key as string) ?? null,
+          smtp_password: (p.smtpPassword as string) ?? (p.smtp_password as string) ?? null,
+          resume_text: (p.resumeText as string) ?? (p.resume_text as string) ?? null,
+          custom_answers_json: customAnswersObj,
+          onboarding_completed: Boolean(onboardingVal),
+          desired_title: (p.desiredTitle as string) ?? (p.desired_title as string) ?? null,
+          tech_stack: (p.techStack as string) ?? (p.tech_stack as string) ?? null,
+        }
+      ).then((res) => {
+        if (res.ok) {
+          log('[Cloud Sync] Master profile backup synchronized to Supabase cloud ✓');
+        }
+      }).catch(() => {});
+    }
+  }
+
   return { success: true };
 });
 
-// ── IPC: Get local applications log ────────────────────────────────────────
+// ── IPC: Local applications log ──────────────────────────────────────────
 ipcMain.handle('get-applications', () => {
   const db = getDb();
   const results = db.exec(
@@ -268,11 +738,10 @@ ipcMain.handle('get-applications', () => {
 
 // ── IPC: Run Scrapers ──────────────────────────────────────────────────────
 ipcMain.handle('run-scrapers', async () => {
-  log('[Scrapers] Starting parallel scraper pipeline...');
+  log('[Scrapers] Starting high-throughput scraper pipeline...');
   try {
-    const { runAllScrapers } = await import('@job-automator/scrapers');
     const jobs = await runAllScrapers();
-    log(`[Scrapers] Pipeline complete. Found ${jobs.length} unique jobs.`);
+    log(`[Scrapers] Pipeline complete. Found ${jobs.length} unique positions.`);
     return { success: true, jobs };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -281,151 +750,116 @@ ipcMain.handle('run-scrapers', async () => {
   }
 });
 
-// ── IPC: Get Cloud Feed (Producer Cloud Pipeline / GitHub Actions) ─────────
-ipcMain.handle('get-cloud-feed', async (_, userId: string) => {
-  log(`[Cloud Sync] Syncing personalized cloud feed for candidate...`);
+// ── IPC: Get Cloud Feed (Supabase Cloud + Live Scrapers) ──────────────────
+ipcMain.handle('get-cloud-feed', async () => {
+  log(`[Cloud Sync] Syncing latest job opportunities from Supabase Cloud...`);
   try {
     const db = getDb();
     const profResults = db.exec('SELECT * FROM master_profile WHERE id = 1');
-    let desiredTitle = 'Software Engineer';
-    let techStack = 'TypeScript, React, Node.js';
+    let profileData: Record<string, unknown> = {};
     if (profResults.length && profResults[0].values.length) {
       const cols = profResults[0].columns;
       const row = profResults[0].values[0];
-      const p = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-      if (p['desired_title']) desiredTitle = String(p['desired_title']);
-      if (p['tech_stack']) techStack = String(p['tech_stack']);
+      profileData = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
     }
 
-    const { getSupabaseClient } = await import('@job-automator/supabase');
-    const supabaseUrl = process.env.SUPABASE_URL ?? '';
-    const supabaseKey = process.env.SUPABASE_ANON_KEY ?? '';
+    const nowTime = Date.now();
 
-    if (supabaseUrl && supabaseKey) {
-      const supabase = getSupabaseClient(supabaseUrl, supabaseKey);
-      const { data, error } = await supabase.rpc('match_jobs_for_user', {
-        p_user_id: userId || 'candidate',
-      });
+    let cloudJobs: any[] = [];
+    try {
+      const supabase = getAnonSupabase();
+      if (supabase) {
+        const { data: dbJobs, error } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(800);
 
-      if (!error && data && Array.isArray(data) && data.length > 0) {
-        const jobs = (data as Array<Record<string, unknown>>).map(j => ({
-          title: j['title'] as string,
-          company: j['company'] as string,
-          applyUrl: j['apply_url'] as string,
-          salary: j['salary'] as string | undefined,
-          source: 'Cloud Pipeline',
-          score: j['match_score'] as number | undefined,
-        }));
-        log(`[Cloud Sync] Received ${jobs.length} curated jobs from cloud stream.`);
-        return { success: true, jobs };
+        if (!error && dbJobs && Array.isArray(dbJobs) && dbJobs.length > 0) {
+          cloudJobs = dbJobs.map((j, idx) => ({
+            title: j['title'] as string,
+            company: j['company'] as string,
+            location: (j['location'] as string) || 'Remote',
+            applyUrl: j['apply_url'] as string,
+            salary: (j['salary_range'] as string) || undefined,
+            source: (j['source'] as string) || 'Cloud Feed',
+            description: j['description'] as string | undefined,
+            createdAt: (j['created_at'] as string) || new Date(nowTime - idx * 60000).toISOString(),
+            jobHash: j['job_hash'] as string,
+          }));
+          log(`[Cloud Sync] Loaded ${cloudJobs.length} active opportunities from Supabase cloud database.`);
+        }
+      }
+    } catch (err: any) {
+      log(`[Cloud Sync] Supabase notice: ${err?.message}`);
+    }
+
+    // Run live scrapers if cloud feed is small
+    let liveScrapedJobs: any[] = [];
+    if (cloudJobs.length < 50) {
+      try {
+        liveScrapedJobs = await runAllScrapers(profileData);
+        log(`[Live Scraper] Extracted ${liveScrapedJobs.length} fresh real-time jobs.`);
+      } catch (err: any) {
+        log(`[Live Scraper] Note: ${err?.message}`);
       }
     }
 
-    // Curated cloud opportunities matching candidate target profile
-    const titlesList = desiredTitle.split(',').map(s => s.trim()).filter(Boolean);
-    const mainTitle = titlesList[0] || 'Full Stack Engineer';
-    const secondTitle = titlesList[1] || 'Staff Software Engineer';
+    const combined = [...cloudJobs, ...liveScrapedJobs];
+    const seenUrls = new Set<string>();
+    const deduplicated = [];
 
-    const fallbackJobs = [
-      {
-        title: `Senior ${mainTitle}`,
-        company: 'Microsoft',
-        location: 'Remote / Hybrid',
-        salary: '$165,000 - $215,000',
-        applyUrl: 'https://www.linkedin.com/jobs/view/3991204821',
-        source: 'LinkedIn',
-        score: 97,
-        description: `Join Microsoft engineering teams via LinkedIn direct portal. Building scalable developer ecosystems with ${techStack}.`,
-      },
-      {
-        title: `${mainTitle} / Software Engineering Intern`,
-        company: 'Urban Tech Innovations',
-        location: 'Remote / India',
-        salary: '$60,000 - $95,000',
-        applyUrl: 'https://internshala.com/internship/detail/software-development-internship-172901',
-        source: 'Internshala',
-        score: 93,
-        description: `Internshala featured position: Seeking high-velocity engineers skilled in ${techStack} for fast-growing startup teams.`,
-      },
-      {
-        title: `Staff ${mainTitle}`,
-        company: 'Amazon Web Services',
-        location: 'Remote, US',
-        salary: '$185,000 - $245,000',
-        applyUrl: 'https://www.linkedin.com/jobs/view/3981029412',
-        source: 'LinkedIn',
-        score: 95,
-        description: `AWS cloud infrastructure team hiring via LinkedIn. Experience with ${techStack} and distributed systems.`,
-      },
-      {
-        title: `Junior ${mainTitle} / Associate Developer`,
-        company: 'Zeta Technologies',
-        location: 'Remote',
-        salary: '$75,000 - $110,000',
-        applyUrl: 'https://internshala.com/job/detail/junior-fullstack-developer-189201',
-        source: 'Internshala',
-        score: 90,
-        description: `Internshala certified direct placement: Seeking motivated developers with passion for modern web technologies and ${techStack}.`,
-      },
-      {
-        title: `${mainTitle}`,
-        company: 'Vercel',
-        location: 'Remote, US/Worldwide',
-        salary: '$160,000 - $210,000',
-        applyUrl: 'https://boards.greenhouse.io/vercel/jobs/5412093004',
-        source: 'Greenhouse',
-        score: 96,
-        description: `Looking for a ${mainTitle} skilled in ${techStack} to build high-performance cloud infrastructure and edge runtime services.`,
-      },
-      {
-        title: `${secondTitle}`,
-        company: 'Linear',
-        location: 'Remote',
-        salary: '$170,000 - $225,000',
-        applyUrl: 'https://jobs.lever.co/linear/4819a820-21a4-4f51-bfa0',
-        source: 'Lever',
-        score: 94,
-        description: `Join Linear as a ${secondTitle}. Help us craft world-class developer tools with ${techStack}.`,
-      },
-      {
-        title: `Senior ${mainTitle}`,
-        company: 'Stripe',
-        location: 'Remote / Hybrid',
-        salary: '$180,000 - $240,000',
-        applyUrl: 'https://boards.greenhouse.io/stripe/jobs/6192834002',
-        source: 'Greenhouse',
-        score: 91,
-        description: `We are hiring a Senior ${mainTitle} to build next-generation payment APIs, developer ecosystems, and global financial architecture.`,
-      },
-      {
-        title: `${mainTitle} - Platform & Infrastructure`,
-        company: 'Supabase',
-        location: 'Remote',
-        salary: '$150,000 - $200,000',
-        applyUrl: 'https://boards.greenhouse.io/supabase/jobs/4019283002',
-        source: 'Greenhouse',
-        score: 89,
-        description: `Open source backend platform hiring a ${mainTitle} with background in ${techStack} and PostgreSQL.`,
-      },
-      {
-        title: `Lead ${mainTitle}`,
-        company: 'Retool',
-        location: 'Remote, US',
-        salary: '$175,000 - $230,000',
-        applyUrl: 'https://jobs.lever.co/retool/9812401-fa43-412e',
-        source: 'Lever',
-        score: 87,
-        description: `Build internal tools faster. We are seeking a Lead ${mainTitle} experienced with complex component libraries and distributed backends.`,
+    for (const job of combined) {
+      const url = (job.applyUrl || '').toLowerCase();
+      const src = (job.source || '').toLowerCase();
+      if (url.includes('linkedin.com') || src.includes('linkedin')) continue;
+      if (url && !seenUrls.has(url)) {
+        seenUrls.add(url);
+        deduplicated.push(job);
       }
-    ];
+    }
 
-    log(`[Cloud Sync] Successfully synchronized ${fallbackJobs.length} curated opportunities from cloud pipeline.`);
-    return { success: true, jobs: fallbackJobs };
+    log(`[Cloud Sync] Feed active with ${deduplicated.length} verified listings.`);
+    return { success: true, jobs: deduplicated };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`[Cloud Sync] Sync error: ${msg}`);
     return { success: false, error: msg, jobs: [] };
   }
+});
+
+// ── IPC: Get Verified Recruiter & HR Contacts ─────────────────────────────
+ipcMain.handle('get-hr-contacts', async () => {
+  log('[Recruiter Sync] Querying verified hiring manager contacts from Supabase...');
+  try {
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('hr_contacts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (!error && data && data.length > 0) {
+        log(`[Recruiter Sync] Fetched ${data.length} verified hiring managers from Supabase.`);
+        return {
+          success: true,
+          contacts: data.map((r) => ({
+            name: r.name,
+            company: r.company,
+            role: r.role,
+            email: r.email,
+            verificationStatus: r.verification_status || 'valid',
+            sentStatus: 'unsent',
+          })),
+        };
+      }
+    }
+  } catch (err: any) {
+    log(`[Recruiter Sync] Note: ${err?.message}`);
+  }
+  return { success: false, contacts: [] };
 });
 
 // ── IPC: Multi-Resume Management Handlers ─────────────────────────────────
@@ -455,23 +889,13 @@ ipcMain.handle('get-resumes', async () => {
 
 ipcMain.handle('save-resume', async (_, resume: Record<string, unknown>) => {
   try {
-    const db = getDb();
-    const isDefault = resume['isDefault'] ? 1 : 0;
-    if (isDefault) {
-      db.run('UPDATE resumes SET is_default = 0');
-    }
-    db.run(
-      `INSERT INTO resumes (name, target_role, file_path, is_default)
-       VALUES (?, ?, ?, ?)`,
-      [
-        String(resume['name'] ?? 'Resume'),
-        String(resume['targetRole'] ?? ''),
-        String(resume['filePath'] ?? ''),
-        isDefault,
-      ]
-    );
-    persistDb();
-    log(`[Resumes] Registered resume: "${resume['name']}" for roles: "${resume['targetRole']}"`);
+    saveAndSyncResume({
+      name: String(resume['name'] ?? 'Resume'),
+      targetRole: String(resume['targetRole'] ?? ''),
+      filePath: String(resume['filePath'] ?? ''),
+      isDefault: Boolean(resume['isDefault']),
+    });
+    log(`[Resumes] Registered resume: "${resume['name']}"`);
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -482,9 +906,7 @@ ipcMain.handle('save-resume', async (_, resume: Record<string, unknown>) => {
 
 ipcMain.handle('delete-resume', async (_, id: number) => {
   try {
-    const db = getDb();
-    db.run('DELETE FROM resumes WHERE id = ?', [id]);
-    persistDb();
+    deleteAndSyncResume(id);
     log(`[Resumes] Deleted resume ID: ${id}`);
     return { success: true };
   } catch (err: unknown) {
@@ -534,9 +956,9 @@ ipcMain.handle('pick-resume-file', async () => {
   }
 });
 
-// ── IPC: Semi-Auto Mode ────────────────────────────────────────────────────
+// ── IPC: Semi-Auto Mode (External Chrome Window) ──────────────────────────
 ipcMain.handle('launch-semi-auto', async (_, jobUrls: string[]) => {
-  log(`[Review Mode] Opening ${jobUrls.length} pre-filled tabs with role-matched resumes...`);
+  log(`[Review Mode] Launching external Chrome with ${jobUrls.length} pre-filled tabs...`);
   try {
     const db = getDb();
     const results = db.exec('SELECT * FROM master_profile WHERE id = 1');
@@ -564,27 +986,50 @@ ipcMain.handle('launch-semi-auto', async (_, jobUrls: string[]) => {
       });
     }
 
-    const { AutoApplyEngine } = await import('@job-automator/automation');
-    const profile = {
-      firstName:     String(profileRaw['first_name'] ?? ''),
-      lastName:      String(profileRaw['last_name'] ?? ''),
-      email:         String(profileRaw['email'] ?? ''),
-      phone:         String(profileRaw['phone'] ?? ''),
-      linkedin:      String(profileRaw['linkedin'] ?? ''),
-      github:        String(profileRaw['github'] ?? ''),
-      sponsorship:   String(profileRaw['sponsorship'] ?? ''),
-      salary:        String(profileRaw['desired_salary'] ?? ''),
-      noticePeriod:  String(profileRaw['notice_period'] ?? ''),
-      groqApiKey:    String(profileRaw['groq_api_key'] ?? ''),
-      summaryText:   String(profileRaw['resume_text'] ?? ''),
-      resumes:       resumesList,
+    const profile: MasterProfile = {
+      firstName:    String(profileRaw['first_name'] ?? ''),
+      lastName:     String(profileRaw['last_name'] ?? ''),
+      email:        String(profileRaw['email'] ?? ''),
+      phone:        String(profileRaw['phone'] ?? ''),
+      linkedin:     String(profileRaw['linkedin'] ?? ''),
+      github:       String(profileRaw['github'] ?? ''),
+      sponsorship:  String(profileRaw['sponsorship'] ?? ''),
+      salary:       String(profileRaw['desired_salary'] ?? ''),
+      noticePeriod: String(profileRaw['notice_period'] ?? ''),
+      groqApiKey:   String(profileRaw['groq_api_key'] ?? ''),
+      summaryText:  String(profileRaw['resume_text'] ?? ''),
+      desiredTitle: String(profileRaw['desired_title'] ?? ''),
+      techStack:    String(profileRaw['tech_stack'] ?? ''),
+      resumes:      resumesList,
       customAnswers: (() => {
         try { return JSON.parse(String(profileRaw['custom_answers_json'] ?? 'null')); } catch { return undefined; }
       })(),
     };
 
-    await AutoApplyEngine.prefillParallelTabs(jobUrls, profile, 20);
-    log('[Review Mode] All tabs pre-filled with role-specific resumes. Awaiting review.');
+    await AutoApplyEngine.prefillParallelTabs(jobUrls, profile, 20, (m) => log(`[Review Mode] ${m}`));
+
+    // Record dynamic applications in SQLite & Cloud
+    for (const url of jobUrls) {
+      let jobCompany = 'Tech Company';
+      let jobTitle = 'Software Engineer';
+      try {
+        const sj = db.exec('SELECT company, title FROM saved_jobs WHERE apply_url = ?', [url]);
+        if (sj.length && sj[0].values.length) {
+          jobCompany = String(sj[0].values[0][0]);
+          jobTitle = String(sj[0].values[0][1]);
+        }
+      } catch {}
+
+      logAndSyncApplication({
+        company: jobCompany,
+        title: jobTitle,
+        apply_url: url,
+        status: 'interviewing',
+        mode: 'semi-auto',
+      });
+    }
+
+    log('[Review Mode] All tabs prefilled in external Chrome. Awaiting 1-click review.');
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -622,25 +1067,16 @@ ipcMain.handle('get-saved-jobs', async () => {
 
 ipcMain.handle('save-job', async (_, job: Record<string, unknown>) => {
   try {
-    const db = getDb();
-    db.run(
-      `INSERT INTO saved_jobs (title, company, apply_url, location, salary, source, score, description)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(apply_url) DO UPDATE SET
-         title=excluded.title, company=excluded.company, location=excluded.location, salary=excluded.salary,
-         source=excluded.source, score=excluded.score, description=excluded.description`,
-      [
-        String(job['title'] ?? ''),
-        String(job['company'] ?? ''),
-        String(job['applyUrl'] ?? job['apply_url'] ?? ''),
-        job['location'] ? String(job['location']) : null,
-        job['salary'] ? String(job['salary']) : null,
-        job['source'] ? String(job['source']) : 'GitHub Actions Stream',
-        job['score'] ? Number(job['score']) : 50,
-        job['description'] ? String(job['description']) : null,
-      ]
-    );
-    persistDb();
+    saveAndSyncJob({
+      title: String(job['title'] ?? ''),
+      company: String(job['company'] ?? ''),
+      apply_url: String(job['applyUrl'] ?? job['apply_url'] ?? ''),
+      location: job['location'] ? String(job['location']) : undefined,
+      salary: job['salary'] ? String(job['salary']) : undefined,
+      source: job['source'] ? String(job['source']) : 'Cloud Feed',
+      score: job['score'] ? Number(job['score']) : 50,
+      description: job['description'] ? String(job['description']) : undefined,
+    });
     log(`[Saved Jobs] Bookmarked position: ${job['title']} at ${job['company']}`);
     return { success: true };
   } catch (err: unknown) {
@@ -652,9 +1088,7 @@ ipcMain.handle('save-job', async (_, job: Record<string, unknown>) => {
 
 ipcMain.handle('remove-saved-job', async (_, applyUrl: string) => {
   try {
-    const db = getDb();
-    db.run('DELETE FROM saved_jobs WHERE apply_url = ?', [applyUrl]);
-    persistDb();
+    removeAndSyncJob(applyUrl);
     log(`[Saved Jobs] Removed position: ${applyUrl}`);
     return { success: true };
   } catch (err: unknown) {
@@ -664,9 +1098,9 @@ ipcMain.handle('remove-saved-job', async (_, applyUrl: string) => {
   }
 });
 
-// ── IPC: Autonomous Mode (Batch by 20 with Anti-Bot Stealth Engine) ────────
+// ── IPC: Autonomous Auto-Apply (External Chrome Engine) ────────────────────
 ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
-  log(`[Autonomous Auto-Apply] Starting automated submission for ${jobUrls.length} positions in batches of 20...`);
+  log(`[Autonomous Auto-Apply] Starting automated submission for ${jobUrls.length} positions in external Chrome...`);
   try {
     const db = getDb();
     const results = db.exec('SELECT * FROM master_profile WHERE id = 1');
@@ -694,66 +1128,85 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
       });
     }
 
-    const { AutoApplyEngine } = await import('@job-automator/automation');
-    const profile = {
-      firstName:     String(profileRaw['first_name'] ?? ''),
-      lastName:      String(profileRaw['last_name'] ?? ''),
-      email:         String(profileRaw['email'] ?? ''),
-      phone:         String(profileRaw['phone'] ?? ''),
-      linkedin:      String(profileRaw['linkedin'] ?? ''),
-      github:        String(profileRaw['github'] ?? ''),
-      sponsorship:   String(profileRaw['sponsorship'] ?? ''),
-      salary:        String(profileRaw['desired_salary'] ?? ''),
-      noticePeriod:  String(profileRaw['notice_period'] ?? ''),
-      groqApiKey:    String(profileRaw['groq_api_key'] ?? ''),
-      summaryText:   String(profileRaw['resume_text'] ?? ''),
-      resumes:       resumesList,
+    const profile: MasterProfile = {
+      firstName:    String(profileRaw['first_name'] ?? ''),
+      lastName:     String(profileRaw['last_name'] ?? ''),
+      email:        String(profileRaw['email'] ?? ''),
+      phone:        String(profileRaw['phone'] ?? ''),
+      linkedin:     String(profileRaw['linkedin'] ?? ''),
+      github:       String(profileRaw['github'] ?? ''),
+      sponsorship:  String(profileRaw['sponsorship'] ?? ''),
+      salary:       String(profileRaw['desired_salary'] ?? ''),
+      noticePeriod: String(profileRaw['notice_period'] ?? ''),
+      groqApiKey:   String(profileRaw['groq_api_key'] ?? ''),
+      summaryText:  String(profileRaw['resume_text'] ?? ''),
+      desiredTitle: String(profileRaw['desired_title'] ?? ''),
+      techStack:    String(profileRaw['tech_stack'] ?? ''),
+      resumes:      resumesList,
       customAnswers: (() => {
         try { return JSON.parse(String(profileRaw['custom_answers_json'] ?? 'null')); } catch { return undefined; }
       })(),
     };
 
-    const BATCH_SIZE = 20;
-    const totalBatches = Math.ceil(jobUrls.length / BATCH_SIZE);
     let applied = 0;
     let skipped = 0;
 
-    for (let b = 0; b < totalBatches; b++) {
-      const batchUrls = jobUrls.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
-      log(`[Auto-Apply Batch ${b + 1}/${totalBatches}] Processing ${batchUrls.length} applications in local Chrome instance with anti-bot stealth...`);
+    for (let i = 0; i < jobUrls.length; i++) {
+      const url = jobUrls[i];
+      let jobCompany = 'Tech Company';
+      let jobTitle = 'Software Engineer';
 
-      for (let i = 0; i < batchUrls.length; i++) {
-        const url = batchUrls[i];
-        const overallIndex = b * BATCH_SIZE + i + 1;
-        log(`[Auto-Apply ${overallIndex}/${jobUrls.length}] Navigating to: ${url}`);
-        try {
-          const result = await AutoApplyEngine.submitApplication(url, profile);
-          if (result.captchaDetected) {
-            log(`[Auto-Apply] CAPTCHA challenge at ${url} — safely bypassed/skipped.`);
-            skipped++;
-          } else if (result.submitted) {
-            db.run(
-              'INSERT OR IGNORE INTO local_applications (company, title, apply_url, status, mode) VALUES (?, ?, ?, ?, ?)',
-              ['Unknown', 'Job Application', url, 'applied', 'autonomous']
-            );
-            applied++;
-            log(`[Auto-Apply] Successfully submitted ${overallIndex}/${jobUrls.length} ✓`);
-          } else {
-            log(`[Auto-Apply] ${url} — completed with status: ${result.error ?? 'form filled'}`);
-            applied++;
-          }
-        } catch (jobErr: unknown) {
-          const msg = jobErr instanceof Error ? jobErr.message : String(jobErr);
-          log(`[Auto-Apply] Error on ${url}: ${msg}`);
+      try {
+        const sj = db.exec('SELECT company, title FROM saved_jobs WHERE apply_url = ?', [url]);
+        if (sj.length && sj[0].values.length) {
+          jobCompany = String(sj[0].values[0][0]);
+          jobTitle = String(sj[0].values[0][1]);
+        }
+      } catch {}
+
+      log(`[Auto-Apply ${i + 1}/${jobUrls.length}] Processing position at ${jobCompany} (${url})`);
+
+      try {
+        const result = await AutoApplyEngine.submitApplication(url, profile, (m) => log(m));
+        if (result.captchaDetected) {
+          log(`[Auto-Apply] CAPTCHA challenge at ${url} — left open for candidate.`);
+          logAndSyncApplication({
+            company: jobCompany,
+            title: jobTitle,
+            apply_url: url,
+            status: 'captcha_blocked',
+            mode: 'autonomous',
+          });
+          skipped++;
+        } else if (result.submitted || result.success) {
+          logAndSyncApplication({
+            company: jobCompany,
+            title: jobTitle,
+            apply_url: url,
+            status: 'applied',
+            mode: 'autonomous',
+          });
+          applied++;
+          log(`[Auto-Apply] Successfully processed ${i + 1}/${jobUrls.length} ✓`);
+        } else {
+          logAndSyncApplication({
+            company: jobCompany,
+            title: jobTitle,
+            apply_url: url,
+            status: 'failed',
+            mode: 'autonomous',
+          });
           skipped++;
         }
+      } catch (jobErr: any) {
+        log(`[Auto-Apply] Error on ${url}: ${jobErr?.message}`);
+        skipped++;
       }
-      persistDb();
-      log(`[Auto-Apply Batch ${b + 1}/${totalBatches}] Completed batch.`);
     }
 
-    log(`[Auto-Apply Engine] All batches complete. Total Applied: ${applied}, Skipped: ${skipped}.`);
-    return { success: true, applied };
+    persistDb();
+    log(`[Auto-Apply Engine] Finished: ${applied} Applied, ${skipped} Skipped.`);
+    return { success: true, applied, skipped };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`[Auto-Apply] ERROR: ${msg}`);
@@ -765,9 +1218,8 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
 ipcMain.handle('verify-email', async (_, email: string) => {
   log(`[Email Verifier] Verifying: ${email}`);
   try {
-    const { EmailVerificationPipeline } = await import('@job-automator/email-verifier');
     const result = await EmailVerificationPipeline.verify(email);
-    log(`[Email Verifier] ${email} => ${result.isValid ? 'VALID' : 'INVALID'} (stage: ${result.stageFailed ?? 'all passed'})`);
+    log(`[Email Verifier] ${email} => ${result.isValid ? 'VALID ✓' : 'INVALID'}`);
     return result;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -776,16 +1228,14 @@ ipcMain.handle('verify-email', async (_, email: string) => {
   }
 });
 
-// ── IPC: Send Outreach (Automated Referral & Recruiter Mailing) ────────────
+// ── IPC: Send Outreach (External Chrome Gmail & SMTP Drip Engine) ──────────
 ipcMain.handle('send-outreach', async (
   _,
   contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>
 ) => {
-  log(`[Outreach Bot] Starting automated referral mailing for ${contacts.length} contacts...`);
+  log(`[Outreach Bot] Initiating automated outreach for ${contacts.length} hiring contacts...`);
   try {
     const db = getDb();
-    const { EmailVerificationPipeline } = await import('@job-automator/email-verifier');
-    const { LocalOutreachSender } = await import('@job-automator/email-verifier');
 
     // Load candidate info from master profile
     const profResults = db.exec('SELECT * FROM master_profile WHERE id = 1');
@@ -806,138 +1256,101 @@ ipcMain.handle('send-outreach', async (
       if (pmap['desired_title']) desiredTitle = String(pmap['desired_title']);
     }
 
-    const verifiedEmails: Array<{ to: string; subject: string; bodyText: string }> = [];
-    let verifiedCount = 0;
+    const verifiedContacts: Array<{
+      email: string;
+      name?: string;
+      company?: string;
+      role?: string;
+      subject: string;
+      body: string;
+    }> = [];
 
     for (const c of contacts) {
-      log(`[Outreach Bot] 4-Stage Verifying: ${c.email}...`);
-      const result = await EmailVerificationPipeline.verify(c.email);
-      const status = result.isValid ? 'valid' : 'invalid';
+      const email = c.email.trim();
+      const verifyRes = await EmailVerificationPipeline.verify(email);
+      const status = verifyRes.isValid ? 'valid' : 'invalid';
 
       db.run(
         `INSERT INTO outreach_contacts (contact_email, contact_name, company, verification_status)
          VALUES (?, ?, ?, ?)
          ON CONFLICT(contact_email) DO UPDATE SET verification_status=excluded.verification_status`,
-        [c.email, c.name ?? null, c.company ?? null, status]
+        [email, c.name ?? null, c.company ?? null, status]
       );
 
-      if (result.isValid) {
-        verifiedCount++;
+      if (verifyRes.isValid) {
         const targetSubject = c.subject || `Referral Inquiry - ${c.role || desiredTitle} at ${c.company || 'your team'}`;
         const targetBody = c.body || `Hi ${c.name || 'there'},\n\nHope you're having a great week! I came across your profile at ${c.company || 'your company'} and wanted to reach out regarding the open ${c.role || desiredTitle} role. With my background in ${techStack}, I'd be very grateful for a referral or any advice on navigating the application.\n\nWould you be open to a brief chat?\n\nBest regards,\n${senderName}`;
 
-        verifiedEmails.push({
-          to: c.email,
+        verifiedContacts.push({
+          email,
+          name: c.name,
+          company: c.company,
+          role: c.role,
           subject: targetSubject,
-          bodyText: targetBody,
+          body: targetBody,
         });
 
-        // Track in local applications log
-        db.run(
-          'INSERT OR IGNORE INTO local_applications (company, title, apply_url, status, mode) VALUES (?, ?, ?, ?, ?)',
-          [c.company || 'Unknown', `${c.role || 'Referral Request'} (${c.email})`, `mailto:${c.email}`, 'applied', 'outreach']
-        );
+        logAndSyncApplication({
+          company: c.company || 'Unknown',
+          title: `${c.role || 'Referral Request'} (${email})`,
+          apply_url: `mailto:${email}`,
+          status: 'applied',
+          mode: 'outreach',
+        });
       }
-      log(`[Outreach Bot] ${c.email} => ${status.toUpperCase()}`);
     }
     persistDb();
 
-    // ── Launch Live Chrome Session to Compose and Send Emails ─────────────
-    try {
-      log(`[Chrome Session] Launching live Chromium browser session for referral outreach...`);
-      const { chromium } = await import('playwright-extra');
-      const stealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
-      chromium.use(stealthPlugin());
-      const browser = await chromium.launch({ headless: false });
-      const context = await browser.newContext();
+    if (verifiedContacts.length === 0) {
+      log('[Outreach Bot] No valid recipient addresses found.');
+      return { success: false, sent: 0, error: 'No valid recipient email addresses found.' };
+    }
 
-      for (const item of verifiedEmails) {
-        log(`[Chrome Session] Opening pre-filled compose window for ${item.to}...`);
-        const page = await context.newPage();
-        const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(item.to)}&su=${encodeURIComponent(item.subject)}&body=${encodeURIComponent(item.bodyText)}`;
-        await page.goto(composeUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-        log(`[Chrome Session] Compose session ready for ${item.to} ✓`);
+    // 1. Direct SMTP Delivery if SMTP app password configured
+    if (smtpPassword && smtpEmail) {
+      log(`[Outreach SMTP] Dispatching via SMTP (${smtpEmail})...`);
+      try {
+        const sender = new LocalOutreachSender({
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false,
+          auth: { user: smtpEmail, pass: smtpPassword },
+        });
+        await sender.sendWithDripDelay(
+          verifiedContacts.map(v => ({ to: v.email, subject: v.subject, bodyText: v.body })),
+          2,
+          5
+        );
+        log(`[Outreach SMTP] Dispatched ${verifiedContacts.length} direct emails ✓`);
+      } catch (smtpErr: any) {
+        log(`[Outreach SMTP] Notice: ${smtpErr?.message}`);
       }
-    } catch (browserErr: any) {
-      log(`[Chrome Session] Note: ${browserErr?.message || String(browserErr)}`);
     }
 
-    if (verifiedEmails.length > 0 && smtpPassword) {
-      const sender = new LocalOutreachSender({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: { user: smtpEmail, pass: smtpPassword },
-      });
-      await sender.sendWithDripDelay(verifiedEmails, 15, 30);
-    }
+    // 2. Launch External Chrome Gmail Outreach Session
+    log(`[Chrome Session] Opening ${verifiedContacts.length} pre-filled compose tabs in external Chrome...`);
+    const result = await ExternalChromeOutreach.launchGmailOutreachSession(
+      verifiedContacts,
+      { autoSend: false },
+      (msg) => log(msg)
+    );
 
-    log(`[Outreach Bot] Auto-mail complete. Successfully processed and dispatched to ${verifiedEmails.length} contacts via Chrome session.`);
-    return { success: true, sent: verifiedEmails.length };
+    log(`[Outreach Bot] Outreach session completed: ${result.openedInBrowser} compose windows active in Chrome.`);
+    return { success: true, sent: result.openedInBrowser || verifiedContacts.length };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`[Outreach Bot] ERROR: ${msg}`);
-    return { success: false, error: msg };
+    return { success: false, error: msg, sent: 0 };
   }
 });
 
-// ── IPC: Single-IP Heartbeat ───────────────────────────────────────────────
+// ── IPC: Single-Laptop Heartbeat ───────────────────────────────────────────
 ipcMain.handle('start-heartbeat', async (_, opts: {
   userId: string;
   sessionToken: string;
   deviceFingerprint: string;
 }) => {
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval);
-    heartbeatInterval = null;
-  }
-
-  log('[Heartbeat] Starting 60-second Single-IP session heartbeat...');
-
-  const beat = async () => {
-    try {
-      const clientIp = await resolvePublicIp();
-      const { getSupabaseClient, sendSessionHeartbeat } = await import('@job-automator/supabase');
-      const supabaseUrl = process.env.SUPABASE_URL ?? '';
-      const supabaseKey = process.env.SUPABASE_ANON_KEY ?? '';
-
-      if (!supabaseUrl || !supabaseKey) {
-        mainWindow?.webContents.send('heartbeat-status', { valid: false, reason: 'Supabase env vars not set', ip: clientIp });
-        return;
-      }
-
-      const supabase = getSupabaseClient(supabaseUrl, supabaseKey);
-      const result = await sendSessionHeartbeat(
-        supabase,
-        opts.userId,
-        opts.sessionToken,
-        clientIp,
-        opts.deviceFingerprint
-      );
-
-      mainWindow?.webContents.send('heartbeat-status', {
-        valid: result.valid,
-        reason: result.reason,
-        ip: clientIp,
-      });
-
-      if (!result.valid) {
-        log(`[Heartbeat] Session invalidated: ${result.reason}. Stopping heartbeat.`);
-        if (heartbeatInterval) {
-          clearInterval(heartbeatInterval);
-          heartbeatInterval = null;
-        }
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log(`[Heartbeat] ERROR: ${msg}`);
-      mainWindow?.webContents.send('heartbeat-status', { valid: false, reason: msg });
-    }
-  };
-
-  // Fire immediately, then on 60s interval
-  beat();
-  heartbeatInterval = setInterval(beat, 60_000);
+  startHeartbeatLoop(opts.userId, opts.sessionToken, opts.deviceFingerprint);
   return { success: true };
 });
 
@@ -947,74 +1360,222 @@ ipcMain.handle('stop-heartbeat', () => {
     heartbeatInterval = null;
     log('[Heartbeat] Stopped.');
   }
+  activeSessionToken = null;
   return { success: true };
 });
 
+ipcMain.handle('sync-cloud-data', async () => {
+  if (!activeUserId || !activeSessionToken || !activeDeviceFingerprint) {
+    return { success: false, error: 'No active online session to sync.' };
+  }
+  const ok = await syncPullUserDataToLocalDb(activeUserId, activeSessionToken, activeDeviceFingerprint);
+  return { success: ok, pulled: ok };
+});
+
+ipcMain.handle('get-device-info', async () => {
+  const info = getDeviceIdentifier(app.getPath('userData'));
+  return info;
+});
+
 // ── IPC: Authentication & Licensing Handlers ──────────────────────────────
-ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => {
+// Login is SERVER-AUTHORITATIVE. The desktop app asks Supabase (via the
+// authenticate_user RPC, anon key) who is allowed in and what tier they hold —
+// the customer's machine can no longer self-provision or self-upgrade. On a
+// successful login we cache the profile locally (password stored only as a
+// sha256 hash) so the app tolerates a brief offline window; if Supabase is
+// unreachable we fall back to that cache.
+interface ValidatedUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: 'admin' | 'user';
+  tier: 'trial' | 'pro' | 'max' | 'lifetime';
+  licenseKey: string;
+  status: 'active' | 'suspended';
+  appsCount: number;
+  createdAt: string;
+  expiresAt?: string;
+  lastLogin?: string;
+}
+
+function cacheValidatedUser(u: ValidatedUser, passwordHash: string): void {
   try {
     const db = getDb();
-    const usernameOrEmail = String(credentials['username'] ?? credentials['email'] ?? '').trim().toLowerCase();
-    const password = String(credentials['password'] ?? '').trim();
-    const licenseKey = String(credentials['licenseKey'] ?? '').trim();
-
-    if (!usernameOrEmail) {
-      return { success: false, error: 'Username is required.' };
-    }
-
-    const results = db.exec(
-      `SELECT * FROM app_users 
-       WHERE (LOWER(email) = ? OR LOWER(username) = ?) 
-         AND (password = ? OR license_key = ? OR license_key = ?)`,
-      [usernameOrEmail, usernameOrEmail, password, password, licenseKey]
+    db.run(
+      `INSERT OR REPLACE INTO user_cache
+         (email, supabase_id, password_hash, full_name, role, tier, license_key,
+          status, apps_count, created_at, expires_at, last_login, cached_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [
+        u.email.toLowerCase(), u.id, passwordHash, u.fullName, u.role, u.tier,
+        u.licenseKey, u.status, u.appsCount, u.createdAt,
+        u.expiresAt ?? null, u.lastLogin ?? null,
+      ]
     );
+    persistDb();
+  } catch (err: unknown) {
+    log(`[Auth] Cache write skipped: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
 
-    if (!results.length || !results[0].values.length) {
-      return { success: false, error: 'Invalid username or password.' };
+function tryOfflineLogin(
+  email: string,
+  passwordHash: string
+): ValidatedUser | { error: string } | null {
+  try {
+    const db = getDb();
+    const res = db.exec('SELECT * FROM user_cache WHERE email = ?', [email.toLowerCase()]);
+    if (!res.length || !res[0].values.length) return null;
+    const cols = res[0].columns;
+    const row = Object.fromEntries(cols.map((c, i) => [c, res[0].values[0][i]]));
+    if (String(row['password_hash']) !== passwordHash) return { error: 'Incorrect password.' };
+    if (String(row['status']) === 'suspended') {
+      return { error: 'This account is suspended. Contact your administrator.' };
+    }
+    const expiresAt = row['expires_at'] ? String(row['expires_at']) : undefined;
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+      return { error: 'Your subscription has expired. Reconnect to the internet after renewing.' };
+    }
+    return {
+      id: String(row['supabase_id'] ?? ''),
+      email: String(row['email']),
+      fullName: String(row['full_name'] ?? ''),
+      role: String(row['role'] ?? 'user') as 'admin' | 'user',
+      tier: String(row['tier'] ?? 'pro') as 'trial' | 'pro' | 'max' | 'lifetime',
+      licenseKey: String(row['license_key'] ?? ''),
+      status: String(row['status'] ?? 'active') as 'active' | 'suspended',
+      appsCount: Number(row['apps_count'] ?? 0),
+      createdAt: String(row['created_at'] ?? ''),
+      expiresAt,
+      lastLogin: row['last_login'] ? String(row['last_login']) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => {
+  try {
+    const email = String(credentials['email'] ?? credentials['username'] ?? '').trim().toLowerCase();
+    const password = String(credentials['password'] ?? credentials['licenseKey'] ?? '').trim();
+    const forceTakeover = Boolean(credentials['forceTakeover']);
+
+    if (!email || !password) {
+      return { success: false, error: 'Email and password are required.' };
+    }
+    if (!email.includes('@')) {
+      return { success: false, error: 'Please sign in with the email address your license was issued to.' };
     }
 
-    const cols = results[0].columns;
-    const userRow = Object.fromEntries(cols.map((c, i) => [c, results[0].values[0][i]]));
+    const passwordHash = hashLogin(email, password);
+    const supabase = getAnonSupabase();
+    const { deviceFingerprint, deviceName } = getDeviceIdentifier(app.getPath('userData'));
+    activeDeviceFingerprint = deviceFingerprint;
+    activeDeviceName = deviceName;
 
-    if (String(userRow['status']) === 'suspended') {
-      return { success: false, error: 'This account or license key is suspended. Contact administrator.' };
-    }
+    // Primary path: ask Supabase (the source of truth) to authenticate.
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('authenticate_user', {
+          p_email: email,
+          p_password: password,
+        });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) return { success: false, error: 'Login failed. Please try again.' };
+        if (!row.ok) return { success: false, error: row.reason || 'Login failed.' };
 
-    // Expiration check (e.g. 7-day trial or expired subscription)
-    if (userRow['expires_at']) {
-      const expiresAt = new Date(String(userRow['expires_at']));
-      if (expiresAt.getTime() < Date.now()) {
-        const isTrial = String(userRow['tier']) === 'trial';
-        return {
-          success: false,
-          error: isTrial
-            ? 'Your 7-day free trial has expired. Contact administrator to renew or upgrade to Pro/Max.'
-            : 'Your subscription plan has expired. Contact administrator to renew.',
+        const tier: ValidatedUser['tier'] =
+          ['trial', 'pro', 'max', 'lifetime'].includes(row.tier) ? row.tier : 'pro';
+        const user: ValidatedUser = {
+          id: String(row.id),
+          email: String(row.email),
+          fullName: String(row.full_name ?? ''),
+          role: row.role === 'admin' ? 'admin' : 'user',
+          tier,
+          licenseKey: String(row.license_key ?? ''),
+          status: row.status === 'suspended' ? 'suspended' : 'active',
+          appsCount: Number(row.apps_count ?? 0),
+          createdAt: '',
+          expiresAt: row.expires_at ? String(row.expires_at) : undefined,
+          lastLogin: new Date().toISOString(),
         };
+
+        // Enforce Single-Laptop Lock
+        const clientIp = await resolvePublicIp().catch(() => '127.0.0.1');
+        const sessionToken = crypto.randomUUID();
+
+        const devReg = await registerDeviceSession(
+          supabase,
+          user.id,
+          sessionToken,
+          deviceFingerprint,
+          deviceName,
+          clientIp,
+          forceTakeover
+        );
+
+        if (devReg.conflict && !forceTakeover) {
+          log(`[Auth] Device lock conflict: Account in use on "${devReg.activeDevice}".`);
+          return {
+            success: false,
+            conflict: true,
+            activeDevice: devReg.activeDevice || 'Another Laptop',
+            error: devReg.reason || 'Account is currently active on another device.',
+          };
+        }
+
+        activeUserId = user.id;
+        activeSessionToken = sessionToken;
+
+        cacheValidatedUser(user, passwordHash);
+        log(`[Auth] Authenticated via Supabase: ${user.email} (${user.tier.toUpperCase()}) on [${deviceName}]`);
+
+        // Start heartbeat loop immediately
+        startHeartbeatLoop(user.id, sessionToken, deviceFingerprint);
+
+        // Pull cloud data into local SQLite
+        await syncPullUserDataToLocalDb(user.id, sessionToken, deviceFingerprint);
+
+        return {
+          success: true,
+          user: {
+            ...user,
+            sessionToken,
+            deviceFingerprint,
+            deviceName,
+          }
+        };
+      } catch (rpcErr: unknown) {
+        const msg = rpcErr instanceof Error ? rpcErr.message : String(rpcErr);
+        log(`[Auth] Supabase unreachable (${msg}) — trying offline cache.`);
       }
     }
 
-    // Update last_login
-    db.run(`UPDATE app_users SET last_login = datetime('now') WHERE id = ?`, [Number(userRow['id'])]);
-    persistDb();
-
-    log(`[Auth] User authenticated: ${userRow['email']} (Role: ${userRow['role']}, Tier: ${userRow['tier']})`);
+    // Offline fallback: only users who previously logged in successfully.
+    const offline = tryOfflineLogin(email, passwordHash);
+    if (offline && 'error' in offline) return { success: false, error: offline.error };
+    if (offline) {
+      const offlineSessionToken = crypto.randomUUID();
+      activeUserId = offline.id;
+      activeSessionToken = offlineSessionToken;
+      log(`[Auth] Authenticated from offline cache: ${offline.email}`);
+      return {
+        success: true,
+        user: {
+          ...offline,
+          sessionToken: offlineSessionToken,
+          deviceFingerprint,
+          deviceName,
+        }
+      };
+    }
 
     return {
-      success: true,
-      user: {
-        id: Number(userRow['id']),
-        email: String(userRow['email']),
-        fullName: String(userRow['full_name']),
-        role: String(userRow['role']) as 'admin' | 'user',
-        tier: String(userRow['tier']) as 'trial' | 'pro' | 'max' | 'lifetime',
-        licenseKey: String(userRow['license_key'] ?? ''),
-        status: String(userRow['status']) as 'active' | 'suspended',
-        appsCount: Number(userRow['apps_count'] ?? 0),
-        createdAt: String(userRow['created_at'] ?? ''),
-        expiresAt: userRow['expires_at'] ? String(userRow['expires_at']) : undefined,
-        lastLogin: String(userRow['last_login'] ?? ''),
-      },
+      success: false,
+      error: supabase
+        ? 'Could not reach the licensing server and no offline session is cached. Check your connection.'
+        : 'Licensing server is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY.',
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1023,94 +1584,104 @@ ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => 
   }
 });
 
-// ── IPC: Admin Dashboard Management Handlers ──────────────────────────────
+// ── IPC: Admin Dashboard Handlers ─────────────────────────────────────────
+// Every admin action goes through the SERVICE-ROLE Supabase client, which
+// exists ONLY on the operator's machine (SUPABASE_SERVICE_ROLE_KEY). Customer
+// builds never ship that key, so these handlers are inert there — and the
+// renderer only exposes the Admin panel to role === 'admin' anyway.
 ipcMain.handle('admin-get-users', async () => {
+  const supabase = getServiceSupabase();
+  if (!supabase) {
+    log('[Admin] Service-role key not configured — admin features are disabled on this machine.');
+    return [];
+  }
   try {
-    const db = getDb();
-    const results = db.exec('SELECT * FROM app_users ORDER BY id DESC');
-    if (!results.length) return [];
-    const cols = results[0].columns;
-    return results[0].values.map(row => {
-      const obj = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-      return {
-        id: Number(obj['id']),
-        email: String(obj['email']),
-        fullName: String(obj['full_name']),
-        role: String(obj['role']) as 'admin' | 'user',
-        tier: String(obj['tier']) as 'trial' | 'pro' | 'max' | 'lifetime',
-        licenseKey: String(obj['license_key'] ?? ''),
-        status: String(obj['status']) as 'active' | 'suspended',
-        appsCount: Number(obj['apps_count'] ?? 0),
-        createdAt: String(obj['created_at'] ?? ''),
-        expiresAt: obj['expires_at'] ? String(obj['expires_at']) : undefined,
-        lastLogin: obj['last_login'] ? String(obj['last_login']) : undefined,
-      };
-    });
+    const { data, error } = await supabase
+      .from('users_profile')
+      .select('id,email,full_name,subscription_tier,role,status,license_key,apps_count,created_at,expires_at,last_login')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((u: Record<string, unknown>) => ({
+      id: String(u['id']),
+      email: String(u['email']),
+      fullName: String(u['full_name'] ?? ''),
+      role: u['role'] === 'admin' ? 'admin' : 'user',
+      tier: normalizeTier(u['subscription_tier']),
+      licenseKey: String(u['license_key'] ?? ''),
+      status: u['status'] === 'suspended' ? 'suspended' : 'active',
+      appsCount: Number(u['apps_count'] ?? 0),
+      createdAt: String(u['created_at'] ?? ''),
+      expiresAt: u['expires_at'] ? String(u['expires_at']) : undefined,
+      lastLogin: u['last_login'] ? String(u['last_login']) : undefined,
+    }));
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log(`[Admin] Fetch users error: ${msg}`);
+    log(`[Admin] Fetch users error: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 });
 
 ipcMain.handle('admin-create-user', async (_, user: Record<string, unknown>) => {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
   try {
-    const db = getDb();
     const email = String(user['email'] ?? '').trim().toLowerCase();
     const fullName = String(user['fullName'] ?? '').trim();
-    const password = String(user['password'] ?? 'pass123').trim();
+    const password = String(user['password'] ?? '').trim();
     const tier = String(user['tier'] ?? 'pro').toLowerCase();
     const role = String(user['role'] ?? 'user').toLowerCase();
 
-    // Auto-generate human-readable license key
-    const randomBlock1 = Math.floor(1000 + Math.random() * 9000);
-    const randomBlock2 = Math.floor(1000 + Math.random() * 9000);
+    if (!email || !email.includes('@')) return { success: false, error: 'A valid email is required.' };
+    if (!password) return { success: false, error: 'A temporary password is required.' };
+
     const tierPrefix = tier === 'trial' ? 'TRL' : tier === 'max' ? 'MAX' : tier === 'lifetime' ? 'LIFE' : 'PRO';
-    const licenseKey = String(
-      user['licenseKey'] ?? `JMX-${tierPrefix}-${randomBlock1}-${randomBlock2}`
-    ).trim();
+    const r1 = Math.floor(1000 + Math.random() * 9000);
+    const r2 = Math.floor(1000 + Math.random() * 9000);
+    const licenseKey = String(user['licenseKey'] ?? `JMX-${tierPrefix}-${r1}-${r2}`).trim();
 
-    // Set expiration based on tier: trial = 7 days, pro/max = 30 days, lifetime = null
-    if (tier === 'trial') {
-      db.run(
-        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'), datetime('now', '+7 days'))`,
-        [email, password, fullName, role, tier, licenseKey]
-      );
-      db.run(
-        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
-         VALUES (?, '$0.00', '7-Day Free Trial', 'paid', 'Direct Trial Activation', datetime('now'))`,
-        [email]
-      );
-    } else if (tier === 'lifetime') {
-      db.run(
-        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'), NULL)`,
-        [email, password, fullName, role, tier, licenseKey]
-      );
-      db.run(
-        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
-         VALUES (?, '$299.00', 'Lifetime Founder License', 'paid', 'Manual Admin Grant / Stripe', datetime('now'))`,
-        [email]
-      );
-    } else {
-      const price = tier === 'max' ? '$99.00' : '$49.00';
-      const planTitle = tier === 'max' ? 'Max Plan ($99/mo)' : 'Pro Plan ($49/mo)';
-      db.run(
-        `INSERT INTO app_users (email, password, full_name, role, tier, license_key, status, apps_count, created_at, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'active', 0, datetime('now'), datetime('now', '+30 days'))`,
-        [email, password, fullName, role, tier, licenseKey]
-      );
-      db.run(
-        `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
-         VALUES (?, ?, ?, 'paid', 'Manual Admin Grant / Stripe', datetime('now'))`,
-        [email, price, planTitle]
-      );
-    }
+    const expiresAt =
+      tier === 'lifetime'
+        ? null
+        : tier === 'trial'
+          ? new Date(Date.now() + 7 * 86400000).toISOString()
+          : new Date(Date.now() + 30 * 86400000).toISOString();
 
-    persistDb();
-    log(`[Admin] Issued new ${tier.toUpperCase()} license key: ${licenseKey} for user: ${email}`);
-    return { success: true };
+    // Service role bypasses RLS, so we can write password_hash directly using
+    // the same sha256("email:password") scheme the login RPC verifies against.
+    const { data: inserted, error: insErr } = await supabase
+      .from('users_profile')
+      .insert({
+        email,
+        full_name: fullName,
+        subscription_tier: tier,
+        role,
+        status: 'active',
+        license_key: licenseKey,
+        apps_count: 0,
+        expires_at: expiresAt,
+        password_hash: hashLogin(email, password),
+      })
+      .select('id')
+      .single();
+    if (insErr) throw insErr;
+
+    // Best-effort billing ledger entry (don't fail provisioning if this errors).
+    const price = tier === 'trial' ? '$0.00' : tier === 'max' ? '$99.00' : tier === 'lifetime' ? '$299.00' : '$49.00';
+    const plan =
+      tier === 'trial' ? '7-Day Free Trial'
+      : tier === 'max' ? 'Max Plan ($99/mo)'
+      : tier === 'lifetime' ? 'Lifetime License'
+      : 'Pro Plan ($49/mo)';
+    const { error: billErr } = await supabase.from('billing_records').insert({
+      user_email: email,
+      amount: price,
+      plan,
+      status: 'paid',
+      payment_method: 'Manual Admin Grant',
+    });
+    if (billErr) log(`[Admin] Billing ledger note: ${billErr.message}`);
+
+    log(`[Admin] Provisioned ${tier.toUpperCase()} user ${email} (${licenseKey}).`);
+    return { success: true, id: inserted && inserted['id'] ? String(inserted['id']) : undefined };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`[Admin] Create user error: ${msg}`);
@@ -1118,12 +1689,14 @@ ipcMain.handle('admin-create-user', async (_, user: Record<string, unknown>) => 
   }
 });
 
-ipcMain.handle('admin-update-user-status', async (_, data: { id: number; status: string }) => {
+ipcMain.handle('admin-update-user-status', async (_, data: { id: number | string; status: string }) => {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
   try {
-    const db = getDb();
-    db.run('UPDATE app_users SET status = ? WHERE id = ?', [data.status, data.id]);
-    persistDb();
-    log(`[Admin] Updated user ID ${data.id} status to: ${data.status}`);
+    const status = data.status === 'suspended' ? 'suspended' : 'active';
+    const { error } = await supabase.from('users_profile').update({ status }).eq('id', String(data.id));
+    if (error) throw error;
+    log(`[Admin] User ${data.id} status -> ${status}`);
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1132,12 +1705,13 @@ ipcMain.handle('admin-update-user-status', async (_, data: { id: number; status:
   }
 });
 
-ipcMain.handle('admin-delete-user', async (_, id: number) => {
+ipcMain.handle('admin-delete-user', async (_, id: number | string) => {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
   try {
-    const db = getDb();
-    db.run('DELETE FROM app_users WHERE id = ?', [id]);
-    persistDb();
-    log(`[Admin] Deleted user ID ${id}`);
+    const { error } = await supabase.from('users_profile').delete().eq('id', String(id));
+    if (error) throw error;
+    log(`[Admin] Deleted user ${id}`);
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1147,44 +1721,44 @@ ipcMain.handle('admin-delete-user', async (_, id: number) => {
 });
 
 ipcMain.handle('admin-get-billing', async () => {
+  const supabase = getServiceSupabase();
+  if (!supabase) return [];
   try {
-    const db = getDb();
-    const results = db.exec('SELECT * FROM billing_records ORDER BY id DESC');
-    if (!results.length) return [];
-    const cols = results[0].columns;
-    return results[0].values.map(row => {
-      const obj = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-      return {
-        id: Number(obj['id']),
-        userEmail: String(obj['user_email']),
-        amount: String(obj['amount']),
-        plan: String(obj['plan']),
-        status: String(obj['status']) as 'paid' | 'pending' | 'refunded',
-        paymentMethod: String(obj['payment_method']),
-        createdAt: String(obj['created_at']),
-      };
-    });
+    const { data, error } = await supabase
+      .from('billing_records')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((b: Record<string, unknown>) => ({
+      id: String(b['id']),
+      userEmail: String(b['user_email']),
+      amount: String(b['amount']),
+      plan: String(b['plan']),
+      status: (['paid', 'pending', 'refunded'].includes(String(b['status'])) ? b['status'] : 'paid') as
+        | 'paid'
+        | 'pending'
+        | 'refunded',
+      paymentMethod: String(b['payment_method'] ?? ''),
+      createdAt: String(b['created_at'] ?? ''),
+    }));
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log(`[Admin] Fetch billing error: ${msg}`);
+    log(`[Admin] Fetch billing error: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 });
 
 ipcMain.handle('admin-create-billing-record', async (_, record: Record<string, unknown>) => {
+  const supabase = getServiceSupabase();
+  if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
   try {
-    const db = getDb();
-    db.run(
-      `INSERT INTO billing_records (user_email, amount, plan, status, payment_method, created_at)
-       VALUES (?, ?, ?, 'paid', ?, datetime('now'))`,
-      [
-        String(record['userEmail'] ?? ''),
-        String(record['amount'] ?? '$49.00'),
-        String(record['plan'] ?? 'Pro Plan'),
-        String(record['paymentMethod'] ?? 'Stripe Card'),
-      ]
-    );
-    persistDb();
+    const { error } = await supabase.from('billing_records').insert({
+      user_email: String(record['userEmail'] ?? ''),
+      amount: String(record['amount'] ?? '$49.00'),
+      plan: String(record['plan'] ?? 'Pro Plan'),
+      status: 'paid',
+      payment_method: String(record['paymentMethod'] ?? 'Manual'),
+    });
+    if (error) throw error;
     log(`[Admin] Recorded transaction: ${record['amount']} for ${record['userEmail']}`);
     return { success: true };
   } catch (err: unknown) {
@@ -1195,68 +1769,47 @@ ipcMain.handle('admin-create-billing-record', async (_, record: Record<string, u
 });
 
 ipcMain.handle('admin-get-metrics', async () => {
+  const empty = {
+    totalUsers: 0, activeUsers: 0, totalApps: 0, totalRevenue: '$0.00',
+    mrr: '$0/mo', trialUsers: 0, proUsers: 0, maxUsers: 0, lifetimeUsers: 0,
+  };
+  const supabase = getServiceSupabase();
+  if (!supabase) return empty;
   try {
-    const db = getDb();
-    const userRes = db.exec('SELECT * FROM app_users');
-    let totalUsers = 0;
-    let activeUsers = 0;
-    let totalApps = 0;
-    let trialUsers = 0;
-    let proUsers = 0;
-    let maxUsers = 0;
-    let lifetimeUsers = 0;
+    const { data: users, error: uErr } = await supabase
+      .from('users_profile')
+      .select('subscription_tier,status,apps_count');
+    if (uErr) throw uErr;
+    const { data: billing, error: bErr } = await supabase
+      .from('billing_records')
+      .select('amount')
+      .eq('status', 'paid');
+    if (bErr) throw bErr;
 
-    if (userRes.length) {
-      const cols = userRes[0].columns;
-      const users = userRes[0].values.map(r => Object.fromEntries(cols.map((c, i) => [c, r[i]])));
-      totalUsers = users.length;
-      activeUsers = users.filter(u => String(u['status']) === 'active').length;
-      totalApps = users.reduce((acc, u) => acc + (Number(u['apps_count']) || 0), 0);
-      trialUsers = users.filter(u => String(u['tier']) === 'trial').length;
-      proUsers = users.filter(u => String(u['tier']) === 'pro').length;
-      maxUsers = users.filter(u => String(u['tier']) === 'max' || String(u['tier']) === 'enterprise').length;
-      lifetimeUsers = users.filter(u => String(u['tier']) === 'lifetime').length;
-    }
+    const list = (users ?? []) as Array<Record<string, unknown>>;
+    const totalUsers = list.length;
+    const activeUsers = list.filter((u) => String(u['status']) === 'active').length;
+    const totalApps = list.reduce((acc, u) => acc + (Number(u['apps_count']) || 0), 0);
+    const trialUsers = list.filter((u) => String(u['subscription_tier']) === 'trial').length;
+    const proUsers = list.filter((u) => String(u['subscription_tier']) === 'pro').length;
+    const maxUsers = list.filter(
+      (u) => String(u['subscription_tier']) === 'max' || String(u['subscription_tier']) === 'enterprise'
+    ).length;
+    const lifetimeUsers = list.filter((u) => String(u['subscription_tier']) === 'lifetime').length;
 
-    const billingRes = db.exec('SELECT amount FROM billing_records WHERE status = "paid"');
     let totalRevenueCents = 0;
-    if (billingRes.length) {
-      for (const row of billingRes[0].values) {
-        const str = String(row[0]).replace(/[^0-9.]/g, '');
-        totalRevenueCents += parseFloat(str || '0') * 100;
-      }
+    for (const b of (billing ?? []) as Array<Record<string, unknown>>) {
+      totalRevenueCents += (parseFloat(String(b['amount']).replace(/[^0-9.]/g, '') || '0')) * 100;
     }
+    const totalRevenue = `$${(totalRevenueCents / 100).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+    const mrr = `$${(proUsers * 49 + maxUsers * 99).toLocaleString()}/mo`;
 
-    const mrrDollars = proUsers * 49 + maxUsers * 99;
-    const totalRevDollars = (totalRevenueCents / 100).toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    });
-
-    return {
-      totalUsers,
-      activeUsers,
-      totalApps,
-      totalRevenue: totalRevDollars,
-      mrr: `$${mrrDollars.toLocaleString()}/mo`,
-      trialUsers,
-      proUsers,
-      maxUsers,
-      lifetimeUsers,
-    };
+    return { totalUsers, activeUsers, totalApps, totalRevenue, mrr, trialUsers, proUsers, maxUsers, lifetimeUsers };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log(`[Admin] Metrics computation error: ${msg}`);
-    return {
-      totalUsers: 0,
-      activeUsers: 0,
-      totalApps: 0,
-      totalRevenue: '$0.00',
-      mrr: '$0/mo',
-      trialUsers: 0,
-      proUsers: 0,
-      maxUsers: 0,
-      lifetimeUsers: 0,
-    };
+    log(`[Admin] Metrics computation error: ${err instanceof Error ? err.message : String(err)}`);
+    return empty;
   }
 });

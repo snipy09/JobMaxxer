@@ -685,7 +685,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                     <Check className="w-3.5 h-3.5 stroke-[3]" />
                   </div>
                   <div className="text-xs font-bold text-slate-900">
-                    AI Auto-Filler: {groqKey ? 'Groq Llama-3 Active' : 'Offline Q&A Rules'}
+                    AI Auto-Filler: {groqKey ? 'Active (Groq Llama-3 LLM)' : 'Active (Rule-Based & Master Profile)'}
                   </div>
                 </div>
 

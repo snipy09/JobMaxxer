@@ -86,7 +86,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
     }
   };
 
-  const handleDeleteUser = async (id: number, email: string) => {
+  const handleDeleteUser = async (id: number | string, email: string) => {
     if (!window.confirm(`Are you sure you want to delete user ${email}?`)) return;
     const api = getApi();
     if (!api) return;
@@ -172,7 +172,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                 Master Admin Dashboard
               </h1>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                Raksha (Owner)
+                {currentUser?.fullName || 'Owner'}
               </span>
             </div>
             <p className="text-xs text-slate-500 font-normal">

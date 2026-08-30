@@ -1,4 +1,4 @@
-﻿import crypto from 'crypto';
+import crypto from 'crypto';
 
 /**
  * Computes SHA256 cryptographic hash of (company + title + clean_apply_url)

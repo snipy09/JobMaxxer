@@ -1,11 +1,11 @@
-import { scrapeAtsApis, type RawJob } from './ats-api-scraper.js';
-import { scrapeAggregatorsAndRss } from './aggregator-rss-scraper.js';
-import { scrapeDirectDom } from './direct-dom-scraper.js';
-import { scrapeWebSearchIndexes } from './web-search-scraper.js';
-import { scrapeNicheBoards } from './niche-boards-scraper.js';
-import { computeJobHash } from './hasher.js';
-
-import { scrapeRecruiterLeads, type RecruiterLead } from './recruiter-scraper.js';
+import { scrapeAtsApis, type RawJob } from './ats-api-scraper.ts';
+import { scrapeAggregatorsAndRss } from './aggregator-rss-scraper.ts';
+import { scrapeDirectDom } from './direct-dom-scraper.ts';
+import { scrapeWebSearchIndexes } from './web-search-scraper.ts';
+import { scrapeNicheBoards } from './niche-boards-scraper.ts';
+import { scrapeInternshala, type InternshalaJob } from './internshala-scraper.ts';
+import { computeJobHash } from './hasher.ts';
+import { scrapeRecruiterLeads, type RecruiterLead } from './recruiter-scraper.ts';
 
 export {
   scrapeAtsApis,
@@ -13,14 +13,20 @@ export {
   scrapeDirectDom,
   scrapeWebSearchIndexes,
   scrapeNicheBoards,
+  scrapeInternshala,
   scrapeRecruiterLeads,
   computeJobHash,
   type RawJob,
+  type InternshalaJob,
   type RecruiterLead
 };
 
 export interface ScoredJob extends RawJob {
   score: number;
+  employmentType?: 'job' | 'internship';
+  workplaceType?: 'remote' | 'hybrid' | 'onsite';
+  experienceLevel?: 'entry' | 'mid' | 'senior';
+  createdAt?: string;
 }
 
 /**
@@ -40,11 +46,11 @@ export function computeRelevanceScore(job: RawJob, keywords: string[]): number {
   if (validKeywords.length === 0) return 50;
 
   let weightedHits = 0;
-  const maxWeighted = validKeywords.length * 2; // max each keyword can contribute is 2
+  const maxWeighted = validKeywords.length * 2;
 
   for (const kw of validKeywords) {
-    if (normTitle.includes(kw)) weightedHits += 2;   // title match: double weight
-    else if (normDesc.includes(kw)) weightedHits += 1; // description match: single weight
+    if (normTitle.includes(kw)) weightedHits += 2;
+    else if (normDesc.includes(kw)) weightedHits += 1;
   }
 
   return Math.min(100, Math.round((weightedHits / maxWeighted) * 100));
@@ -58,15 +64,15 @@ export function extractProfileKeywords(profile?: Record<string, unknown>): strin
 
   const collected: string[] = [];
 
-  // If the caller passed an explicit keywords array, use it
-  const explicit = profile['keywords'];
-  if (Array.isArray(explicit)) {
-    for (const k of explicit) {
+  // Keywords array
+  const rawKeywords = profile['keywords'];
+  if (Array.isArray(rawKeywords)) {
+    for (const k of rawKeywords) {
       if (typeof k === 'string' && k.trim()) collected.push(k.trim());
     }
   }
 
-  // Desired job titles (singular or array)
+  // Desired job titles
   const titles = profile['desiredTitle'] ?? profile['desired_title'];
   if (typeof titles === 'string') {
     collected.push(...titles.split(/[,;|]/));
@@ -95,23 +101,46 @@ export function extractProfileKeywords(profile?: Record<string, unknown>): strin
 export async function runAllScrapers(
   profile?: Record<string, unknown>
 ): Promise<ScoredJob[]> {
-  console.log('[Scraper Pipeline] Starting All 5 High-Throughput Scraper Engines (1000+ Sources Target)...');
+  console.log('[Scraper Pipeline] Starting All High-Throughput Scraper Engines (ATS, Internshala, Niche, Web)...');
 
   const profileKeywords = extractProfileKeywords(profile);
-  console.log(`[Scraper Pipeline] Profile keywords for relevance scoring: [${profileKeywords.join(', ')}]`);
 
-  const [atsJobs, webJobs, nicheJobs] = await Promise.all([
-    scrapeAtsApis([
-      { name: 'Stripe', type: 'greenhouse', boardId: 'stripe' },
-      { name: 'Lever Demo', type: 'lever', boardId: 'lever' }
-    ]),
-    scrapeWebSearchIndexes(['react', 'typescript', 'python']),
-    scrapeNicheBoards()
+  const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+    ]);
+  };
+
+  const TOP_RSS_FEEDS = [
+    { name: 'WeWorkRemotely: Dev', url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss' },
+    { name: 'WeWorkRemotely: DevOps', url: 'https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss' },
+    { name: 'WeWorkRemotely: FullStack', url: 'https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss' },
+    { name: 'Jobspresso Tech', url: 'https://jobspresso.co/feed/' },
+  ];
+
+  const [atsJobs, internshalaJobs, webJobs, nicheJobs, rssJobs] = await Promise.all([
+    withTimeout(scrapeAtsApis(), 15000, []),
+    withTimeout(scrapeInternshala().catch(() => []), 10000, []),
+    withTimeout(scrapeWebSearchIndexes(['react', 'typescript', 'python', 'intern']), 10000, []),
+    withTimeout(scrapeNicheBoards(), 10000, []),
+    withTimeout(scrapeAggregatorsAndRss(TOP_RSS_FEEDS), 10000, []),
   ]);
 
-  const allJobs = [...atsJobs, ...webJobs, ...nicheJobs];
+  const safeInternshala = Array.isArray(internshalaJobs) ? internshalaJobs : [];
+  const safeAts = Array.isArray(atsJobs) ? atsJobs : [];
+  const safeWeb = Array.isArray(webJobs) ? webJobs : [];
+  const safeNiche = Array.isArray(nicheJobs) ? nicheJobs : [];
+  const safeRss = Array.isArray(rssJobs) ? rssJobs : [];
 
-  // Deduplicate by hash
+  // Exclude LinkedIn positions strictly per directive
+  const allJobs = [...safeAts, ...safeInternshala, ...safeWeb, ...safeNiche, ...safeRss].filter(j => {
+    const src = (j.source || '').toLowerCase();
+    const url = (j.applyUrl || '').toLowerCase();
+    return !src.includes('linkedin') && !url.includes('linkedin.com');
+  });
+
+  // Deduplicate by SHA-256 hash
   const seenHashes = new Set<string>();
   const deduplicated: RawJob[] = [];
   for (const job of allJobs) {
@@ -122,17 +151,25 @@ export async function runAllScrapers(
   }
 
   // Compute relevance scores and attach
-  const scored: ScoredJob[] = deduplicated.map(job => ({
-    ...job,
-    score: computeRelevanceScore(job, profileKeywords),
-  }));
+  const scored: ScoredJob[] = deduplicated.map((job, idx) => {
+    const baseDate = new Date(Date.now() - idx * 120000).toISOString();
+    return {
+      ...job,
+      score: computeRelevanceScore(job, profileKeywords),
+      createdAt: (job as any).createdAt || baseDate,
+    };
+  });
 
-  // Sort descending by score
-  scored.sort((a, b) => b.score - a.score);
+  // Default Sort: Latest to Oldest
+  scored.sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
+  });
 
   console.log(
-    `[Scraper Pipeline] Scraped ${allJobs.length} total jobs -> ` +
-    `${deduplicated.length} unique jobs -> scored & sorted.`
+    `[Scraper Pipeline] Scraped & Filtered: ${allJobs.length} jobs -> ` +
+    `${deduplicated.length} unique positions -> sorted latest to oldest.`
   );
 
   return scored;

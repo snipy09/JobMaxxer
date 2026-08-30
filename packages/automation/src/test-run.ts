@@ -1,4 +1,4 @@
-﻿import { answerCustomQuestionWithGroq } from './groq-ai.js';
+import { answerCustomQuestionWithGroq } from './groq-ai.js';
 import { ATS_FIELD_ALIASES } from './alias-dictionary.js';
 
 async function testAutoApply() {
