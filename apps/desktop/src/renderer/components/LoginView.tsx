@@ -305,14 +305,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   id="terms"
                   checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-brand-600 focus:ring-0 accent-brand-600"
+                  className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-950 dark:text-white focus:ring-0 accent-slate-950 dark:accent-white"
                 />
                 <label htmlFor="terms" className="text-xs text-slate-500 dark:text-slate-400 select-none">
                   I agree to the{' '}
                   <button
                     type="button"
                     onClick={() => setShowTermsModal(true)}
-                    className="text-brand-600 hover:underline font-medium"
+                    className="text-slate-950 dark:text-white underline font-medium"
                   >
                     Terms & Conditions
                   </button>
@@ -348,7 +348,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   onClick={() => handleDemoLogin(cred.role)}
                   className="py-2.5 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] font-semibold text-slate-700 dark:text-slate-300 transition-colors text-center flex flex-col items-center gap-1"
                 >
-                  <span className="text-[10px] font-mono text-brand-600">{cred.tier.toUpperCase()}</span>
+                  <span className="text-[10px] font-mono text-slate-900 dark:text-white font-bold">{cred.tier.toUpperCase()}</span>
                   <span>{cred.label}</span>
                 </button>
               ))}

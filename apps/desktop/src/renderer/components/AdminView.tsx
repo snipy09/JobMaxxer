@@ -148,12 +148,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
       case 'trial':
         return 'bg-amber-50 text-amber-800 border-amber-200';
       case 'max':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'turbo':
+        return 'bg-slate-900 text-white border-slate-900';
       case 'lifetime':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'pro':
       default:
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
 
@@ -339,15 +340,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                 </div>
 
                 {/* 3. Max Plan */}
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-purple-50/60 border border-purple-200 text-xs">
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 text-white border border-slate-900 text-xs">
                   <div>
-                    <div className="font-bold text-purple-900 flex items-center gap-1.5">
-                      <Shield className="w-3 h-3 text-purple-600" />
-                      <span>Max Plan ($99/mo)</span>
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <Shield className="w-3 h-3 text-slate-400" />
+                      <span>Seeker Turbo (₹599/mo)</span>
                     </div>
-                    <div className="text-[11px] text-purple-700">Unlimited 500+ scrapers &amp; outreach</div>
+                    <div className="text-[11px] text-slate-300">Unlimited autonomous apply &amp; outreach</div>
                   </div>
-                  <span className="text-sm font-bold font-mono text-purple-900">{metrics.maxUsers}</span>
+                  <span className="text-sm font-bold font-mono text-white">{metrics.maxUsers}</span>
                 </div>
 
                 {/* 4. Lifetime Plan */}

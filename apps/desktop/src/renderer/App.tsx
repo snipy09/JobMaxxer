@@ -82,29 +82,30 @@ export default function App() {
     }
 
     try {
-      const res = await api.getMasterProfile();
-      if (res.success && res.data) {
-        const data = res.data;
+      const res: any = await api.getMasterProfile();
+      const data = (res && res.data) ? res.data : res;
+      if (data) {
         let customAnswersObj = {};
         try {
           if (data.customAnswersJson) customAnswersObj = JSON.parse(data.customAnswersJson);
+          else if (data.custom_answers_json) customAnswersObj = JSON.parse(data.custom_answers_json);
         } catch {}
 
         const mapped: MasterProfile = {
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
+          firstName: data.firstName || data.first_name || '',
+          lastName: data.lastName || data.last_name || '',
           email: data.email || '',
           phone: data.phone || '',
-          linkedin: data.linkedin || '',
-          github: data.github || '',
+          linkedin: data.linkedin || data.linkedin_url || '',
+          github: data.github || data.github_url || '',
           sponsorship: data.sponsorship || 'No',
-          desiredSalary: data.desiredSalary || '',
-          noticePeriod: data.noticePeriod || '2 weeks',
-          groqApiKey: data.groqApiKey || '',
-          smtpPassword: data.smtpPassword || '',
-          resumeText: data.resumeText || '',
-          desiredTitle: data.desiredTitle || '',
-          techStack: data.techStack || '',
+          desiredSalary: data.desiredSalary || data.desired_salary || '',
+          noticePeriod: data.noticePeriod || data.notice_period || '2 weeks',
+          groqApiKey: data.groqApiKey || data.groq_api_key || '',
+          smtpPassword: data.smtpPassword || data.smtp_password || '',
+          resumeText: data.resumeText || data.resume_text || '',
+          desiredTitle: data.desiredTitle || data.desired_title || '',
+          techStack: data.techStack || data.tech_stack || '',
           customAnswers: customAnswersObj,
           onboardingCompleted: true,
         };

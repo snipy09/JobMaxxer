@@ -321,7 +321,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Referrals Sent</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-700 border border-indigo-100">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 border border-slate-200">
               <Send className="w-4 h-4" />
             </div>
           </div>
@@ -428,7 +428,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('feed')}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 ml-2 transition-colors"
+              className="text-xs font-bold text-slate-900 hover:text-slate-700 flex items-center gap-0.5 ml-2 transition-colors"
             >
               <span>Explore Stream</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -532,7 +532,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('feed')}
-              className="text-xs text-indigo-600 hover:underline font-semibold"
+              className="text-xs text-slate-950 hover:underline font-bold"
             >
               View all available opportunities in Opportunity Stream →
             </button>
