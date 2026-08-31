@@ -47,7 +47,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="w-6 h-6 rounded object-contain shadow-sm"
           />
           <span className="font-extrabold text-sm tracking-tight text-slate-950 dark:text-white font-sans">
-            Hire<span className="text-brand-600">stack</span>
+            Hire<span className="text-slate-950 dark:text-white">stack</span>
           </span>
         </div>
 
@@ -73,7 +73,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             }}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
               activeTrack === 'learner'
-                ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 shadow-sm'
+                ? 'bg-white dark:bg-slate-900 text-slate-950 dark:text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -92,7 +92,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <Zap className="w-3.5 h-3.5 text-brand-600" />
+            <Zap className="w-3.5 h-3.5 text-slate-950 dark:text-white" />
             <span>Seeker Track</span>
           </button>
         </div>
@@ -103,7 +103,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         {onOpenUpgrade && currentUser?.tier === 'free' && (
           <button
             onClick={onOpenUpgrade}
-            className="text-[11px] font-bold bg-brand-600 hover:bg-brand-700 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1"
+            className="text-[11px] font-bold bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1"
           >
             <Zap className="w-3 h-3" />
             <span>Upgrade</span>

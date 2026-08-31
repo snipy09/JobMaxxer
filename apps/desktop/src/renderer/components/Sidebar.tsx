@@ -70,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!collapsed && (
             <div className="flex flex-col">
               <span className="font-extrabold text-sm tracking-tight text-slate-950 dark:text-white">
-                Hire<span className="text-brand-600">stack</span>
+                Hire<span className="text-slate-950 dark:text-white">stack</span>
               </span>
               <span className="text-[10px] font-mono text-slate-400 -mt-0.5">
                 {activeTrack === 'learner' ? 'Learner Edition' : 'Seeker Edition'}
@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                <Zap className="w-3 h-3 text-brand-600" /> Unlock Seeker Pro
+                <Zap className="w-3 h-3 text-slate-950 dark:text-white" /> Unlock Seeker Pro
               </span>
               <span className="text-[10px] font-mono text-slate-400">₹299</span>
             </div>
@@ -121,7 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </p>
             <button
               onClick={onOpenUpgrade}
-              className="w-full py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[10px] font-bold transition-colors shadow-sm"
+              className="w-full py-1.5 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-lg text-[10px] font-bold transition-colors shadow-sm"
             >
               Upgrade Plan
             </button>

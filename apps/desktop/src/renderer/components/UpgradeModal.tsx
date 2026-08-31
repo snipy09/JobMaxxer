@@ -63,7 +63,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
         {/* Modal Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-[11px] font-bold text-slate-900 dark:text-white">
-            <Zap className="w-3.5 h-3.5 text-brand-600" />
+            <Zap className="w-3.5 h-3.5 text-slate-950 dark:text-white" />
             {triggerFeature ? `Unlock ${triggerFeature}` : 'Automate Your Search'}
           </div>
           <h2 className="text-2xl font-extrabold text-slate-950 dark:text-white tracking-tight">Choose Your Seeker Plan</h2>

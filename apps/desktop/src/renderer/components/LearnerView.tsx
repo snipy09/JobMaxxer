@@ -184,7 +184,7 @@ export const LearnerView: React.FC<{
                                 <ul className="mt-1 space-y-1 text-slate-700 dark:text-slate-200 font-medium">
                                   {m.interviewQuestions.map((q, i) => (
                                     <li key={i} className="flex items-start gap-1.5">
-                                      <HelpCircle className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
+                                      <HelpCircle className="w-3.5 h-3.5 text-slate-900 dark:text-white shrink-0 mt-0.5" />
                                       <span>{q}</span>
                                     </li>
                                   ))}

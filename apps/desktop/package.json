@@ -63,6 +63,7 @@
     "@job-automator/email-verifier": "file:../../packages/email-verifier",
     "@job-automator/scrapers": "file:../../packages/scrapers",
     "@job-automator/supabase": "file:../../packages/supabase",
+    "animejs": "^4.5.0",
     "lucide-react": "^0.330.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

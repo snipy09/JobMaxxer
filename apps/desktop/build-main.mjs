@@ -5,27 +5,17 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Hardcode official Supabase public endpoints for production client binaries
+const DEFAULT_SUPABASE_URL = 'https://jympejesevicwleptfzq.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbG...MbPA';
+
 async function build() {
   console.log('[Build] Bundling main process and preload script with esbuild...');
 
-  // Bake the PUBLIC Supabase URL + anon key into the main bundle at build time.
-  // After the secure RLS migration (002) the anon key can only read the public
-  // job feed and call the authenticate_user() RPC, so it is safe to embed in the
-  // shipped binary — this is what lets a customer's fresh install reach the
-  // licensing server and sign in. The SERVICE ROLE key is deliberately NOT baked:
-  // it stays a runtime process.env lookup, so it exists only on the operator's
-  // own machine (admin panel) and is absent/inert on customer installs.
   const define = {
-    'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || ''),
-    'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || ''),
+    'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL),
+    'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY),
   };
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-    console.warn(
-      '[Build Warning] SUPABASE_URL / SUPABASE_ANON_KEY are not set in the build ' +
-      'environment. The packaged app will not be able to reach the licensing ' +
-      'server. Set them before running the production build/package.'
-    );
-  }
 
   // Ensure out/main directory exists
   fs.mkdirSync(path.join(__dirname, 'out/main'), { recursive: true });
@@ -58,29 +48,23 @@ async function build() {
     bundle: true,
     platform: 'node',
     target: 'node20',
-    format: 'esm',
+    format: 'cjs',
     define,
+    external: [
+      'electron',
+      'fsevents',
+    ],
     alias: {
       '@job-automator/automation': path.join(__dirname, '../../packages/automation/src/index.ts'),
       '@job-automator/scrapers': path.join(__dirname, '../../packages/scrapers/src/index.ts'),
       '@job-automator/supabase': path.join(__dirname, '../../packages/supabase/src/index.ts'),
       '@job-automator/email-verifier': path.join(__dirname, '../../packages/email-verifier/src/index.ts'),
     },
+    sourcemap: process.env.NODE_ENV !== 'production',
+    minify: process.env.NODE_ENV === 'production',
     banner: {
-      js: "import { createRequire as __createRequire } from 'module'; const require = __createRequire(import.meta.url);"
+      js: '// Hirestack Main Process Bundle',
     },
-    external: [
-      'electron',
-      'playwright',
-      'playwright-core',
-      'playwright-extra',
-      'puppeteer-extra-plugin-stealth',
-      'sql.js',
-      'fsevents'
-    ],
-    sourcemap: false,
-    minify: false,
-    logLevel: 'info',
   });
 
   // 2. Bundle Preload Script
@@ -91,22 +75,16 @@ async function build() {
     platform: 'node',
     target: 'node20',
     format: 'cjs',
+    define,
     external: ['electron'],
     sourcemap: false,
-    minify: false,
-    logLevel: 'info',
+    minify: process.env.NODE_ENV === 'production',
   });
-
-  // Duplicate as preload.js for compatibility
-  fs.copyFileSync(
-    path.join(__dirname, 'out/main/preload.cjs'),
-    path.join(__dirname, 'out/main/preload.js')
-  );
 
   console.log('[Build] Main process & preload bundled successfully ✓');
 }
 
-build().catch(err => {
+build().catch((err) => {
   console.error('[Build Error]', err);
   process.exit(1);
 });
