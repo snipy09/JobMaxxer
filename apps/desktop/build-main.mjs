@@ -44,7 +44,7 @@ async function build() {
   // 1. Bundle Main Process
   await esbuild.build({
     entryPoints: [path.join(__dirname, 'src/main/index.ts')],
-    outfile: path.join(__dirname, 'out/main/index.js'),
+    outfile: path.join(__dirname, 'out/main/index.cjs'),
     bundle: true,
     platform: 'node',
     target: 'node20',
@@ -53,6 +53,10 @@ async function build() {
     external: [
       'electron',
       'fsevents',
+      'playwright',
+      'playwright-core',
+      'chromium-bidi',
+      'chromium-bidi/*',
     ],
     alias: {
       '@job-automator/automation': path.join(__dirname, '../../packages/automation/src/index.ts'),

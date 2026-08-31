@@ -3,11 +3,7 @@ import path from 'path';
 import https from 'https';
 import http from 'http';
 import { spawn } from 'child_process';
-import { chromium } from 'playwright-extra';
-import { type Browser, type BrowserContext, type Page } from 'playwright';
-import stealthPlugin from 'puppeteer-extra-plugin-stealth';
-
-chromium.use(stealthPlugin());
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 
 export interface BrowserLaunchOptions {
   headless?: boolean;

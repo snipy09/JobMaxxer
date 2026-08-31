@@ -52,7 +52,16 @@ export interface CloudUserData {
 }
 
 export function getSupabaseClient(supabaseUrl: string, supabaseKey: string) {
-  return createClient(supabaseUrl, supabaseKey);
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+    realtime: {
+      transport: typeof WebSocket !== 'undefined' ? WebSocket : undefined,
+    },
+  });
 }
 
 /**

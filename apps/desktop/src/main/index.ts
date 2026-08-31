@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import https from 'https';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
 import { initLocalDatabase, getDb, persistDb } from './db.js';
 import {
   AutoApplyEngine,
@@ -31,7 +30,7 @@ import {
   ExternalChromeOutreach,
 } from '@job-automator/email-verifier';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const mainDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(process.execPath);
 
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]', err);
@@ -501,9 +500,9 @@ const ADMIN_NO_SERVICE_ERR =
   'Admin actions require SUPABASE_SERVICE_ROLE_KEY to be set on this machine (operator only).';
 
 function createWindow(): void {
-  let preloadPath = path.join(__dirname, 'preload.cjs');
+  let preloadPath = path.join(mainDir, 'preload.cjs');
   if (!fs.existsSync(preloadPath)) {
-    preloadPath = path.join(__dirname, 'preload.js');
+    preloadPath = path.join(mainDir, 'preload.js');
   }
 
   mainWindow = new BrowserWindow({
@@ -538,7 +537,7 @@ function createWindow(): void {
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(path.join(mainDir, '../renderer/index.html'));
   }
 
   mainWindow.on('closed', () => { mainWindow = null; });

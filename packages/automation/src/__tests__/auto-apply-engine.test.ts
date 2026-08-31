@@ -26,18 +26,13 @@ const { mockChromium, mockBrowser, mockContext, mockPage } = vi.hoisted(() => {
 
   const mockChromium = {
     launch: vi.fn().mockResolvedValue(mockBrowser),
-    use: vi.fn(),
   };
 
   return { mockChromium, mockBrowser, mockContext, mockPage };
 });
 
-vi.mock('playwright-extra', () => ({
+vi.mock('playwright', () => ({
   chromium: mockChromium,
-}));
-
-vi.mock('puppeteer-extra-plugin-stealth', () => ({
-  default: () => ({}),
 }));
 
 const mockProfile: MasterProfile = {
