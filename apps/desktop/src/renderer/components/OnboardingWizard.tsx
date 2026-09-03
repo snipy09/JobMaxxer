@@ -6,16 +6,18 @@ import {
   Terminal, Layers, CheckCircle2, ChevronRight,
   GraduationCap, Award, Rocket, Code2, MapPin, Phone, Mail
 } from 'lucide-react';
-import { MasterProfile, getApi } from '../types';
 import {
   JobRole,
   suggestRolesFromUserInput,
+  searchRoleTitles,
   generateTailoredRoadmapForRole,
   TailoredRoadmapSummary
 } from '../data/jobRolesDataset';
+import { MasterProfile, AppUser, getApi } from '../types';
 
 interface OnboardingWizardProps {
   initialProfile: MasterProfile;
+  currentUser?: AppUser | null;
   onComplete: (profile: MasterProfile) => void;
   onSwitchToLogin?: () => void;
 }
@@ -64,22 +66,30 @@ const PRIMARY_GOALS = [
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   initialProfile,
+  currentUser,
   onComplete,
   onSwitchToLogin,
 }) => {
   const [step, setStep] = useState<number>(1);
   const totalSteps = 5;
 
+  // ── Authenticated User Info ────────────────────────────────────────────────
+  const userEmail = currentUser?.email || initialProfile.email || 'user@nomadic.app';
+  const initialFirst = initialProfile.firstName || (currentUser?.fullName ? currentUser.fullName.split(' ')[0] : '');
+  const initialLast = initialProfile.lastName || (currentUser?.fullName ? currentUser.fullName.split(' ').slice(1).join(' ') : '');
+
   // ── SCREEN 1: Candidate Basics ────────────────────────────────────────────
-  const [firstName, setFirstName] = useState<string>(initialProfile.firstName || '');
-  const [lastName, setLastName] = useState<string>(initialProfile.lastName || '');
-  const [email, setEmail] = useState<string>(initialProfile.email || '');
+  const [firstName, setFirstName] = useState<string>(initialFirst);
+  const [lastName, setLastName] = useState<string>(initialLast);
   const [phone, setPhone] = useState<string>(initialProfile.phone || '');
-  const [careerAspiration, setCareerAspiration] = useState<string>(
-    initialProfile.desiredTitle
-      ? `Looking for ${initialProfile.desiredTitle} roles`
-      : 'Building AI agents and modern web applications with scalable backend systems'
+  const [targetRoleTitle, setTargetRoleTitle] = useState<string>(
+    initialProfile.desiredTitle || 'Full Stack Engineer'
   );
+
+  // Real-time suggestions from 10,000 dataset as user types target role
+  const targetTitleSuggestions = useMemo(() => {
+    return searchRoleTitles(targetRoleTitle || 'developer', 6);
+  }, [targetRoleTitle]);
 
   // ── SCREEN 2: Experience & Background ─────────────────────────────────────
   const [selectedExp, setSelectedExp] = useState<string>('fresher');
@@ -89,6 +99,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [skillsText, setSkillsText] = useState<string>(
     initialProfile.techStack || 'React, TypeScript, Node.js, Python, PostgreSQL'
   );
+  const [customSkillInput, setCustomSkillInput] = useState<string>('');
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(() => {
     const s = new Set<string>(['React', 'TypeScript', 'Node.js', 'Python', 'PostgreSQL']);
     if (initialProfile.techStack) {
@@ -104,26 +115,50 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     setSelectedSkills(next);
   };
 
+  const handleAddCustomSkill = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = customSkillInput.trim();
+    if (!trimmed) return;
+    const next = new Set(selectedSkills);
+    next.add(trimmed);
+    setSelectedSkills(next);
+    setCustomSkillInput('');
+  };
+
   // ── SCREEN 4: Goals & Bandwidth ───────────────────────────────────────────
   const [selectedHorizon, setSelectedHorizon] = useState<string>('2m');
   const [selectedHours, setSelectedHours] = useState<string>('2h');
   const [selectedGoal, setSelectedGoal] = useState<string>('switch');
 
-  // ── SCREEN 5: AI Role Suggestions & Live Roadmap ──────────────────────────
-  // Synthesize user inputs across all screens into a semantic search query for the 10,000 dataset
+  // ── SCREEN 5: Dynamic AI Role Suggestions & Live Roadmap ──────────────────
+  const [roleSearchFilter, setRoleSearchFilter] = useState<string>('');
+
   const combinedUserQuery = useMemo(() => {
     const skillsArr = Array.from(selectedSkills).join(', ');
-    return `${careerAspiration} ${skillsText} ${skillsArr}`.trim();
-  }, [careerAspiration, skillsText, selectedSkills]);
+    return `${roleSearchFilter || targetRoleTitle} ${skillsText} ${skillsArr}`.trim();
+  }, [roleSearchFilter, targetRoleTitle, skillsText, selectedSkills]);
 
   const aiRoleSuggestions = useMemo(() => {
-    return suggestRolesFromUserInput(combinedUserQuery, 3);
-  }, [combinedUserQuery]);
+    const suggestions = suggestRolesFromUserInput(combinedUserQuery, 4);
+    if (targetRoleTitle && !roleSearchFilter) {
+      const exists = suggestions.some(r => r.title.toLowerCase().includes(targetRoleTitle.toLowerCase()));
+      if (!exists && suggestions.length > 0) {
+        const customRole: JobRole = {
+          ...suggestions[0],
+          id: 99999,
+          title: targetRoleTitle,
+          matchScore: 99,
+        };
+        return [customRole, ...suggestions.slice(0, 3)];
+      }
+    }
+    return suggestions;
+  }, [combinedUserQuery, targetRoleTitle, roleSearchFilter]);
 
   const [selectedRole, setSelectedRole] = useState<JobRole>(() => {
     return aiRoleSuggestions[0] || {
       id: 1,
-      title: initialProfile.desiredTitle || 'Full Stack Engineer',
+      title: initialProfile.desiredTitle || targetRoleTitle || 'Full Stack Engineer',
       domain: 'Full Stack Development',
       seniority: 'Mid-Level',
       industry: 'Enterprise SaaS',
@@ -133,11 +168,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       roadmapId: 'fullstack',
       keyTopics: ['Architecture', 'APIs', 'Database Modeling'],
       interviewQuestions: ['How do you architect an end-to-end type-safe API?'],
-      matchScore: 98,
+      matchScore: 99,
     };
   });
 
-  // Whenever AI suggestions update, pick the top match if user hasn't manually locked one
   useEffect(() => {
     if (aiRoleSuggestions.length > 0) {
       setSelectedRole(aiRoleSuggestions[0]);
@@ -149,30 +183,56 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     return generateTailoredRoadmapForRole(selectedRole);
   }, [selectedRole]);
 
+  // Dynamic domain recommended skills for Step 3 based on target role
+  const dynamicDomainSkills = useMemo(() => {
+    return selectedRole.coreSkills.length > 0 ? selectedRole.coreSkills : POPULAR_SKILLS;
+  }, [selectedRole]);
+
+  // ── Processing & Synthesis Progress ────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [synthesisProgress, setSynthesisProgress] = useState<number>(0);
+  const [synthesisStep, setSynthesisStep] = useState<number>(1);
 
   const handleFinishOnboarding = async () => {
     setIsSubmitting(true);
-    const finalProfile: MasterProfile = {
-      ...initialProfile,
-      firstName: firstName || 'Alex',
-      lastName: lastName || 'Vance',
-      email: email || 'candidate@hirestack.app',
-      phone: phone || '',
-      desiredTitle: selectedRole.title,
-      techStack: Array.from(selectedSkills).join(', '),
-      onboardingCompleted: true,
-    };
-
-    const api = getApi();
-    if (api) {
-      await api.saveMasterProfile(finalProfile as any);
-    }
+    setSynthesisProgress(15);
+    setSynthesisStep(1);
 
     setTimeout(() => {
+      setSynthesisProgress(45);
+      setSynthesisStep(2);
+    }, 350);
+
+    setTimeout(() => {
+      setSynthesisProgress(75);
+      setSynthesisStep(3);
+    }, 750);
+
+    setTimeout(() => {
+      setSynthesisProgress(100);
+      setSynthesisStep(4);
+    }, 1150);
+
+    setTimeout(async () => {
+      const finalProfile: MasterProfile = {
+        ...initialProfile,
+        firstName: firstName.trim() || 'Nomadic',
+        lastName: lastName.trim(),
+        email: userEmail,
+        phone: phone.trim(),
+        desiredTitle: selectedRole.title,
+        techStack: Array.from(selectedSkills).join(', '),
+        onboardingCompleted: true,
+      };
+
+      const api = getApi();
+      if (api) {
+        await api.saveMasterProfile(finalProfile as any);
+      }
+
       setIsSubmitting(false);
       onComplete(finalProfile);
-    }, 400);
+    }, 1550);
   };
 
   const stepsLabels = ['Basics', 'Background', 'Skills', 'Goals', 'Curriculum'];
@@ -186,10 +246,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950 flex items-center justify-center font-black text-xs shadow-xs">
-              HS
+              NM
             </div>
             <div>
-              <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">Hirestack Setup</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">Nomadic Setup</span>
               <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
                 {stepsLabels[step - 1]} · Step {step} of {totalSteps}
               </p>
@@ -234,7 +294,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <div className="space-y-1">
                 <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">Step 1</span>
                 <h2 className="text-2xl font-bold text-slate-950 dark:text-white tracking-tight">
-                  Welcome to Hirestack. Let's begin.
+                  Welcome to Nomadic. Let's begin.
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
                   Your identity is stored locally on your device and used to pre-fill applications.
@@ -242,6 +302,29 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               </div>
 
               <div className="space-y-4">
+                {/* Verified Account Card - Don't ask for Gmail */}
+                <div className="p-3 bg-slate-50 dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-xs font-bold text-slate-900 dark:text-white shadow-2xs">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[200px]">{userEmail}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" /> Verified Account
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono">Linked authentication identity</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">First Name</label>
@@ -267,17 +350,6 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Email Address</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="alex.vance@example.com"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Phone Number (Optional)</label>
                   <input
                     type="tel"
@@ -288,24 +360,63 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   />
                 </div>
 
-                <div className="space-y-1.5 pt-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                    What are you aiming for in your career right now?
-                  </label>
-                  <textarea
-                    value={careerAspiration}
-                    onChange={(e) => setCareerAspiration(e.target.value)}
-                    rows={2}
-                    placeholder="E.g. Transitioning into AI Engineering, building agents with LangChain & full stack Next.js web applications..."
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors resize-none leading-relaxed"
-                  />
+                {/* Dynamic Target Role / Career Goal Search & Suggestions */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                      Target Job Role / Career Goal
+                    </label>
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                      10,000+ dynamic roles index
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={targetRoleTitle}
+                      onChange={(e) => setTargetRoleTitle(e.target.value)}
+                      placeholder="E.g. Full Stack Engineer, AI Engineer, Frontend Developer..."
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors pl-9"
+                    />
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+
+                  {/* Dynamic Suggestions from 10k dataset */}
+                  <div className="space-y-1.5 pt-0.5">
+                    <span className="text-[10px] text-slate-400 font-mono">Dynamic suggestions from dataset:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {targetTitleSuggestions.map((title) => {
+                        const isMatch = targetRoleTitle.toLowerCase().trim() === title.toLowerCase().trim();
+                        return (
+                          <button
+                            key={title}
+                            type="button"
+                            onClick={() => setTargetRoleTitle(title)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                              isMatch
+                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs font-semibold'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300'
+                            }`}
+                          >
+                            {title}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setStep(2)}
-                className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                onClick={() => {
+                  if (firstName.trim()) {
+                    setStep(2);
+                  }
+                }}
+                disabled={!firstName.trim()}
+                className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>Continue</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -448,10 +559,74 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 />
               </div>
 
-              {/* Interactive MCQ Chips */}
-              <div className="space-y-2">
+              {/* Dynamic Domain Skills */}
+              {dynamicDomainSkills.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                      Recommended for {selectedRole.title}
+                    </label>
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                      Dynamically calibrated
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {dynamicDomainSkills.map((skill) => {
+                      const isSelected = selectedSkills.has(skill);
+                      return (
+                        <button
+                          key={skill}
+                          type="button"
+                          onClick={() => toggleSkillChip(skill)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'border-emerald-600 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 shadow-2xs'
+                              : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[3]" />}
+                          <span>{skill}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Add Custom Skill Dynamically */}
+              <div className="space-y-1.5 pt-1">
                 <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Quick Select Core Technologies ({selectedSkills.size} selected)
+                  Add Any Custom Skill or Framework
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customSkillInput}
+                    onChange={(e) => setCustomSkillInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomSkill();
+                      }
+                    }}
+                    placeholder="Type custom skill (e.g. Rust, PyTorch, GraphQL) and press Enter"
+                    className="flex-1 px-3.5 py-2 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomSkill}
+                    disabled={!customSkillInput.trim()}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-xl text-xs font-bold text-slate-700 dark:text-zinc-200 transition-colors disabled:opacity-50"
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+
+              {/* General Core Technologies */}
+              <div className="space-y-2 pt-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  Popular Core Technologies ({selectedSkills.size} selected)
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {POPULAR_SKILLS.map((skill) => {
@@ -634,10 +809,32 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 </p>
               </div>
 
+              {/* Dynamic Live Role Search & Filter */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                    Live Search or Select Target Role
+                  </label>
+                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                    Dynamic Matching
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={roleSearchFilter}
+                    onChange={(e) => setRoleSearchFilter(e.target.value)}
+                    placeholder="Type to test any other title (e.g. AI Systems Architect, SRE, Rust Engineer)..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors pl-9"
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
               {/* Top AI Job Title Suggestions from 10,000 Dataset */}
               <div className="space-y-2.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  AI-Detected Job Titles (Click to select target)
+                  AI-Synthesized Target Roles (Click to select)
                 </label>
 
                 <div className="space-y-2">
@@ -768,10 +965,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   className="flex-1 py-3.5 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-98 disabled:opacity-50"
                 >
                   {isSubmitting ? (
-                    <span>Launching Dashboard...</span>
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Synthesizing Workspace ({synthesisProgress}%)...</span>
+                    </div>
                   ) : (
                     <>
-                      <span>Launch My Personalized Hirestack Dashboard</span>
+                      <span>Launch My Personalized Nomadic Dashboard</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -782,6 +982,92 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          FULL ANIMATED SYNTHESIS & LAUNCH PROCESSING OVERLAY
+      ═══════════════════════════════════════════════════════════════════════ */}
+      {isSubmitting && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none">
+          <div className="w-full max-w-md bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-scale-in">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/80 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
+                <Loader2 className="w-7 h-7 animate-spin" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-950 dark:text-white">
+                Synthesizing Your Career Workspace
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Tailoring learning milestones &amp; radar engines for {selectedRole.title}
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[11px] font-mono font-semibold text-slate-500 dark:text-zinc-400">
+                <span>Synthesis Status</span>
+                <span>{synthesisProgress}%</span>
+              </div>
+              <div className="w-full h-2.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300 rounded-full"
+                  style={{ width: `${synthesisProgress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Step Checklist */}
+            <div className="space-y-2.5 pt-1 text-xs">
+              <div className="flex items-center gap-2.5">
+                {synthesisStep > 1 ? (
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>
+                ) : (
+                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
+                )}
+                <span className={synthesisStep >= 1 ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}>
+                  Compiling 5-stage personalized roadmap for {selectedRole.title}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {synthesisStep > 2 ? (
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>
+                ) : synthesisStep === 2 ? (
+                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full border border-slate-200 dark:border-zinc-800 shrink-0" />
+                )}
+                <span className={synthesisStep >= 2 ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}>
+                  Calibrating technical interview drills &amp; evaluation models
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {synthesisStep > 3 ? (
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>
+                ) : synthesisStep === 3 ? (
+                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full border border-slate-200 dark:border-zinc-800 shrink-0" />
+                )}
+                <span className={synthesisStep >= 3 ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}>
+                  Initializing encrypted local SQLite workspace &amp; profiles
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {synthesisStep >= 4 ? (
+                  <Loader2 className="w-5 h-5 text-emerald-500 animate-spin shrink-0" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full border border-slate-200 dark:border-zinc-800 shrink-0" />
+                )}
+                <span className={synthesisStep >= 4 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}>
+                  Launching your Nomadic dashboard...
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

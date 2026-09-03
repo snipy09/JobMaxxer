@@ -135,10 +135,47 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
   const [customBody, setCustomBody] = useState<string>(DEFAULT_TEMPLATES[0].body);
   const [sendingMails, setSendingMails] = useState<boolean>(false);
   const [loadingContacts, setLoadingContacts] = useState<boolean>(false);
+  const [isFetchingContacts, setIsFetchingContacts] = useState<boolean>(false);
+  const [outreachToast, setOutreachToast] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
   const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<'all' | 'engineering' | 'talent' | 'target'>('all');
   const [targetCompanies, setTargetCompanies] = useState<Set<string>>(new Set());
+
+  const handleFetchLatestContacts = async () => {
+    const api = getApi();
+    if (!api) return;
+    setIsFetchingContacts(true);
+    setOutreachToast(null);
+    onLog('[Outreach] Fetching latest verified hiring manager and recruiter contacts...');
+
+    try {
+      const res = await api.getHrContacts(profile.desiredTitle);
+      if (res && res.success && res.contacts && res.contacts.length > 0) {
+        setContacts(res.contacts);
+        setOutreachToast({
+          type: 'success',
+          message: `Loaded ${res.contacts.length} verified hiring decision-makers & recruiter emails!`
+        });
+        onLog(`[Outreach] Loaded ${res.contacts.length} verified hiring decision makers.`);
+      } else {
+        await fetchContacts();
+        setOutreachToast({
+          type: 'success',
+          message: 'Refreshed recruiter contacts list.'
+        });
+      }
+    } catch (err: any) {
+      await fetchContacts();
+      setOutreachToast({
+        type: 'info',
+        message: 'Refreshed contacts from cache.'
+      });
+    } finally {
+      setIsFetchingContacts(false);
+      setTimeout(() => setOutreachToast(null), 5000);
+    }
+  };
 
   // Load saved jobs to identify candidate's target companies
   useEffect(() => {
@@ -385,15 +422,15 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
           </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
           <button
-            onClick={fetchContacts}
-            disabled={loadingContacts}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            title="Fetch latest verified HR and Engineering Manager leads"
+            onClick={handleFetchLatestContacts}
+            disabled={loadingContacts || isFetchingContacts}
+            className="w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs hover:shadow active:scale-98 disabled:opacity-50"
+            title="Fetch latest verified HR, Recruiter, and Engineering Manager contacts"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingContacts ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingContacts || isFetchingContacts ? 'animate-spin' : ''}`} />
+            <span>{isFetchingContacts || loadingContacts ? 'Fetching Contacts...' : 'Fetch Latest Contacts'}</span>
           </button>
 
           {outreachChannel === 'email' ? (
@@ -438,6 +475,17 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
           )}
         </div>
       </div>
+
+      {/* Confirmation Feedback Banner */}
+      {outreachToast && (
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center justify-between shadow-xs animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{outreachToast.message}</span>
+          </div>
+          <button onClick={() => setOutreachToast(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs px-1">✕</button>
+        </div>
+      )}
 
       {/* Outreach Channel Switcher Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-zinc-800 pb-2">
@@ -533,21 +581,32 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
             </div>
 
             {/* Search & Actions Bar */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Filter contacts by name, company, or role..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors shadow-2xs"
-                />
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Filter contacts by name, company, or role..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors shadow-2xs"
+                  />
+                </div>
+                <button
+                  onClick={handleFetchLatestContacts}
+                  disabled={loadingContacts || isFetchingContacts}
+                  className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs shrink-0 disabled:opacity-50"
+                  title="Refresh emails and contacts"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingContacts || isFetchingContacts ? 'animate-spin text-emerald-500' : ''}`} />
+                  <span className="hidden sm:inline">Refresh Emails</span>
+                </button>
               </div>
 
               <button
                 onClick={toggleSelectAll}
-                className="text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl transition-colors"
+                className="text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-zinc-800 rounded-xl transition-colors shrink-0"
               >
                 {selectedEmails.size === filteredContacts.length && filteredContacts.length > 0 ? (
                   <CheckSquare className="w-4 h-4 text-slate-900 dark:text-zinc-100" />
@@ -1013,7 +1072,7 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
               <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold">Coming Soon: </span>
-                Automatic 1-click LinkedIn sending, profile visiting, and InMail follow-up workflows are launching in Hirestack v2.1.
+                Automatic 1-click LinkedIn sending, profile visiting, and InMail follow-up workflows are launching in Nomadic v2.1.
               </div>
             </div>
 

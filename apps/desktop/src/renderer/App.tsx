@@ -39,10 +39,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
     try {
       if (hasAdminQuery) {
+        localStorage.setItem('nomadic_user', JSON.stringify(ADMIN_DEV_USER));
         localStorage.setItem('hirestack_user', JSON.stringify(ADMIN_DEV_USER));
         return ADMIN_DEV_USER;
       }
-      const stored = localStorage.getItem('hirestack_user') || localStorage.getItem('jobmaxxer_user');
+      const stored = localStorage.getItem('nomadic_user') || localStorage.getItem('hirestack_user') || localStorage.getItem('jobmaxxer_user');
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -61,7 +62,7 @@ export default function App() {
       if (hasAdminQuery) {
         return 'admin-overview';
       }
-      const stored = localStorage.getItem('hirestack_user') || localStorage.getItem('jobmaxxer_user');
+      const stored = localStorage.getItem('nomadic_user') || localStorage.getItem('hirestack_user') || localStorage.getItem('jobmaxxer_user');
       if (stored) {
         const user: AppUser = JSON.parse(stored);
         return user.role === 'admin' ? 'admin-overview' : 'learner-roadmaps';
@@ -89,7 +90,7 @@ export default function App() {
     desiredTitle: '',
     techStack: '',
     customAnswers: {},
-    onboardingCompleted: true,
+    onboardingCompleted: false,
   });
 
   const [onboardingLoaded, setOnboardingLoaded] = useState<boolean>(false);
@@ -104,11 +105,11 @@ export default function App() {
     setLogs((prev) => [entry, ...prev.slice(0, 199)]);
   }, []);
 
-  const loadProfileFromDb = async () => {
+  const loadProfileFromDb = async (): Promise<MasterProfile | null> => {
     const api = getApi();
     if (!api) {
       setOnboardingLoaded(true);
-      return;
+      return null;
     }
 
     try {
@@ -146,12 +147,17 @@ export default function App() {
         setProfile(mapped);
         if (!isCompleted) {
           setShowOnboarding(true);
+        } else {
+          setShowOnboarding(false);
         }
+        return mapped;
       } else {
         setShowOnboarding(true);
+        return null;
       }
     } catch (err: any) {
       addLog(`[Profile] Local profile init: ${err?.message || String(err)}`);
+      return null;
     } finally {
       setOnboardingLoaded(true);
     }
@@ -163,9 +169,9 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setShowCommandPalette(prev => !prev);
+        setShowCommandPalette((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -174,18 +180,43 @@ export default function App() {
 
   const handleLoginSuccess = async (user: AppUser) => {
     setCurrentUser(user);
-    localStorage.setItem('hirestack_user', JSON.stringify(user));
-    await loadProfileFromDb();
-    if (user.role === 'admin') {
-      setActiveTab('admin-overview');
+    try {
+      localStorage.setItem('nomadic_user', JSON.stringify(user));
+      localStorage.setItem('hirestack_user', JSON.stringify(user));
+    } catch {}
+
+    const loadedProf = await loadProfileFromDb();
+
+    const isExistingUser = Boolean(
+      user.onboardingCompleted ||
+      loadedProf?.onboardingCompleted ||
+      (typeof window !== 'undefined' && (
+        localStorage.getItem('nomadic_onboarding_done') === 'true' ||
+        localStorage.getItem('hirestack_onboarding_done') === 'true'
+      ))
+    );
+
+    if (isExistingUser) {
+      setShowOnboarding(false);
+      try {
+        localStorage.setItem('nomadic_onboarding_done', 'true');
+      } catch {}
+      if (user.role === 'admin') {
+        setActiveTab('admin-overview');
+      } else {
+        setActiveTrack('learner');
+        setActiveTab('learner-roadmaps');
+      }
+      addLog(`[Auth] Existing candidate session restored (${user.email}). Direct to dashboard.`);
     } else {
-      setActiveTrack('learner');
-      setActiveTab('learner-roadmaps');
+      setShowOnboarding(true);
+      addLog(`[Auth] New candidate (${user.email}) registered. Direct to onboarding.`);
     }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    localStorage.removeItem('nomadic_user');
     localStorage.removeItem('hirestack_user');
     localStorage.removeItem('jobmaxxer_user');
     setActiveTab('learner-roadmaps');
@@ -228,51 +259,7 @@ export default function App() {
     setShowUpgradeModal(true);
   };
 
-  // Direct Onboarding route support via ?onboarding=true or #onboarding
-  const isDirectOnboarding = typeof window !== 'undefined' && (
-    new URLSearchParams(window.location.search).get('onboarding') === 'true' ||
-    window.location.hash.includes('onboarding') ||
-    showOnboarding
-  );
-
-  if (isDirectOnboarding && !wantsLogin) {
-    return (
-      <OnboardingWizard
-        initialProfile={profile}
-        onSwitchToLogin={() => setWantsLogin(true)}
-        onComplete={(completedProfile) => {
-          setProfile(completedProfile);
-          setShowOnboarding(false);
-          setActiveTab('learner-roadmaps');
-          setActiveTrack('learner');
-          if (!currentUser) {
-            const newUser: AppUser = {
-              id: 'usr_onboarded_' + Date.now(),
-              email: completedProfile.email || 'alex.vance@hirestack.app',
-              fullName: `${completedProfile.firstName || 'Alex'} ${completedProfile.lastName || 'Vance'}`.trim(),
-              tier: 'learner_pro',
-              role: 'user',
-              licenseKey: 'HSTK-ONBOARD-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-              status: 'active',
-              expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
-              createdAt: new Date().toISOString(),
-              lastLogin: new Date().toISOString(),
-            };
-            setCurrentUser(newUser);
-            try {
-              localStorage.setItem('hirestack_user', JSON.stringify(newUser));
-              localStorage.setItem('hirestack_onboarding_done', 'true');
-            } catch {}
-          }
-          if (window.history && window.history.replaceState) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        }}
-      />
-    );
-  }
-
-  // 1. If not logged in, show simple clean login page
+  // 1. If not logged in, ALWAYS show the Login & Sign-up page first
   if (!currentUser) {
     return (
       <LoginView
@@ -281,31 +268,55 @@ export default function App() {
           handleLoginSuccess(u);
         }}
         onLog={addLog}
-        onSwitchToOnboarding={() => {
-          setWantsLogin(false);
-          setShowOnboarding(true);
-        }}
       />
     );
   }
 
-  // 2. Wait until initial check finishes
+  // 2. Wait until initial profile and data check finishes
   if (!onboardingLoaded) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 font-mono text-xs">
-        Initializing Hirestack...
+      <div className="min-h-screen bg-[#0A0A0C] flex flex-col items-center justify-center text-slate-400 font-sans p-4 select-none">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-semibold text-slate-200">Loading your Nomadic workspace...</p>
+            <p className="text-[11px] text-slate-500 font-mono mt-0.5">Synchronizing local career database</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // 3. Show Onboarding Wizard if user has not completed onboarding
-  if (showOnboarding || !profile.onboardingCompleted) {
+  // 3. Check if user already completed onboarding
+  const userHasCompletedOnboarding = Boolean(
+    currentUser?.onboardingCompleted ||
+    profile.onboardingCompleted ||
+    (typeof window !== 'undefined' && (
+      localStorage.getItem('nomadic_onboarding_done') === 'true' ||
+      localStorage.getItem('hirestack_onboarding_done') === 'true'
+    ))
+  );
+
+  // If new user (has NOT completed onboarding) or user requested setup, show OnboardingWizard
+  if (!userHasCompletedOnboarding || showOnboarding) {
     return (
       <OnboardingWizard
         initialProfile={profile}
+        currentUser={currentUser}
         onComplete={(completedProfile) => {
           setProfile(completedProfile);
           setShowOnboarding(false);
+          try {
+            localStorage.setItem('nomadic_onboarding_done', 'true');
+            localStorage.setItem('hirestack_onboarding_done', 'true');
+            if (currentUser) {
+              const updated = { ...currentUser, onboardingCompleted: true };
+              setCurrentUser(updated);
+              localStorage.setItem('nomadic_user', JSON.stringify(updated));
+            }
+          } catch {}
           setActiveTab('learner-roadmaps');
           setActiveTrack('learner');
         }}

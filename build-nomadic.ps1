@@ -73,8 +73,12 @@ $dist      = Join-Path $root "apps\desktop\dist-electron"
 $downloads = Join-Path $env:USERPROFILE "Downloads"
 
 if (-not (Test-Path $dist)) { throw "Build output not found at $dist" }
-$exes = Get-ChildItem $dist -Filter *.exe -File -ErrorAction SilentlyContinue
-if (-not $exes) { throw "No .exe was produced in $dist" }
+# Remove any legacy Hirestack artifacts
+Get-ChildItem $dist -Filter "Hirestack*.exe" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem $downloads -Filter "Hirestack*.exe" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
+$exes = Get-ChildItem $dist -Filter "Nomadic*.exe" -File -ErrorAction SilentlyContinue
+if (-not $exes) { throw "No Nomadic .exe was produced in $dist" }
 
 foreach ($exe in $exes) {
   Copy-Item $exe.FullName -Destination $downloads -Force

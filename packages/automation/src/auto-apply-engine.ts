@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { type Browser, type BrowserContext, type Page } from 'playwright';
 import { ATS_FIELD_ALIASES } from './alias-dictionary.ts';
-import { answerCustomQuestionWithGroq } from './groq-ai.ts';
+import { answerCustomQuestionWithGroq, answerCustomQuestion } from './groq-ai.ts';
 import {
   findChromeExecutable,
   launchExternalStealthBrowser,
@@ -99,7 +99,7 @@ export class AutoApplyEngine {
           await page.bringToFront().catch(() => {});
 
           // 1. Inject overlay
-          await AutoApplyEngine.injectOverlay(page, '⚡ Hirestack: Auto-filling details...');
+          await AutoApplyEngine.injectOverlay(page, '⚡ Nomadic: Auto-filling details...');
 
           // 2. Expand form if collapsed
           await AutoApplyEngine.openApplicationFormIfRequired(page);
@@ -125,7 +125,7 @@ export class AutoApplyEngine {
           if (page) {
             await AutoApplyEngine.injectOverlay(
               page,
-              'Hirestack: Review manually',
+              'Nomadic: Review manually',
               '#f59e0b'
             ).catch(() => {});
           }
@@ -420,11 +420,11 @@ export class AutoApplyEngine {
             }
           }
 
-          // 3. Use Groq AI if available and no cached answer found
-          if (!answer && profile.groqApiKey) {
+          // 3. Use AI (built-in Gemini 3.6 Flash or custom Groq) if no cached answer found
+          if (!answer) {
             try {
-              answer = await answerCustomQuestionWithGroq(
-                profile.groqApiKey,
+              answer = await answerCustomQuestion(
+                profile.groqApiKey || '',
                 questionText,
                 candidateSummary
               );

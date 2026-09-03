@@ -1,8 +1,8 @@
 {
-  "name": "@job-automator/desktop",
-  "version": "2.0.1",
-  "description": "Hirestack — Desktop Job Search & Application Automation Platform",
-  "author": "Hirestack",
+  "name": "@nomadic/desktop",
+  "version": "1.0.0",
+  "description": "Nomadic — Desktop Job Search & Application Automation Platform",
+  "author": "Nomadic",
   "main": "out/main/index.cjs",
   "type": "module",
   "scripts": {
@@ -15,8 +15,8 @@
     "package:win": "node build-main.mjs && vite build && electron-builder --win nsis portable"
   },
   "build": {
-    "appId": "com.hirestack.desktop",
-    "productName": "Hirestack",
+    "appId": "com.nomadic.desktop",
+    "productName": "Nomadic",
     "electronVersion": "31.7.7",
     "directories": {
       "output": "dist-electron"
@@ -39,12 +39,12 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
-      "shortcutName": "Hirestack",
-      "artifactName": "Hirestack Setup ${version}.exe",
-      "uninstallDisplayName": "Hirestack ${version}"
+      "shortcutName": "Nomadic",
+      "artifactName": "Nomadic Setup ${version}.exe",
+      "uninstallDisplayName": "Nomadic ${version}"
     },
     "portable": {
-      "artifactName": "Hirestack ${version}.exe",
+      "artifactName": "Nomadic ${version}.exe",
       "requestExecutionLevel": "admin"
     },
     "mac": {

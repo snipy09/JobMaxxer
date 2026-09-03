@@ -95,6 +95,6 @@ describe('10,000 Job Roles Dataset & AI Detection Engine', () => {
         onComplete: () => {},
       })
     );
-    expect(html).toContain('Welcome to Hirestack');
+    expect(html).toContain('Welcome to Nomadic');
   });
 });

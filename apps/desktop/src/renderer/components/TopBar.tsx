@@ -23,16 +23,16 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 flex items-center justify-between z-20 select-none transition-colors">
       
-      {/* 1. Hirestack Brand Icon & Name */}
+      {/* 1. Nomadic Brand Icon & Name */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2.5">
           <img
             src="./assets/logo-icon.png"
-            alt="Hirestack Logo"
+            alt="Nomadic Logo"
             className="w-7 h-7 rounded-lg object-contain shadow-xs"
           />
           <span className="font-black text-sm tracking-tight text-slate-950 dark:text-white font-sans">
-            Hire<span className="text-slate-950 dark:text-white">stack</span>
+            Nomadic
           </span>
         </div>
       </div>

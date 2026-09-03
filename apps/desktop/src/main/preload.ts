@@ -55,6 +55,7 @@ const apiObj = {
 
   // Admin & Authentication APIs
   authLogin: (credentials: Record<string, unknown>) => ipcRenderer.invoke('auth-login', credentials),
+  authSignup: (credentials: Record<string, unknown>) => ipcRenderer.invoke('auth-signup', credentials),
   adminGetUsers: () => ipcRenderer.invoke('admin-get-users'),
   adminCreateUser: (user: Record<string, unknown>) => ipcRenderer.invoke('admin-create-user', user),
   adminUpdateUserStatus: (id: number, status: string) => ipcRenderer.invoke('admin-update-user-status', { id, status }),

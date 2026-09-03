@@ -1,8 +1,8 @@
 {
-  "name": "job-automator-monorepo",
-  "version": "2.0.1",
+  "name": "nomadic-monorepo",
+  "version": "1.0.0",
   "private": true,
-  "description": "JobMaxxer — Commercial Grade Job Automator: High-Throughput Scrapers, Auto-Apply Engine, 4-Stage Email Verifier, Single-IP Security Desktop App",
+  "description": "Nomadic — Commercial Grade Job Automator: High-Throughput Scrapers, Auto-Apply Engine, 4-Stage Email Verifier, Single-IP Security Desktop App",
   "workspaces": [
     "apps/*",
     "packages/*"

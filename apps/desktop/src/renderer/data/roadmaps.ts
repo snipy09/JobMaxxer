@@ -89,8 +89,8 @@ export const ROADMAPS: Roadmap[] = [
             difficulty: 'Easy',
             type: 'code',
             prompt: 'Write CSS utility classes or styles to center a modal vertically and horizontally with responsive padding.',
-            starterCode: '<div className="hero-container">\n  <div className="card">Hello Hirestack</div>\n</div>',
-            solutionCode: '<div className="min-h-screen flex items-center justify-center p-4">\n  <div className="max-w-md w-full p-6 bg-slate-900 rounded-2xl shadow-xl">Hello Hirestack</div>\n</div>',
+            starterCode: '<div className="hero-container">\n  <div className="card">Hello Nomadic</div>\n</div>',
+            solutionCode: '<div className="min-h-screen flex items-center justify-center p-4">\n  <div className="max-w-md w-full p-6 bg-slate-900 rounded-2xl shadow-xl">Hello Nomadic</div>\n</div>',
             explanation: 'Using `flex items-center justify-center` provides perfect cross-device centering without fixed pixel offsets.'
           },
           {
@@ -122,7 +122,7 @@ export const ROADMAPS: Roadmap[] = [
             '3. Code semantic layout: Header, Hero, BentoGrid, Pricing, Footer',
             '4. Verify responsive viewports on mobile (375px), tablet (768px), and desktop (1280px)'
           ],
-          starterRepoUrl: 'https://github.com/hirestack/template-saas-landing'
+          starterRepoUrl: 'https://github.com/nomadic/template-saas-landing'
         },
         interviewQuestions: [
           'Explain the CSS Box Model and how box-sizing: border-box alters layout calculation.',
@@ -183,7 +183,7 @@ export const ROADMAPS: Roadmap[] = [
             '3. Render responsive data grid with sorting state',
             '4. Add retry button with exponential backoff on network failure'
           ],
-          starterRepoUrl: 'https://github.com/hirestack/template-market-radar'
+          starterRepoUrl: 'https://github.com/nomadic/template-market-radar'
         },
         interviewQuestions: [
           'How does the JavaScript Event Loop handle microtasks vs macrotasks?',
@@ -249,7 +249,7 @@ export const ROADMAPS: Roadmap[] = [
             '3. Integrate dnd-kit pointer listeners and collision detection',
             '4. Add keyboard shortcuts (Ctrl+N for new card, Escape to close modals)'
           ],
-          starterRepoUrl: 'https://github.com/hirestack/template-kanban-board'
+          starterRepoUrl: 'https://github.com/nomadic/template-kanban-board'
         },
         interviewQuestions: [
           'How does the React 18 reconciliation algorithm and Fiber architecture handle batching?',
@@ -297,7 +297,7 @@ export const ROADMAPS: Roadmap[] = [
           }
         ],
         apply: {
-          id: 'proj-hirestack-clone',
+          id: 'proj-nomadic-clone',
           title: 'Full Capstone: Production Job Hunter SaaS with Razorpay',
           description: 'Ship your complete portfolio SaaS project with live user authentication, database persistence, automated email alerts, and live payment processing.',
           difficulty: 'Advanced',
@@ -314,7 +314,7 @@ export const ROADMAPS: Roadmap[] = [
             '3. Connect Razorpay checkout script and webhook server',
             '4. Deploy to Vercel and run Lighthouse audits'
           ],
-          starterRepoUrl: 'https://github.com/hirestack/template-fullstack-saas'
+          starterRepoUrl: 'https://github.com/nomadic/template-fullstack-saas'
         },
         interviewQuestions: [
           'Walk me through your database schema design and how you secured user data using Row Level Security.',

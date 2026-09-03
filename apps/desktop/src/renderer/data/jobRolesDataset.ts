@@ -538,7 +538,7 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
       .toLowerCase();
     const coreTitleWords = coreTitle.split(/[^a-z0-9+#.]+/);
     for (const tok of rawTokens) {
-      if (tok.length > 2) {
+      if (tok.length >= 2) {
         if (coreTitleWords.includes(tok)) {
           score += 70; // Direct match in core job title!
         } else if (coreTitle.includes(tok)) {
@@ -550,7 +550,7 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
     // 3. Overall Title words
     const titleWords = titleLower.split(/[^a-z0-9+#.]+/);
     for (const tok of rawTokens) {
-      if (tok.length > 2 && titleWords.includes(tok)) {
+      if (tok.length >= 2 && titleWords.includes(tok)) {
         score += 15;
       }
     }
@@ -562,7 +562,7 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
         score += 40;
       } else {
         for (const tok of rawTokens) {
-          if (tok.length > 2) {
+          if (tok.length >= 2) {
             if (skillLower === tok) {
               score += 35;
             } else if (skillLower.includes(tok)) {
@@ -578,7 +578,7 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
       const topicLower = topic.toLowerCase();
       if (normalizedQuery.includes(topicLower)) score += 15;
       for (const tok of rawTokens) {
-        if (tok.length > 2 && topicLower.includes(tok)) score += 6;
+        if (tok.length >= 2 && topicLower.includes(tok)) score += 6;
       }
     }
 
@@ -586,7 +586,7 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
     const domainTokens = domainLower.split(/[^a-z0-9]+/);
     let domainHits = 0;
     for (const tok of rawTokens) {
-      if (tok.length > 2 && domainTokens.includes(tok)) {
+      if (tok.length >= 2 && domainTokens.includes(tok)) {
         domainHits++;
       }
     }
@@ -628,6 +628,17 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
   }
 
   return results;
+}
+
+export function searchRoleTitles(query: string, limit = 6): string[] {
+  const roles = suggestRolesFromUserInput(query, limit * 3);
+  const titles = new Set<string>();
+  for (const r of roles) {
+    const clean = r.title.replace(/\s*-\s*[^-]+$/, '').replace(/\s*\([^)]*\)/g, '').trim();
+    if (clean) titles.add(clean);
+    if (titles.size >= limit) break;
+  }
+  return Array.from(titles);
 }
 
 // ── Dynamic Roadmap Tailoring for Detected Role ──────────────────────────────

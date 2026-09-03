@@ -1,9 +1,9 @@
 @echo off
-title Hirestack - HR & Manager Email Scraper
+title Nomadic - HR & Manager Email Scraper
 color 0B
 cd /d "%~dp0"
 echo ========================================================================
-echo  📬 HIRESTACK: Running Local HR & Manager Scraper & Supabase Publisher
+echo  📬 NOMADIC: Running Local HR & Manager Scraper & Supabase Publisher
 echo ========================================================================
 echo.
 call npx tsx packages/scrapers/src/publish-hrs.ts

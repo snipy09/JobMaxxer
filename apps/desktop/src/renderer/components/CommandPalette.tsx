@@ -258,7 +258,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             <span>·</span>
             <span>↵ to select</span>
           </div>
-          <span>Hirestack Spotlight</span>
+          <span>Nomadic Spotlight</span>
         </div>
       </div>
     </div>

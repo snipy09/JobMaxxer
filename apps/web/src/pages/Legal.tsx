@@ -12,12 +12,12 @@ export default function Legal({ type }: { type: 'terms' | 'privacy' }) {
       subtitle: "Software licensing, fair usage, and non-refundable subscription terms.",
       body: `Last updated: August 2026
 
-1. Acceptance of Terms: By downloading, installing, or accessing the Hirestack desktop application, you agree to comply with and be bound by these Terms of Service.
-2. License Grant: We grant you a revocable, non-exclusive, non-transferable, single-machine license to use Hirestack solely for personal job-seeking and career skill development.
+1. Acceptance of Terms: By downloading, installing, or accessing the Nomadic desktop application, you agree to comply with and be bound by these Terms of Service.
+2. License Grant: We grant you a revocable, non-exclusive, non-transferable, single-machine license to use Nomadic solely for personal job-seeking and career skill development.
 3. Single-Device Enforcement: Each licensed subscription is locked to one designated computer hardware fingerprint. Concurrent usage across multiple machines is strictly prohibited.
-4. Client-Side Automation & Fair Use: Hirestack executes local browser automation directly on your machine. You agree to use the software responsibly and comply with standard rate limits. Any intentional abuse, reverse-engineering, or unauthorized distribution may result in immediate license termination.
+4. Client-Side Automation & Fair Use: Nomadic executes local browser automation directly on your machine. You agree to use the software responsibly and comply with standard rate limits. Any intentional abuse, reverse-engineering, or unauthorized distribution may result in immediate license termination.
 5. All Sales Final: Due to the immediate delivery of digital software capabilities and API access limits, all subscription payments are final, non-refundable, and non-transferable.
-6. Disclaimer: Hirestack is an efficiency platform that automates application workflows and provides structured learning roadmaps. Hirestack does not guarantee interviews, offers, or employment decisions, which remain solely at the discretion of hiring companies.`
+6. Disclaimer: Nomadic is an efficiency platform that automates application workflows and provides structured learning roadmaps. Nomadic does not guarantee interviews, offers, or employment decisions, which remain solely at the discretion of hiring companies.`
     },
     privacy: {
       title: "Privacy Policy",
@@ -38,10 +38,10 @@ export default function Legal({ type }: { type: 'terms' | 'privacy' }) {
           <a href="#/" className="font-extrabold text-base tracking-tight flex items-center gap-2.5 text-ink-950">
             <img
               src="./logo-icon.png"
-              alt="Hirestack Logo Icon"
+              alt="Nomadic Logo Icon"
               className="h-6 w-6 rounded object-contain shadow-fine"
             />
-            Hirestack
+            Nomadic
           </a>
           <a
             href="#/"
@@ -74,10 +74,10 @@ export default function Legal({ type }: { type: 'terms' | 'privacy' }) {
           <div className="pt-8 border-t border-ink-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-ink-400 font-mono">
             <span>Support &amp; Verification Inquiries:</span>
             <a
-              href="mailto:support@hirestack.app"
+              href="mailto:support@nomadic.app"
               className="text-ink-950 underline hover:text-ink-600 font-semibold transition-colors"
             >
-              support@hirestack.app
+              support@nomadic.app
             </a>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function Legal({ type }: { type: 'terms' | 'privacy' }) {
 
       <footer className="border-t border-ink-200 bg-white py-8 px-6 text-center text-xs text-ink-400">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span>Hirestack / Desktop Application for All Job Seekers</span>
+          <span>Nomadic / Desktop Application for All Job Seekers</span>
           <div className="flex gap-4">
             <a href="#/terms" className="hover:text-ink-950 transition-colors">Terms of Service</a>
             <a href="#/privacy" className="hover:text-ink-950 transition-colors">Privacy Policy</a>

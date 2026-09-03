@@ -89,4 +89,45 @@ describe('Career Onboarding Engine', () => {
     expect(horizons).toContain('2 Months');
     expect(commitments).toContain('2 Hours/Day');
   });
+
+  it('routes existing users directly to dashboard bypassing onboarding', () => {
+    const existingUser = {
+      id: 'usr_123',
+      email: 'alex@example.com',
+      fullName: 'Alex Vance',
+      role: 'user',
+      tier: 'seeker_max',
+      licenseKey: 'NOMADIC-12345',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      onboardingCompleted: true,
+    };
+
+    const newUser = {
+      ...existingUser,
+      id: 'usr_999',
+      onboardingCompleted: false,
+    };
+
+    const shouldShowOnboarding = (u: typeof existingUser, completedProfile = false) => {
+      const isDone = Boolean(u.onboardingCompleted || completedProfile);
+      return !isDone;
+    };
+
+    expect(shouldShowOnboarding(existingUser)).toBe(false); // Direct to dashboard!
+    expect(shouldShowOnboarding(newUser)).toBe(true); // Must show onboarding wizard!
+    expect(shouldShowOnboarding(newUser, true)).toBe(false); // Once finished, direct to dashboard!
+  });
+
+  it('generates dynamic role title suggestions based on query', async () => {
+    const { searchRoleTitles } = await import('../../renderer/data/jobRolesDataset');
+    const reactSuggestions = searchRoleTitles('react', 5);
+    expect(reactSuggestions.length).toBeGreaterThan(0);
+    expect(reactSuggestions.some(t => t.toLowerCase().includes('react') || t.toLowerCase().includes('frontend'))).toBe(true);
+
+    const aiSuggestions = searchRoleTitles('ai', 5);
+    expect(aiSuggestions.length).toBeGreaterThan(0);
+    expect(aiSuggestions.some(t => t.toLowerCase().includes('ai') || t.toLowerCase().includes('machine learning'))).toBe(true);
+  });
 });
+

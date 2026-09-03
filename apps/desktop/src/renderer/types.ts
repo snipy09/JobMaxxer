@@ -24,6 +24,8 @@ export interface MasterProfile {
   syncFrequency?: string;
   customAnswers: Record<string, string>;
   onboardingCompleted?: boolean;
+  workplaceType?: 'remote' | 'hybrid' | 'onsite';
+  experienceLevel?: 'entry' | 'mid' | 'senior';
 }
 
 export interface Job {
@@ -137,6 +139,7 @@ export interface AppUser {
   sessionToken?: string;
   deviceFingerprint?: string;
   deviceName?: string;
+  onboardingCompleted?: boolean;
 }
 
 export interface BillingRecord {
@@ -173,7 +176,16 @@ export interface ElectronAPI {
   runScrapers: () => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
   getCloudFeed: (userId: string) => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
   launchSemiAuto: (jobUrls: string[]) => Promise<{ success: boolean; error?: string }>;
-  launchAutonomous: (jobUrls: string[]) => Promise<{ success: boolean; applied?: number; error?: string }>;
+  launchAutonomous: (jobUrls: string[]) => Promise<{
+    success: boolean;
+    applied?: number;
+    skipped?: number;
+    totalBatches?: number;
+    limitReached?: boolean;
+    currentUsage?: number;
+    maxAllowed?: number;
+    error?: string;
+  }>;
   verifyEmail: (email: string) => Promise<{ isValid: boolean; stageFailed?: number; reason?: string }>;
   getHrContacts: (targetRole?: string) => Promise<{ success: boolean; contacts: OutreachContact[]; error?: string }>;
   sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string }>) =>
@@ -241,6 +253,15 @@ export interface ElectronAPI {
     success: boolean;
     conflict?: boolean;
     activeDevice?: string;
+    user?: AppUser;
+    error?: string;
+  }>;
+  authSignup?: (credentials: {
+    email: string;
+    password?: string;
+    fullName?: string;
+  }) => Promise<{
+    success: boolean;
     user?: AppUser;
     error?: string;
   }>;

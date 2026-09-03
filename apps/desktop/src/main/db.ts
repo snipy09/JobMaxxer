@@ -223,11 +223,16 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
     if (profCount === 0) {
       db.run(
         `INSERT OR IGNORE INTO master_profile (id, first_name, last_name, email, phone, desired_title, tech_stack, sponsorship, onboarding_completed)
-         VALUES (1, 'Candidate', 'User', 'candidate@example.com', '+1 555-0100', 'Software Engineer, Full Stack Engineer', 'TypeScript, React, Node.js', 'No', 1)`
+         VALUES (1, '', '', '', '', '', '', 'No', 0)`
       );
     }
+    // Clean up any legacy dummy profiles from development builds
+    try {
+      db.run(`UPDATE master_profile SET first_name = '', last_name = '', email = '', phone = '', desired_title = '', tech_stack = '', onboarding_completed = 0 WHERE email = 'candidate@example.com'`);
+      db.run(`DELETE FROM user_cache WHERE email LIKE '%example.com' OR email LIKE '%demo%'`);
+    } catch {}
   } catch (err: any) {
-    console.warn('[SQLite] Error seeding master profile default:', err.message);
+    console.warn('[SQLite] Error initializing master profile:', err.message);
   }
 
   persistDb();

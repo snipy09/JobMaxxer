@@ -50,8 +50,8 @@ export default function Download() {
 
     // Trigger download
     const link = document.createElement('a');
-    link.href = './Hirestack-Setup-2.0.1.exe';
-    link.download = 'Hirestack-Setup-2.0.1.exe';
+    link.href = './Nomadic-Setup-1.0.0.exe';
+    link.download = 'Nomadic-Setup-1.0.0.exe';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -68,7 +68,7 @@ export default function Download() {
       {/* Top Announcement */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-[11px] sm:text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950 shrink-0" />
-        <span>Official Download Portal · Hirestack v2.0.1 Windows x64 Native Installer</span>
+        <span>Official Download Portal · Nomadic v1.0.0 Windows x64 Native Installer</span>
       </div>
 
       {/* Main Navigation */}
@@ -77,11 +77,11 @@ export default function Download() {
           <a href="#/" className="flex items-center gap-2.5 group">
             <img
               src="./logo-icon.png"
-              alt="Hirestack Logo Icon"
+              alt="Nomadic Logo Icon"
               className="h-7 w-7 rounded-md object-contain shadow-fine transition-transform group-hover:scale-105"
             />
             <span className="font-extrabold text-base sm:text-lg tracking-tight text-ink-950">
-              Hirestack
+              Nomadic
             </span>
           </a>
 
@@ -100,11 +100,11 @@ export default function Download() {
         <div className="text-center max-w-2xl mx-auto space-y-4 animate-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-[11px] sm:text-xs font-mono text-ink-600 shadow-fine">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Version 2.0.1 Stable Release · Clean Installer</span>
+            <span>Version 1.0.0 Stable Release · Clean Installer</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-ink-950 leading-tight">
-            Download Hirestack
+            Download Nomadic
           </h1>
 
           <p className="text-xs sm:text-sm text-ink-600 leading-relaxed max-w-xl mx-auto">
@@ -172,7 +172,7 @@ export default function Download() {
               </button>
 
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
-                <span>File: Hirestack-Setup-2.0.1.exe</span>
+                <span>File: Nomadic-Setup-1.0.0.exe</span>
                 <span>SHA-256 Verified</span>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function Download() {
               <span className="text-xs font-mono font-bold text-ink-400">STEP 01</span>
               <h4 className="font-bold text-sm text-ink-950">Download Installer</h4>
               <p className="text-ink-600 leading-relaxed">
-                Click the download button above to download the <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Hirestack-Setup-2.0.1.exe</code> file to your computer.
+                Click the download button above to download the <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic-Setup-1.0.0.exe</code> file to your computer.
               </p>
             </div>
 
@@ -273,7 +273,7 @@ export default function Download() {
               <span className="text-xs font-mono font-bold text-ink-400">STEP 03</span>
               <h4 className="font-bold text-sm text-ink-950">Launch &amp; Apply</h4>
               <p className="text-ink-600 leading-relaxed">
-                Open Hirestack, upload your resume, select your career roadmaps, and start 1-click batch applications.
+                Open Nomadic, upload your resume, select your career roadmaps, and start 1-click batch applications.
               </p>
             </div>
           </div>
@@ -317,18 +317,18 @@ export default function Download() {
           <div className="flex items-center gap-2.5">
             <img
               src="./logo-icon.png"
-              alt="Hirestack Logo Icon"
+              alt="Nomadic Logo Icon"
               className="h-6 w-6 rounded object-contain shadow-fine"
             />
             <div>
-              <div className="text-sm font-extrabold tracking-tight text-ink-950">Hirestack</div>
+              <div className="text-sm font-extrabold tracking-tight text-ink-950">Nomadic</div>
               <p className="text-[11px] text-ink-400 mt-0.5 font-mono">Desktop Automation Software for All Job Seekers / 2026</p>
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-5 sm:gap-6 font-semibold">
             <a href="#/terms" className="hover:text-ink-950 transition-colors">Terms of Service</a>
             <a href="#/privacy" className="hover:text-ink-950 transition-colors">Privacy Policy</a>
-            <a href="mailto:support@hirestack.app" className="hover:text-ink-950 transition-colors">Contact Support</a>
+            <a href="mailto:support@nomadic.app" className="hover:text-ink-950 transition-colors">Contact Support</a>
           </div>
         </div>
       </footer>

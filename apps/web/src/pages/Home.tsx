@@ -159,8 +159,8 @@ const SAMPLE_ATS_LISTINGS = [
 // Authoritative FAQs for SEO rich snippets and user clarity
 const FAQ_ITEMS = [
   {
-    question: 'What is Hirestack and how does the desktop app operate?',
-    answer: 'Hirestack is an enterprise-grade desktop career acceleration operating system built with Electron, React 18, and local SQLite (sql.js). It consolidates two critical workflows into one app: the Learner Hub (a Duolingo-style milestone tree with interactive code practice, quizzes, and project challenges) and the Seeker Hub (a 1,000+ source direct ATS job radar, RAM-safe Chromium auto-apply, and 4-stage 0%-bounce HR cold email outreach).'
+    question: 'What is Nomadic and how does the desktop app operate?',
+    answer: 'Nomadic is an enterprise-grade desktop career acceleration operating system built with Electron, React 18, and local SQLite (sql.js). It consolidates two critical workflows into one app: the Learner Hub (a Duolingo-style milestone tree with interactive code practice, quizzes, and project challenges) and the Seeker Hub (a 1,000+ source direct ATS job radar, RAM-safe Chromium auto-apply, and 4-stage 0%-bounce HR cold email outreach).'
   },
   {
     question: 'How does the Duolingo-style Learner Hub accelerate career readiness?',
@@ -168,7 +168,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'How does the 1,000+ Source ATS Radar eliminate ghost jobs?',
-    answer: 'Unlike third-party aggregator sites that repost stale listings, Hirestack streams directly from official company ATS JSON endpoints (Greenhouse, Lever, Ashby, Internshala, and custom company career portals). Every single listing is cryptographically deduplicated with SHA-256 hashes, and unrefreshed postings are auto-purged after 14 days, guaranteeing a 100% live feed with zero aggregator noise.'
+    answer: 'Unlike third-party aggregator sites that repost stale listings, Nomadic streams directly from official company ATS JSON endpoints (Greenhouse, Lever, Ashby, Internshala, and custom company career portals). Every single listing is cryptographically deduplicated with SHA-256 hashes, and unrefreshed postings are auto-purged after 14 days, guaranteeing a 100% live feed with zero aggregator noise.'
   },
   {
     question: 'What is the difference between Semi-Auto and 100% Autonomous Auto-Apply?',
@@ -176,15 +176,15 @@ const FAQ_ITEMS = [
   },
   {
     question: 'How does the 4-Stage HR Email Verifier guarantee 0% bounce rates?',
-    answer: 'Before dispatching cold outreach, Hirestack runs a mandatory 4-stage verification: (1) RFC 5322 Syntax Validation, (2) Role & Disposable filter to exclude generic inboxes, (3) Real-time DNS MX record verification, and (4) Direct SMTP socket ping with a non-existent mailbox probe (xyzrandom123@domain.com) to detect catch-all servers. Messages are dispatched with humanized 60s–180s delays capped at 15–25 emails/day to protect your sender reputation.'
+    answer: 'Before dispatching cold outreach, Nomadic runs a mandatory 4-stage verification: (1) RFC 5322 Syntax Validation, (2) Role & Disposable filter to exclude generic inboxes, (3) Real-time DNS MX record verification, and (4) Direct SMTP socket ping with a non-existent mailbox probe (xyzrandom123@domain.com) to detect catch-all servers. Messages are dispatched with humanized 60s–180s delays capped at 15–25 emails/day to protect your sender reputation.'
   },
   {
     question: 'How is candidate privacy and license security handled?',
-    answer: 'Hirestack operates local-first. Your master candidate profile, work history, resumes, and credentials remain securely stored in an isolated SQLite database on your computer. Free 3-day trials and paid licenses are cryptographically bound to your hardware fingerprint (UUID + CPU ID) via Google OAuth, preventing throwaway email abuse.'
+    answer: 'Nomadic operates local-first. Your master candidate profile, work history, resumes, and credentials remain securely stored in an isolated SQLite database on your computer. Free 3-day trials and paid licenses are cryptographically bound to your hardware fingerprint (UUID + CPU ID) via Google OAuth, preventing throwaway email abuse.'
   },
   {
     question: 'What are the subscription plans and payment methods?',
-    answer: 'Hirestack offers 4 tiers: Free 3-Day Trial (₹0, hardware-locked full trial with top 10 job stream), Learner Pro (₹79/month, full Duolingo skill trees, coding drills, textbook vault), Seeker Pro (₹149/month, 1,000+ ATS radar, 50 semi-auto applies/week, 25 HR leads), and Seeker Max (₹299/month, complete suite with unlimited autonomous auto-apply and HR outreach). Upgrades are processed securely through Razorpay via UPI (GPay, PhonePe, Paytm, CRED), Netbanking, and Cards. All sales are final.'
+    answer: 'Nomadic offers 4 tiers: Free 3-Day Trial (₹0, hardware-locked full trial with top 10 job stream), Learner Pro (₹79/month, full Duolingo skill trees, coding drills, textbook vault), Seeker Pro (₹149/month, 1,000+ ATS radar, 50 semi-auto applies/week, 25 HR leads), and Seeker Max (₹299/month, complete suite with unlimited autonomous auto-apply and HR outreach). Upgrades are processed securely through Razorpay via UPI (GPay, PhonePe, Paytm, CRED), Netbanking, and Cards. All sales are final.'
   }
 ];
 
@@ -285,7 +285,7 @@ export default function Home() {
       {/* Apple-Style Minimal Release Banner */}
       <aside aria-label="Announcement" className="border-b border-black/[0.06] bg-white/70 backdrop-blur-md px-4 py-2 text-center text-[11px] sm:text-xs text-[#86868b] font-medium tracking-tight flex items-center justify-center gap-2">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
-        <span className="font-semibold text-[#1d1d1f]">Hirestack v2.0.1 Released</span>
+        <span className="font-semibold text-[#1d1d1f]">Nomadic v1.0.0 Released</span>
         <span className="hidden sm:inline text-[#86868b]">· Duolingo-style skill progression, 1,000+ source direct ATS radar &amp; 0%-bounce HR outreach.</span>
         <a href="#/download" className="text-[#0071e3] hover:underline font-semibold ml-1 inline-flex items-center gap-0.5">
           Download Free <ArrowRight className="w-3 h-3" />
@@ -299,14 +299,14 @@ export default function Home() {
             <a href="#/" className="flex items-center gap-2.5 group">
               <img
                 src="./logo-icon.png"
-                alt="Hirestack Official Logo"
+                alt="Nomadic Official Logo"
                 className="h-7 w-7 rounded-lg object-contain transition-transform group-hover:scale-105 shadow-sm"
               />
               <span className="font-bold text-base tracking-tight text-[#1d1d1f]">
-                Hirestack
+                Nomadic
               </span>
               <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/[0.05] text-[#86868b] border border-black/[0.04]">
-                v2.0.1
+                v1.0.0
               </span>
             </a>
 
@@ -382,7 +382,7 @@ export default function Home() {
           </h1>
 
           <p className="text-base sm:text-lg md:text-xl text-[#6e6e73] mb-10 max-w-2xl mx-auto leading-relaxed font-normal">
-            Hirestack is the desktop career operating system. Progress through an interactive Duolingo-style milestone tree, stream 1,000+ verified direct-company ATS opportunities without ghost jobs, and execute stealth client-side auto-apply with 0%-bounce HR outreach.
+            Nomadic is the desktop career operating system. Progress through an interactive Duolingo-style milestone tree, stream 1,000+ verified direct-company ATS opportunities without ghost jobs, and execute stealth client-side auto-apply with 0%-bounce HR outreach.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center w-full max-w-md sm:max-w-none mx-auto mb-14">
@@ -439,7 +439,7 @@ export default function Home() {
                 <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
                 <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
                 <span className="text-xs font-mono text-zinc-400 ml-2 truncate">
-                  Hirestack Desktop Client · Hardware Session: <strong className="text-zinc-200">UUID-9482-LOCKED</strong>
+                  Nomadic Desktop Client · Hardware Session: <strong className="text-zinc-200">UUID-9482-LOCKED</strong>
                 </span>
               </div>
 
@@ -994,7 +994,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* The Bottleneck Comparison Matrix (Traditional vs Hirestack OS) */}
+        {/* The Bottleneck Comparison Matrix (Traditional vs Nomadic OS) */}
         <section className="py-20 sm:py-28 px-4 sm:px-6 border-t border-black/[0.06] bg-[#f5f5f7]">
           <div className="max-w-5xl mx-auto space-y-12">
             <div className="text-center max-w-xl mx-auto space-y-2">
@@ -1035,10 +1035,10 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Hirestack OS Side */}
+                {/* Nomadic OS Side */}
                 <div className="space-y-4 border-t md:border-t-0 md:border-l border-black/[0.06] pt-6 md:pt-0 md:pl-8">
                   <div className="text-[#1d1d1f] uppercase font-bold tracking-wider border-b border-black/[0.06] pb-3 flex items-center justify-between">
-                    <span>Hirestack Desktop OS</span>
+                    <span>Nomadic Desktop OS</span>
                     <span className="text-[#30d158] font-bold">Autonomous</span>
                   </div>
                   <div className="space-y-3.5 text-[#1d1d1f] font-semibold">
@@ -1454,7 +1454,7 @@ export default function Home() {
             <div className="text-center space-y-2">
               <span className="text-xs font-mono tracking-widest text-[#86868b] uppercase font-bold">Frequently Asked Questions</span>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#1d1d1f]">
-                Everything you need to know about Hirestack.
+                Everything you need to know about Nomadic.
               </h2>
             </div>
 
@@ -1492,11 +1492,11 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <img
                 src="./logo-icon.png"
-                alt="Hirestack Official Logo"
+                alt="Nomadic Official Logo"
                 className="h-7 w-7 rounded-lg object-contain shadow-sm"
               />
               <div>
-                <div className="text-sm font-bold tracking-tight text-[#1d1d1f]">Hirestack</div>
+                <div className="text-sm font-bold tracking-tight text-[#1d1d1f]">Nomadic</div>
                 <p className="text-[11px] text-[#86868b] font-mono">Desktop Career Operating System · Electron + SQLite</p>
               </div>
             </div>
@@ -1513,7 +1513,7 @@ export default function Home() {
 
           <div className="border-t border-black/[0.06] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#86868b] font-mono">
             <div>
-              &copy; {new Date().getFullYear()} Hirestack Technologies. All rights reserved. Single-laptop hardware licensing enforced.
+              &copy; {new Date().getFullYear()} Nomadic Technologies. All rights reserved. Single-laptop hardware licensing enforced.
             </div>
             <div className="flex items-center gap-2 text-[#30d158]">
               <span className="w-2 h-2 rounded-full bg-[#30d158] inline-block animate-pulse" />

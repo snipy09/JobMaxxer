@@ -90,7 +90,7 @@ export function createBrowserApiShim(): ElectronAPI {
 
   return {
     getMasterProfile: async () => {
-      const stored = localStorage.getItem('hirestack_master_profile') || localStorage.getItem('jobmaxxer_master_profile');
+      const stored = localStorage.getItem('nomadic_master_profile') || localStorage.getItem('hirestack_master_profile') || localStorage.getItem('jobmaxxer_master_profile');
       if (stored) {
         try {
           return JSON.parse(stored);
@@ -115,6 +115,7 @@ export function createBrowserApiShim(): ElectronAPI {
     },
 
     saveMasterProfile: async (data: Record<string, unknown>) => {
+      localStorage.setItem('nomadic_master_profile', JSON.stringify(data));
       localStorage.setItem('hirestack_master_profile', JSON.stringify(data));
       localStorage.setItem('jobmaxxer_master_profile', JSON.stringify(data));
       emitLog('[Profile] Master profile saved to local storage.');
@@ -351,7 +352,7 @@ export function createBrowserApiShim(): ElectronAPI {
 
     getApplications: async (): Promise<Application[]> => {
       try {
-        const stored = localStorage.getItem('hirestack_applications');
+        const stored = localStorage.getItem('nomadic_applications') || localStorage.getItem('hirestack_applications');
         if (stored) return JSON.parse(stored);
       } catch {}
       return [
@@ -387,12 +388,13 @@ export function createBrowserApiShim(): ElectronAPI {
 
     updateApplicationStatus: async (id: number | string, status: string) => {
       try {
-        const stored = localStorage.getItem('hirestack_applications');
+        const stored = localStorage.getItem('nomadic_applications') || localStorage.getItem('hirestack_applications');
         const apps: Application[] = stored ? JSON.parse(stored) : [
           { id: 1, company: 'Vercel', title: 'Full Stack Engineer', apply_url: 'https://boards.greenhouse.io/vercel/jobs/5412093004', mode: 'autonomous', status: 'interviewing', applied_at: new Date().toISOString() },
           { id: 2, company: 'Linear', title: 'Associate Product Manager', apply_url: 'https://jobs.ashbyhq.com/linear/apm-opportunity', mode: 'semi-auto', status: 'applied', applied_at: new Date().toISOString() },
         ];
         const updated = apps.map(a => a.id === id || String(a.id) === String(id) ? { ...a, status } : a);
+        localStorage.setItem('nomadic_applications', JSON.stringify(updated));
         localStorage.setItem('hirestack_applications', JSON.stringify(updated));
         emitLog(`[Applications] Status updated to "${status}" for #${id}`);
         return { success: true };
@@ -403,10 +405,11 @@ export function createBrowserApiShim(): ElectronAPI {
 
     deleteApplication: async (id: number | string) => {
       try {
-        const stored = localStorage.getItem('hirestack_applications');
+        const stored = localStorage.getItem('nomadic_applications') || localStorage.getItem('hirestack_applications');
         if (stored) {
           const apps: Application[] = JSON.parse(stored);
           const updated = apps.filter(a => a.id !== id && String(a.id) !== String(id));
+          localStorage.setItem('nomadic_applications', JSON.stringify(updated));
           localStorage.setItem('hirestack_applications', JSON.stringify(updated));
         }
         emitLog(`[Applications] Removed record #${id}`);
@@ -418,7 +421,7 @@ export function createBrowserApiShim(): ElectronAPI {
 
     getSavedJobs: async (): Promise<Job[]> => {
       try {
-        const stored = localStorage.getItem('hirestack_saved_jobs');
+        const stored = localStorage.getItem('nomadic_saved_jobs') || localStorage.getItem('hirestack_saved_jobs') || localStorage.getItem('jobmaxxer_saved_jobs');
         return stored ? JSON.parse(stored) : [];
       } catch {
         return [];
@@ -427,10 +430,11 @@ export function createBrowserApiShim(): ElectronAPI {
 
     saveJob: async (job: Job) => {
       try {
-        const stored = localStorage.getItem('hirestack_saved_jobs');
+        const stored = localStorage.getItem('nomadic_saved_jobs') || localStorage.getItem('hirestack_saved_jobs') || localStorage.getItem('jobmaxxer_saved_jobs');
         const jobs: Job[] = stored ? JSON.parse(stored) : [];
         if (!jobs.some(j => j.applyUrl === job.applyUrl)) {
           jobs.unshift(job);
+          localStorage.setItem('nomadic_saved_jobs', JSON.stringify(jobs));
           localStorage.setItem('hirestack_saved_jobs', JSON.stringify(jobs));
         }
         emitLog(`[Saved Jobs] Bookmarked position: ${job.title} at ${job.company}`);
@@ -442,10 +446,11 @@ export function createBrowserApiShim(): ElectronAPI {
 
     removeSavedJob: async (applyUrl: string) => {
       try {
-        const stored = localStorage.getItem('hirestack_saved_jobs');
+        const stored = localStorage.getItem('nomadic_saved_jobs') || localStorage.getItem('hirestack_saved_jobs') || localStorage.getItem('jobmaxxer_saved_jobs');
         if (stored) {
           const jobs: Job[] = JSON.parse(stored);
           const updated = jobs.filter(j => j.applyUrl !== applyUrl);
+          localStorage.setItem('nomadic_saved_jobs', JSON.stringify(updated));
           localStorage.setItem('hirestack_saved_jobs', JSON.stringify(updated));
         }
         return { success: true };
@@ -465,8 +470,9 @@ export function createBrowserApiShim(): ElectronAPI {
 
     getLearnerProgress: async (roadmapId: string) => {
       try {
-        const key = `hirestack_learner_progress_${roadmapId}`;
-        const stored = localStorage.getItem(key);
+        const key = `nomadic_learner_progress_${roadmapId}`;
+        const fallbackKey = `hirestack_learner_progress_${roadmapId}`;
+        const stored = localStorage.getItem(key) || localStorage.getItem(fallbackKey);
         if (stored) return JSON.parse(stored);
       } catch {}
       return {
@@ -481,8 +487,10 @@ export function createBrowserApiShim(): ElectronAPI {
 
     saveLearnerProgress: async (progress) => {
       try {
-        const key = `hirestack_learner_progress_${progress.roadmapId}`;
+        const key = `nomadic_learner_progress_${progress.roadmapId}`;
+        const fallbackKey = `hirestack_learner_progress_${progress.roadmapId}`;
         localStorage.setItem(key, JSON.stringify(progress));
+        localStorage.setItem(fallbackKey, JSON.stringify(progress));
         emitLog(`[Learner] Progress saved for track "${progress.roadmapId}".`);
         return { success: true };
       } catch {
@@ -665,7 +673,7 @@ export function createBrowserApiShim(): ElectronAPI {
 
     adminGetLearningResources: async () => {
       try {
-        const s = localStorage.getItem('hirestack_curated_resources');
+        const s = localStorage.getItem('nomadic_curated_resources') || localStorage.getItem('hirestack_curated_resources');
         if (s) return JSON.parse(s);
       } catch {}
       return [
@@ -710,7 +718,7 @@ export function createBrowserApiShim(): ElectronAPI {
 
     adminAddLearningResource: async (resource) => {
       try {
-        const s = localStorage.getItem('hirestack_curated_resources');
+        const s = localStorage.getItem('nomadic_curated_resources') || localStorage.getItem('hirestack_curated_resources');
         const list = s ? JSON.parse(s) : [];
         const newItem = {
           id: Date.now(),
@@ -718,6 +726,7 @@ export function createBrowserApiShim(): ElectronAPI {
           createdAt: new Date().toISOString().split('T')[0],
         };
         list.unshift(newItem);
+        localStorage.setItem('nomadic_curated_resources', JSON.stringify(list));
         localStorage.setItem('hirestack_curated_resources', JSON.stringify(list));
         emitLog(`[Admin Curator] Added learning video: ${resource.title}`);
         return { success: true, id: newItem.id };
@@ -728,10 +737,11 @@ export function createBrowserApiShim(): ElectronAPI {
 
     adminDeleteLearningResource: async (id) => {
       try {
-        const s = localStorage.getItem('hirestack_curated_resources');
+        const s = localStorage.getItem('nomadic_curated_resources') || localStorage.getItem('hirestack_curated_resources');
         if (s) {
           const list = JSON.parse(s);
           const updated = list.filter((r: any) => r.id !== id && String(r.id) !== String(id));
+          localStorage.setItem('nomadic_curated_resources', JSON.stringify(updated));
           localStorage.setItem('hirestack_curated_resources', JSON.stringify(updated));
         }
         emitLog(`[Admin Curator] Deleted resource #${id}`);
@@ -744,7 +754,7 @@ export function createBrowserApiShim(): ElectronAPI {
     getRecommendedResourcesForJob: async (params) => {
       let list = [];
       try {
-        const s = localStorage.getItem('hirestack_curated_resources');
+        const s = localStorage.getItem('nomadic_curated_resources') || localStorage.getItem('hirestack_curated_resources');
         list = s ? JSON.parse(s) : [];
       } catch {}
       if (!list.length) {
@@ -847,8 +857,51 @@ export function createBrowserApiShim(): ElectronAPI {
         lifetimeUsers,
       };
     },
-    authGoogle: async () => ({ success: true }),
-    onOauthCallback: () => () => {},
+    authSignup: async (cred: any) => {
+      const email = String(cred.email || 'user@nomadic.app').trim().toLowerCase();
+      const user: AppUser = {
+        id: 'usr_' + Date.now(),
+        email,
+        fullName: cred.fullName || email.split('@')[0],
+        role: 'user',
+        tier: 'trial',
+        licenseKey: 'NOMADIC-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        onboardingCompleted: false,
+      };
+      return { success: true, user };
+    },
+    authGoogle: async () => {
+      setTimeout(() => {
+        const mockUser: AppUser = {
+          id: 'ggl_' + Date.now(),
+          email: 'sajal@gmail.com',
+          fullName: 'Sajal',
+          role: 'user',
+          tier: 'seeker_max',
+          licenseKey: 'NOMADIC-GGL-DEMO',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          onboardingCompleted: false,
+        };
+        // Trigger simulated OAuth callback
+        if (typeof window !== 'undefined' && (window as any).__oauthCb) {
+          (window as any).__oauthCb({ success: true, user: mockUser });
+        }
+      }, 1500);
+      return { success: true };
+    },
+    onOauthCallback: (cb: any) => {
+      if (typeof window !== 'undefined') {
+        (window as any).__oauthCb = cb;
+      }
+      return () => {
+        if (typeof window !== 'undefined') {
+          delete (window as any).__oauthCb;
+        }
+      };
+    },
   };
 }
 

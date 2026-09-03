@@ -42,6 +42,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
       setSyncFeedback(`✓ Upgraded successfully to ${tier.toUpperCase()} plan! (Razorpay Test Mode Verified)`);
       if (currentUser) {
         const updated = { ...currentUser, subscription_tier: tier };
+        localStorage.setItem('nomadic_user', JSON.stringify(updated));
         localStorage.setItem('hirestack_user', JSON.stringify(updated));
       }
       onUpgradeSuccess?.();
@@ -67,9 +68,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
         <div className="text-center space-y-2 max-w-lg mx-auto">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-[11px] font-bold text-slate-900 dark:text-white">
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-            {triggerFeature ? `Unlock ${triggerFeature}` : 'Hirestack Subscription Plans'}
+            {triggerFeature ? `Unlock ${triggerFeature}` : 'Nomadic Subscription Plans'}
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-950 dark:text-white tracking-tight">Accelerate Your Career with Hirestack</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-950 dark:text-white tracking-tight">Accelerate Your Career with Nomadic</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Instant activation via Razorpay UPI (GPay, PhonePe, Paytm, CRED), Netbanking, and Cards.
           </p>

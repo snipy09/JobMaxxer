@@ -145,6 +145,48 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
   // Copy feedback
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const [isFetchingJobs, setIsFetchingJobs] = useState<boolean>(false);
+  const [feedNotification, setFeedNotification] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
+
+  const handleFetchLatestJobs = async () => {
+    const api = getApi();
+    if (!api) return;
+    setIsFetchingJobs(true);
+    setFeedNotification(null);
+    onLog('[Job Board] Fetching latest live ATS opportunities & syncing feed...');
+
+    try {
+      if (api.runScrapers) {
+        try {
+          await api.runScrapers();
+        } catch {}
+      }
+      const res = await api.getCloudFeed('candidate');
+      if (res && res.success && res.jobs && res.jobs.length > 0) {
+        setJobs(res.jobs);
+        setFeedNotification({
+          type: 'success',
+          message: `Successfully fetched ${res.jobs.length} latest opportunities from Greenhouse, Lever, Ashby & live feeds!`
+        });
+        onLog(`[Job Board] Feed updated with ${res.jobs.length} latest positions.`);
+      } else {
+        await fetchCloudJobs();
+        setFeedNotification({
+          type: 'success',
+          message: 'Job board refreshed with current verified opportunities.'
+        });
+      }
+    } catch (err: any) {
+      await fetchCloudJobs();
+      setFeedNotification({
+        type: 'info',
+        message: 'Refreshed local job cache.'
+      });
+    } finally {
+      setIsFetchingJobs(false);
+      setTimeout(() => setFeedNotification(null), 5000);
+    }
+  };
 
   const fetchCloudJobs = async () => {
     const api = getApi();
@@ -424,7 +466,17 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleFetchLatestJobs}
+              disabled={loading || isFetchingJobs || executingAutoApply}
+              className="w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs hover:shadow active:scale-98 disabled:opacity-50"
+              title="Fetch latest live postings across Greenhouse, Lever, Ashby, and Internshala"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isFetchingJobs || loading ? 'animate-spin' : ''}`} />
+              <span>{isFetchingJobs ? 'Fetching Latest Jobs...' : 'Fetch Latest Jobs'}</span>
+            </button>
+
             <button
               onClick={() => handleTriggerSemiAutoApply(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 3).map(j => j.applyUrl))}
               disabled={executingAutoApply}
@@ -447,17 +499,39 @@ export const FeedView: React.FC<FeedViewProps> = ({
           </div>
         </div>
 
+        {/* Confirmation Banner */}
+        {feedNotification && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center justify-between shadow-xs animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>{feedNotification.message}</span>
+            </div>
+            <button onClick={() => setFeedNotification(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs px-1">✕</button>
+          </div>
+        )}
+
         {/* Search Bar + Tab Switcher */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by title, company, skills, location..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-            />
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-1 max-w-md">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by title, company, skills, location..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
+              />
+            </div>
+            <button
+              onClick={handleFetchLatestJobs}
+              disabled={loading || isFetchingJobs}
+              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
+              title="Refresh job board"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading || isFetchingJobs ? 'animate-spin text-emerald-500' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg w-full sm:w-auto justify-between sm:justify-start">

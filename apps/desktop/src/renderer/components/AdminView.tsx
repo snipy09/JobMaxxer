@@ -56,7 +56,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
 
   // Plan Assignment State
   const [assigningPlanUser, setAssigningPlanUser] = useState<AppUser | null>(null);
-  const [selectedPlanTier, setSelectedPlanTier] = useState<'trial' | 'pro' | 'max' | 'lifetime'>('pro');
+  const [selectedPlanTier, setSelectedPlanTier] = useState<string>('pro');
   const [savingPlan, setSavingPlan] = useState<boolean>(false);
 
   const fetchAdminData = async () => {
@@ -81,7 +81,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
     }
   };
 
-  const handleAssignPlan = async (user: AppUser, planTier: 'trial' | 'pro' | 'max' | 'lifetime') => {
+  const handleAssignPlan = async (user: AppUser, planTier: string) => {
     const api = getApi();
     if (!api || !api.adminAssignPlan) return;
     setSavingPlan(true);

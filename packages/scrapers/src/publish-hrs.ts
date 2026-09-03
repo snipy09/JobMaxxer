@@ -7,7 +7,7 @@ async function publishHrsLocally() {
   const supabase = getScraperSupabase();
 
   console.log('========================================================================');
-  console.log('📬 HIRESTACK — LOCAL HR & HIRING MANAGER SCRAPER & SUPABASE PUBLISHER');
+  console.log('📬 NOMADIC — LOCAL HR & HIRING MANAGER SCRAPER & SUPABASE PUBLISHER');
   console.log('========================================================================');
   console.log(`[Config] Target Supabase URL : ${env.SUPABASE_URL}`);
   console.log(`[Config] Service Key Active : ${env.isServiceRole ? 'YES (Service Role)' : 'NO (Using Anon Key)'}`);
