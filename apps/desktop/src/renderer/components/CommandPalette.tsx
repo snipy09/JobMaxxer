@@ -129,7 +129,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         id: `q-${q.id}`,
         category: 'Questions',
         title: q.title,
-        subtitle: `${q.category} · ${q.difficulty} · ${q.companyTags.join(', ')}`,
+        subtitle: `${q.category || ''} · ${q.difficulty || ''} · ${(q.companyTags || []).join(', ')}`,
         icon: Code2,
         action: () => {
           onToggleTrack('learner');

@@ -204,8 +204,8 @@ export default function App() {
       if (user.role === 'admin') {
         setActiveTab('admin-overview');
       } else {
-        setActiveTrack('learner');
-        setActiveTab('learner-roadmaps');
+        setActiveTrack('seeker');
+        setActiveTab('feed');
       }
       addLog(`[Auth] Existing candidate session restored (${user.email}). Direct to dashboard.`);
     } else {
@@ -317,8 +317,8 @@ export default function App() {
               localStorage.setItem('nomadic_user', JSON.stringify(updated));
             }
           } catch {}
-          setActiveTab('learner-roadmaps');
-          setActiveTrack('learner');
+          setActiveTrack('seeker');
+          setActiveTab('feed');
         }}
       />
     );
@@ -457,10 +457,22 @@ export default function App() {
               />
             )}
 
-            {activeTab.startsWith('admin') && (
+            {Boolean(activeTab && activeTab.startsWith('admin')) && (
               <AdminView
                 onLog={addLog}
                 currentUser={currentUser}
+              />
+            )}
+
+            {/* Safe Fallback: if activeTab does not match any known route, render FeedView */}
+            {!['learner-roadmaps', 'learner-resources', 'learner-interview-prep', 'home', 'feed', 'outreach', 'applications', 'logs', 'profile', 'settings'].includes(activeTab) && !Boolean(activeTab && activeTab.startsWith('admin')) && (
+              <FeedView
+                profile={profile}
+                onLog={addLog}
+                onNavigateToOutreach={(company) => {
+                  setOutreachTargetCompany(company);
+                  setActiveTab('outreach');
+                }}
               />
             )}
           </div>

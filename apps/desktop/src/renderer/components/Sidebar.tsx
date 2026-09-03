@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isLocalOrAdmin =
     currentUser?.role === 'admin' ||
-    activeTab.startsWith('admin') ||
+    Boolean(activeTab && activeTab.startsWith('admin')) ||
     (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
 
   if (isLocalOrAdmin) {

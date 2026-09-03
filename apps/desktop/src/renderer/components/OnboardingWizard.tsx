@@ -214,24 +214,37 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     }, 1150);
 
     setTimeout(async () => {
-      const finalProfile: MasterProfile = {
-        ...initialProfile,
-        firstName: firstName.trim() || 'Nomadic',
-        lastName: lastName.trim(),
-        email: userEmail,
-        phone: phone.trim(),
-        desiredTitle: selectedRole.title,
-        techStack: Array.from(selectedSkills).join(', '),
-        onboardingCompleted: true,
-      };
+      try {
+        const finalProfile: MasterProfile = {
+          ...initialProfile,
+          firstName: firstName.trim() || 'Nomadic',
+          lastName: lastName.trim(),
+          email: userEmail,
+          phone: phone.trim(),
+          desiredTitle: selectedRole?.title || initialProfile.desiredTitle || 'Software Engineer',
+          techStack: Array.from(selectedSkills).join(', '),
+          onboardingCompleted: true,
+        };
 
-      const api = getApi();
-      if (api) {
-        await api.saveMasterProfile(finalProfile as any);
+        const api = getApi();
+        if (api && api.saveMasterProfile) {
+          try {
+            await api.saveMasterProfile(finalProfile as any);
+          } catch (saveErr) {
+            console.warn('[Onboarding] Error saving profile to local database:', saveErr);
+          }
+        }
+
+        setIsSubmitting(false);
+        onComplete(finalProfile);
+      } catch (err) {
+        console.error('[Onboarding] Error finishing onboarding:', err);
+        setIsSubmitting(false);
+        onComplete({
+          ...initialProfile,
+          onboardingCompleted: true,
+        });
       }
-
-      setIsSubmitting(false);
-      onComplete(finalProfile);
     }, 1550);
   };
 

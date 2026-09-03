@@ -3,6 +3,8 @@
  * Deterministically generated and indexed for high-performance sub-millisecond semantic search.
  */
 
+import { CURATED_JOB_TITLES } from './curatedJobTitles';
+
 export interface JobRole {
   id: number;
   title: string;
@@ -508,6 +510,65 @@ export function generate10KJobRoles(): JobRole[] {
   return dataset;
 }
 
+const QUERY_CACHE = new Map<string, JobRole[]>();
+
+export function inferRoleDetails(title: string) {
+  const lower = title.toLowerCase();
+  if (lower.includes('ai') || lower.includes('ml') || lower.includes('machine learning') || lower.includes('data')) {
+    return {
+      domain: 'Artificial Intelligence & Machine Learning',
+      roadmapId: 'backend',
+      coreSkills: ['Python', 'PyTorch', 'TensorFlow', 'LLMs', 'MLOps', 'Vector DBs'],
+      salaryIndia: '₹18 LPA – ₹45 LPA',
+      salaryGlobal: '$130k – $220k',
+      keyTopics: ['Model Fine-Tuning', 'Embeddings', 'Transformers', 'Retrieval-Augmented Generation'],
+      interviewQuestions: ['How do you optimize LLM context windows and latency in production?'],
+    };
+  }
+  if (lower.includes('cloud') || lower.includes('aws') || lower.includes('devops') || lower.includes('sre') || lower.includes('infrastructure')) {
+    return {
+      domain: 'Cloud Architecture & DevOps',
+      roadmapId: 'backend',
+      coreSkills: ['AWS', 'Kubernetes', 'Terraform', 'Docker', 'CI/CD', 'Linux'],
+      salaryIndia: '₹16 LPA – ₹38 LPA',
+      salaryGlobal: '$120k – $195k',
+      keyTopics: ['High Availability', 'Container Orchestration', 'Infrastructure as Code'],
+      interviewQuestions: ['How do you design multi-region disaster recovery in AWS?'],
+    };
+  }
+  if (lower.includes('account') || lower.includes('finance') || lower.includes('payable') || lower.includes('receivable')) {
+    return {
+      domain: 'Finance & Accounting Operations',
+      roadmapId: 'product-management',
+      coreSkills: ['Financial Modeling', 'GAAP / IFRS', 'ERP Systems', 'Excel / SQL', 'Auditing'],
+      salaryIndia: '₹10 LPA – ₹26 LPA',
+      salaryGlobal: '$85k – $150k',
+      keyTopics: ['Revenue Recognition', 'General Ledger Reconciliation', 'Budget Forecasting'],
+      interviewQuestions: ['Explain the ASC 606 five-step model for revenue recognition.'],
+    };
+  }
+  if (lower.includes('product') || lower.includes('project') || lower.includes('manager') || lower.includes('agile') || lower.includes('scrum')) {
+    return {
+      domain: 'Product & Project Leadership',
+      roadmapId: 'product-management',
+      coreSkills: ['Product Strategy', 'Agile / Scrum', 'User Research', 'PRD Authoring', 'Roadmapping'],
+      salaryIndia: '₹14 LPA – ₹35 LPA',
+      salaryGlobal: '$110k – $180k',
+      keyTopics: ['Sprint Planning', 'Stakeholder Management', 'Metric Tracking'],
+      interviewQuestions: ['How do you prioritize competing engineering requirements under tight deadlines?'],
+    };
+  }
+  return {
+    domain: 'Software Engineering',
+    roadmapId: 'frontend',
+    coreSkills: ['TypeScript', 'JavaScript', 'React', 'Node.js', 'PostgreSQL', 'APIs'],
+    salaryIndia: '₹12 LPA – ₹30 LPA',
+    salaryGlobal: '$95k – $165k',
+    keyTopics: ['State Management', 'Full Stack Architecture', 'REST & GraphQL APIs'],
+    interviewQuestions: ['Explain how you optimize frontend bundle sizes and Core Web Vitals.'],
+  };
+}
+
 // ── High-Performance Sub-Millisecond AI Role Detection Engine ───────────────
 export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole[] {
   if (!userInput || !userInput.trim()) {
@@ -515,9 +576,38 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
     return all.slice(0, limit);
   }
 
+  const cacheKey = `${userInput.trim().toLowerCase()}_${limit}`;
+  if (QUERY_CACHE.has(cacheKey)) {
+    return QUERY_CACHE.get(cacheKey)!;
+  }
+
+  const normalizedQuery = userInput.toLowerCase().trim();
+
+  // Check curated dataset first for fast exact / prefix matches
+  const curatedMatches: JobRole[] = [];
+  for (const c of CURATED_JOB_TITLES) {
+    if (c.searchable === normalizedQuery || c.searchable.startsWith(normalizedQuery) || c.searchable.includes(normalizedQuery)) {
+      const details = inferRoleDetails(c.title);
+      curatedMatches.push({
+        id: c.id,
+        title: c.title,
+        domain: details.domain,
+        seniority: c.title.includes('Senior') ? 'Senior' : (c.title.includes('Lead') ? 'Lead' : (c.title.includes('Manager') || c.title.includes('Director') ? 'Lead' : (c.title.includes('Junior') || c.title.includes('Associate') || c.title.includes('Assistant') ? 'Associate' : 'Mid-Level'))),
+        industry: 'Enterprise & Technology',
+        coreSkills: details.coreSkills,
+        salaryIndia: details.salaryIndia,
+        salaryGlobal: details.salaryGlobal,
+        roadmapId: details.roadmapId,
+        keyTopics: details.keyTopics,
+        interviewQuestions: details.interviewQuestions,
+        matchScore: c.searchable === normalizedQuery ? 99 : 94,
+      });
+      if (curatedMatches.length >= limit) break;
+    }
+  }
+
   const dataset = generate10KJobRoles();
-  const rawTokens = userInput.toLowerCase().split(/[^a-z0-9+#.]+/).filter(t => t.length > 1);
-  const normalizedQuery = userInput.toLowerCase();
+  const rawTokens = normalizedQuery.split(/[^a-z0-9+#.]+/).filter(t => t.length > 1);
 
   // Score each role against user text input
   const scored = dataset.map((role) => {
@@ -600,44 +690,68 @@ export function suggestRolesFromUserInput(userInput: string, limit = 5): JobRole
   // Sort by score descending
   scored.sort((a, b) => b.score - a.score);
 
-  // Take top unique titles
-  const results: JobRole[] = [];
-  const seenTitles = new Set<string>();
+  // Take top unique titles, prioritizing curated matches
+  const merged: JobRole[] = [...curatedMatches];
+  const seenTitles = new Set<string>(curatedMatches.map(c => c.title.replace(/\s*\([^)]*\)/g, '').trim().toLowerCase()));
 
   for (const item of scored) {
-    if (results.length >= limit) break;
+    if (merged.length >= limit) break;
     const cleanTitle = item.role.title.replace(/\s*\([^)]*\)/g, '').trim();
-    if (!seenTitles.has(cleanTitle)) {
-      seenTitles.add(cleanTitle);
-      // Calculate realistic percentage match (e.g. 70% to 99%)
+    const cleanLower = cleanTitle.toLowerCase();
+    if (!seenTitles.has(cleanLower)) {
+      seenTitles.add(cleanLower);
       const maxEstimatedScore = 150;
       const pct = Math.min(99, Math.max(68, Math.round((item.score / maxEstimatedScore) * 100)));
-      results.push({
+      merged.push({
         ...item.role,
         matchScore: pct,
       });
     }
   }
 
-  // If no high scores matched, return top diverse defaults
-  if (results.length === 0 || (results[0].matchScore || 0) < 68) {
-    return dataset.slice(0, limit).map((r, i) => ({
-      ...r,
-      matchScore: 85 - i * 3,
-    }));
-  }
+  const finalResults = (merged.length === 0 || (merged[0].matchScore || 0) < 68)
+    ? dataset.slice(0, limit).map((r, i) => ({
+        ...r,
+        matchScore: 85 - i * 3,
+      }))
+    : merged;
 
-  return results;
+  if (QUERY_CACHE.size > 500) QUERY_CACHE.clear();
+  QUERY_CACHE.set(cacheKey, finalResults);
+  return finalResults;
 }
 
 export function searchRoleTitles(query: string, limit = 6): string[] {
-  const roles = suggestRolesFromUserInput(query, limit * 3);
   const titles = new Set<string>();
-  for (const r of roles) {
-    const clean = r.title.replace(/\s*-\s*[^-]+$/, '').replace(/\s*\([^)]*\)/g, '').trim();
-    if (clean) titles.add(clean);
-    if (titles.size >= limit) break;
+  const q = (query || '').trim().toLowerCase();
+
+  if (q) {
+    // 1. Search curated job titles (1,922 exact industry titles)
+    for (const item of CURATED_JOB_TITLES) {
+      if (item.searchable.startsWith(q) || item.searchable.includes(q)) {
+        titles.add(item.title);
+        if (titles.size >= limit) break;
+      }
+    }
   }
+
+  // 2. Backfill with dynamic suggestions if needed
+  if (titles.size < limit) {
+    const roles = suggestRolesFromUserInput(query, limit * 3);
+    for (const r of roles) {
+      const clean = r.title.replace(/\s*-\s*[^-]+$/, '').replace(/\s*\([^)]*\)/g, '').trim();
+      if (clean) titles.add(clean);
+      if (titles.size >= limit) break;
+    }
+  }
+
+  // 3. Defaults if empty query
+  if (titles.size === 0) {
+    for (const item of CURATED_JOB_TITLES.slice(0, limit)) {
+      titles.add(item.title);
+    }
+  }
+
   return Array.from(titles);
 }
 

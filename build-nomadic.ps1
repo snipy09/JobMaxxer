@@ -81,9 +81,13 @@ $exes = Get-ChildItem $dist -Filter "Nomadic*.exe" -File -ErrorAction SilentlyCo
 if (-not $exes) { throw "No Nomadic .exe was produced in $dist" }
 
 foreach ($exe in $exes) {
-  Copy-Item $exe.FullName -Destination $downloads -Force
-  $size = "{0:N1} MB" -f ($exe.Length / 1MB)
-  Write-Host ("  copied  {0}  ({1})" -f $exe.Name, $size) -ForegroundColor Green
+  try {
+    Copy-Item $exe.FullName -Destination $downloads -Force
+    $size = "{0:N1} MB" -f ($exe.Length / 1MB)
+    Write-Host ("  copied  {0}  ({1})" -f $exe.Name, $size) -ForegroundColor Green
+  } catch {
+    Write-Host ("  note: {0} is currently in use or open. Close it to overwrite." -f $exe.Name) -ForegroundColor Yellow
+  }
 }
 
 Write-Host "`nDone. Your app is in: $downloads" -ForegroundColor Cyan

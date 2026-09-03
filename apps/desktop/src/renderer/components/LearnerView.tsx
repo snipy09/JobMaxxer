@@ -59,15 +59,11 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   useEffect(() => {
     if (profile.desiredTitle) {
       const lower = profile.desiredTitle.toLowerCase();
-      if (lower.includes('ai') || lower.includes('llm') || lower.includes('machine learning') || lower.includes('agent') || lower.includes('data')) {
-        setActiveRoadmapId('ai');
-      } else if (lower.includes('devops') || lower.includes('sre') || lower.includes('kubernetes') || lower.includes('cloud') || lower.includes('aws') || lower.includes('security')) {
-        setActiveRoadmapId('devops');
-      } else if (lower.includes('backend') || lower.includes('systems') || lower.includes('node') || lower.includes('go') || lower.includes('database')) {
+      if (lower.includes('ai') || lower.includes('llm') || lower.includes('machine learning') || lower.includes('data') || lower.includes('backend') || lower.includes('systems') || lower.includes('node') || lower.includes('go') || lower.includes('devops') || lower.includes('cloud')) {
         setActiveRoadmapId('backend');
-      } else if (lower.includes('full stack') || lower.includes('fullstack') || lower.includes('saas') || lower.includes('product') || lower.includes('tpm') || lower.includes('apm')) {
-        setActiveRoadmapId('fullstack');
-      } else if (lower.includes('frontend') || lower.includes('react') || lower.includes('web') || lower.includes('ui') || lower.includes('mobile')) {
+      } else if (lower.includes('product') || lower.includes('tpm') || lower.includes('apm') || lower.includes('scrum') || lower.includes('project')) {
+        setActiveRoadmapId('product-management');
+      } else {
         setActiveRoadmapId('frontend');
       }
     }
