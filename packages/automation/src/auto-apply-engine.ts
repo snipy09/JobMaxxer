@@ -35,6 +35,8 @@ export interface MasterProfile {
   resumeFilePath?: string;
   resumes?: ResumeItem[];
   customAnswers?: Record<string, string>;
+  cachedAnswers?: Record<string, string>;
+  onAnswerResolved?: (question: string, answer: string) => void;
 }
 
 export interface ApplyResult {
@@ -68,67 +70,73 @@ async function getOrLaunchExternalSession(): Promise<BrowserSession> {
 
 export class AutoApplyEngine {
   /**
-   * Semi-Auto Review Mode: Opens up to 20 tabs concurrently in dedicated external Chrome,
-   * auto-fills all ATS fields, evaluates AI questions, attaches resume, and leaves tabs open.
+   * Semi-Auto Review Mode: Opens tabs in a controlled RAM-safe FIFO queue
+   * (3-5 parallel tabs max) in external Chrome, auto-fills all ATS fields,
+   * evaluates AI questions, attaches resume, and leaves tabs open for 1-click review.
    */
   public static async prefillParallelTabs(
     jobUrls: string[],
     profile: MasterProfile,
-    maxTabs: number = 20,
+    concurrencyLimit: number = 3,
     onProgress?: (msg: string) => void
   ): Promise<void> {
     if (!jobUrls || jobUrls.length === 0) return;
 
-    const boundMaxTabs = Math.max(1, Math.min(maxTabs, 50));
-    const batch = jobUrls.slice(0, boundMaxTabs);
-
-    onProgress?.(`Launching external Chrome for ${batch.length} positions in review mode...`);
+    const limit = Math.max(1, Math.min(concurrencyLimit, 5));
+    onProgress?.(`Starting RAM-safe prefill queue for ${jobUrls.length} positions (${limit} parallel workers)...`);
     const session = await getOrLaunchExternalSession();
 
-    const tasks = batch.map(async (url, idx) => {
-      let page: Page | null = null;
-      try {
-        page = await session.context.newPage();
-        onProgress?.(`[Tab ${idx + 1}/${batch.length}] Navigating to: ${url}`);
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-        await page.bringToFront().catch(() => {});
+    let nextIndex = 0;
+    const worker = async (workerId: number) => {
+      while (nextIndex < jobUrls.length) {
+        const idx = nextIndex++;
+        const url = jobUrls[idx];
+        let page: Page | null = null;
+        try {
+          page = await session.context.newPage();
+          onProgress?.(`[Slot ${workerId} | Tab ${idx + 1}/${jobUrls.length}] Navigating to: ${url}`);
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+          await page.bringToFront().catch(() => {});
 
-        // 1. Inject overlay
-        await AutoApplyEngine.injectOverlay(page, '⚡ JobMaxxer: Auto-filling details...');
+          // 1. Inject overlay
+          await AutoApplyEngine.injectOverlay(page, '⚡ Hirestack: Auto-filling details...');
 
-        // 2. Expand form if collapsed
-        await AutoApplyEngine.openApplicationFormIfRequired(page);
+          // 2. Expand form if collapsed
+          await AutoApplyEngine.openApplicationFormIfRequired(page);
 
-        // 3. Fill standard ATS inputs
-        await AutoApplyEngine.fillStandardFields(page, profile);
+          // 3. Fill standard ATS inputs
+          await AutoApplyEngine.fillStandardFields(page, profile);
 
-        // 4. Answer custom open-ended questions with Groq AI
-        await AutoApplyEngine.answerOpenEndedFields(page, profile);
+          // 4. Answer custom open-ended questions with Groq AI / cached answers
+          await AutoApplyEngine.answerOpenEndedFields(page, profile);
 
-        // 5. Attach matching resume
-        await AutoApplyEngine.uploadResumeIfPresent(page, profile);
+          // 5. Attach matching resume
+          await AutoApplyEngine.uploadResumeIfPresent(page, profile);
 
-        // 6. Update overlay to ready state
-        await AutoApplyEngine.injectOverlay(
-          page,
-          '✓ Auto-filled! Ready for 1-Click Review & Submit',
-          '#22c55e'
-        );
-        onProgress?.(`[Tab ${idx + 1}/${batch.length}] Ready: ${url}`);
-      } catch (err: any) {
-        onProgress?.(`[Tab ${idx + 1}/${batch.length}] Note on ${url}: ${err?.message}`);
-        if (page) {
+          // 6. Update overlay to ready state
           await AutoApplyEngine.injectOverlay(
             page,
-            'JobMaxxer: Review manually',
-            '#f59e0b'
-          ).catch(() => {});
+            '✓ Auto-filled! Ready for 1-Click Review & Submit',
+            '#22c55e'
+          );
+          onProgress?.(`[Tab ${idx + 1}/${jobUrls.length}] Ready for review: ${url}`);
+        } catch (err: any) {
+          onProgress?.(`[Tab ${idx + 1}/${jobUrls.length}] Note on ${url}: ${err?.message}`);
+          if (page) {
+            await AutoApplyEngine.injectOverlay(
+              page,
+              'Hirestack: Review manually',
+              '#f59e0b'
+            ).catch(() => {});
+          }
         }
       }
-    });
+    };
 
-    await Promise.all(tasks);
-    onProgress?.(`All ${batch.length} review tabs ready in external Chrome.`);
+    const workerCount = Math.min(limit, jobUrls.length);
+    const workers = Array.from({ length: workerCount }, (_, i) => worker(i + 1));
+    await Promise.all(workers);
+    onProgress?.(`All ${jobUrls.length} review tabs ready in external Chrome.`);
   }
 
   /**
@@ -391,7 +399,7 @@ export class AutoApplyEngine {
 
           if (!questionText || questionText.length < 3) continue;
 
-          // Check custom Q&A first
+          // 1. Check custom user Q&A dictionary first
           let answer: string | null = null;
           if (profile.customAnswers) {
             for (const [qKey, customVal] of Object.entries(profile.customAnswers)) {
@@ -402,7 +410,17 @@ export class AutoApplyEngine {
             }
           }
 
-          // Use Groq AI if available and no custom answer found
+          // 2. Check local cached answers (0-cost repeat queries)
+          if (!answer && profile.cachedAnswers) {
+            for (const [cKey, cachedVal] of Object.entries(profile.cachedAnswers)) {
+              if (questionText.toLowerCase().includes(cKey.toLowerCase()) || cKey.toLowerCase().includes(questionText.toLowerCase())) {
+                answer = cachedVal;
+                break;
+              }
+            }
+          }
+
+          // 3. Use Groq AI if available and no cached answer found
           if (!answer && profile.groqApiKey) {
             try {
               answer = await answerCustomQuestionWithGroq(
@@ -410,6 +428,9 @@ export class AutoApplyEngine {
                 questionText,
                 candidateSummary
               );
+              if (answer) {
+                profile.onAnswerResolved?.(questionText, answer);
+              }
             } catch {}
           }
 

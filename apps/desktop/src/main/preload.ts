@@ -40,12 +40,34 @@ const apiObj = {
   },
   openExternalUrl: (url: string) => ipcRenderer.invoke('open-external-url', url),
 
+  // Learner Progress & Roadmap State
+  getLearnerProgress: (roadmapId: string) => ipcRenderer.invoke('get-learner-progress', roadmapId),
+  saveLearnerProgress: (progress: Record<string, unknown>) => ipcRenderer.invoke('save-learner-progress', progress),
+
+  // Applications Management
+  updateApplicationStatus: (id: number | string, status: string) =>
+    ipcRenderer.invoke('update-application-status', { id, status }),
+  deleteApplication: (id: number | string) => ipcRenderer.invoke('delete-application', id),
+
+  // Interview Evaluation
+  evaluateInterviewAnswer: (params: { questionId: string; questionTitle: string; answerText: string; category?: string }) =>
+    ipcRenderer.invoke('evaluate-interview-answer', params),
+
   // Admin & Authentication APIs
   authLogin: (credentials: Record<string, unknown>) => ipcRenderer.invoke('auth-login', credentials),
   adminGetUsers: () => ipcRenderer.invoke('admin-get-users'),
   adminCreateUser: (user: Record<string, unknown>) => ipcRenderer.invoke('admin-create-user', user),
   adminUpdateUserStatus: (id: number, status: string) => ipcRenderer.invoke('admin-update-user-status', { id, status }),
   adminDeleteUser: (id: number) => ipcRenderer.invoke('admin-delete-user', id),
+  adminAssignPlan: (data: { userId: string | number; email?: string; planTier: string; expiresAt?: string }) =>
+    ipcRenderer.invoke('admin-assign-plan', data),
+  adminGetLearningResources: () => ipcRenderer.invoke('admin-get-learning-resources'),
+  adminAddLearningResource: (resource: Record<string, unknown>) =>
+    ipcRenderer.invoke('admin-add-learning-resource', resource),
+  adminDeleteLearningResource: (id: number | string) =>
+    ipcRenderer.invoke('admin-delete-learning-resource', id),
+  getRecommendedResourcesForJob: (params: { title: string; description?: string; techStack?: string }) =>
+    ipcRenderer.invoke('get-recommended-resources-for-job', params),
   adminGetBilling: () => ipcRenderer.invoke('admin-get-billing'),
   adminCreateBillingRecord: (record: Record<string, unknown>) => ipcRenderer.invoke('admin-create-billing-record', record),
   adminGetMetrics: () => ipcRenderer.invoke('admin-get-metrics'),

@@ -90,31 +90,32 @@ export function createBrowserApiShim(): ElectronAPI {
 
   return {
     getMasterProfile: async () => {
-      const stored = localStorage.getItem('jobmaxxer_master_profile');
+      const stored = localStorage.getItem('hirestack_master_profile') || localStorage.getItem('jobmaxxer_master_profile');
       if (stored) {
         try {
           return JSON.parse(stored);
         } catch {}
       }
       return {
-        first_name: 'Alex',
-        last_name: 'Vance',
-        email: 'alex.vance@example.com',
-        phone: '+1 (555) 234-5678',
-        linkedin_url: 'https://linkedin.com/in/alexvance',
-        github_url: 'https://github.com/alexvance',
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        linkedin_url: '',
+        github_url: '',
         sponsorship: 'No',
         desired_salary: '$150,000',
         notice_period: '2 weeks',
         groq_api_key: '',
-        desired_title: 'Full Stack Engineer, Senior Software Engineer',
-        tech_stack: 'TypeScript, React, Node.js, Python, PostgreSQL',
-        resume_text: 'Experienced Full Stack Engineer with 5+ years building scalable cloud applications.',
-        onboarding_completed: 1,
+        desired_title: '',
+        tech_stack: '',
+        resume_text: '',
+        onboarding_completed: 0,
       };
     },
 
     saveMasterProfile: async (data: Record<string, unknown>) => {
+      localStorage.setItem('hirestack_master_profile', JSON.stringify(data));
       localStorage.setItem('jobmaxxer_master_profile', JSON.stringify(data));
       emitLog('[Profile] Master profile saved to local storage.');
       return { success: true };
@@ -204,30 +205,61 @@ export function createBrowserApiShim(): ElectronAPI {
     },
 
     launchAutonomous: async (jobUrls: string[]) => {
-      emitLog(`[AutoApply] Mass Apply Mode: Processing ${jobUrls.length} positions with stealth form filling...`);
-      for (const url of jobUrls) {
-        emitLog(`[AutoApply] Form auto-filled and submitted for ${url}`);
+      const BATCH_SIZE = 5;
+      const batches = [];
+      for (let i = 0; i < jobUrls.length; i += BATCH_SIZE) {
+        batches.push(jobUrls.slice(i, i + BATCH_SIZE));
       }
-      return { success: true, applied: jobUrls.length };
+
+      emitLog(`[Sequential Batch Engine] Launching ${jobUrls.length} positions across ${batches.length} sequential batches (5 jobs per batch, 3-tab RAM safety pool)...`);
+
+      let totalProcessed = 0;
+      for (let b = 0; b < batches.length; b++) {
+        const batch = batches[b];
+        emitLog(`[Batch Worker] Starting Batch ${b + 1}/${batches.length} (${batch.length} jobs in queue)...`);
+
+        for (const url of batch) {
+          totalProcessed++;
+          emitLog(`[Auto-Apply ${totalProcessed}/${jobUrls.length}] Form auto-filled and submitted for ${url} ✓`);
+        }
+
+        if (b < batches.length - 1) {
+          emitLog(`[Batch Cooldown] Batch ${b + 1}/${batches.length} completed. Pausing 2s to prevent ATS anti-bot IP rate-limiting...`);
+        }
+      }
+
+      return { success: true, applied: jobUrls.length, totalBatches: batches.length };
     },
 
     verifyEmail: async (email: string) => {
       return { isValid: true };
     },
 
-    getHrContacts: async () => {
+    getHrContacts: async (targetRole?: string) => {
       const fallbackContacts = [
-        { name: 'Sarah Jenkins', company: 'Linear', role: 'Head of Engineering Talent', email: 's.jenkins@linear.app', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const },
-        { name: 'David Chen', company: 'Vercel', role: 'Staff Technical Recruiter', email: 'david.chen@vercel.com', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const },
-        { name: 'Priya Sharma', company: 'Stripe', role: 'Engineering Lead & Hiring Manager', email: 'psharma@stripe.com', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const },
-        { name: 'Alex Rivera', company: 'Supabase', role: 'Lead Infrastructure Recruiter', email: 'alex.rivera@supabase.io', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const },
-        { name: 'Elena Rostova', company: 'Figma', role: 'Principal Talent Partner', email: 'elena.rostova@figma.com', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const },
-        { name: 'Marcus Vance', company: 'Postman', role: 'Director of Developer Relations', email: 'marcus.vance@postman.com', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const },
+        { name: 'Sarah Jenkins', company: 'Linear', role: 'Head of Engineering Talent', email: 's.jenkins@linear.app', department: 'Talent Acquisition', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const, matchScore: 85, linkedinUrl: 'https://linkedin.com/in/sarah-jenkins-talent' },
+        { name: 'David Chen', company: 'Vercel', role: 'Staff Technical Recruiter', email: 'david.chen@vercel.com', department: 'Talent Acquisition', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const, matchScore: 80, linkedinUrl: 'https://linkedin.com/in/david-chen-tech' },
+        { name: 'Priya Sharma', company: 'Stripe', role: 'Engineering Lead & Hiring Manager', email: 'psharma@stripe.com', department: 'Engineering', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const, matchScore: 90, linkedinUrl: 'https://linkedin.com/in/priya-sharma-eng' },
+        { name: 'Alex Rivera', company: 'Supabase', role: 'Lead Infrastructure Recruiter', email: 'alex.rivera@supabase.io', department: 'Talent Acquisition', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const, matchScore: 85, linkedinUrl: 'https://linkedin.com/in/alex-rivera-talent' },
+        { name: 'Elena Rostova', company: 'Figma', role: 'Principal Talent Partner', email: 'elena.rostova@figma.com', department: 'Talent Acquisition', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const, matchScore: 75, linkedinUrl: 'https://linkedin.com/in/elena-rostova-recruiter' },
+        { name: 'Marcus Vance', company: 'Postman', role: 'Director of Developer Relations', email: 'marcus.vance@postman.com', department: 'Engineering', verificationStatus: 'valid' as const, verifiedAt: 'Just now', sentStatus: 'unsent' as const, matchScore: 70, linkedinUrl: 'https://linkedin.com/in/marcus-vance-devrel' },
       ];
+
+      // Read saved jobs from localStorage to find candidate's target companies
+      const targetCompanies = new Set<string>();
+      try {
+        const raw = localStorage.getItem('jobmaxxer_saved_jobs') || localStorage.getItem('hirestack_saved_jobs');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            list.forEach((j: any) => targetCompanies.add((j.company || '').toLowerCase().trim()));
+          }
+        }
+      } catch {}
 
       if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) return { success: true, contacts: fallbackContacts };
       try {
-        const res = await fetch(`${SUPABASE_REST_URL}/hr_contacts?order=created_at.desc&limit=100`, {
+        const res = await fetch(`${SUPABASE_REST_URL}/hr_contacts?order=created_at.desc&limit=200`, {
           headers: {
             apikey: SUPABASE_ANON_KEY,
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -235,15 +267,39 @@ export function createBrowserApiShim(): ElectronAPI {
         });
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          const contacts = data.map((c: any) => ({
-            name: c.name || 'Hiring Lead',
-            company: c.company || 'Tech Company',
-            role: c.role || 'Talent Acquisition',
-            email: c.email || '',
-            verificationStatus: (c.verification_status || 'valid') as 'valid' | 'invalid' | 'risky' | 'pending',
-            verifiedAt: c.verified_at || 'Just now',
-            sentStatus: 'unsent' as const,
-          }));
+          const contacts = data.map((c: any) => {
+            const compLower = (c.company || '').toLowerCase().trim();
+            const isTarget = targetCompanies.has(compLower);
+            let score = 50;
+            if (isTarget) score += 35;
+            const roleLower = (c.role || '').toLowerCase();
+            const deptLower = (c.department || '').toLowerCase();
+            if (targetRole) {
+              const tr = targetRole.toLowerCase();
+              if (roleLower.includes('manager') || roleLower.includes('lead') || roleLower.includes('vp') || roleLower.includes('director')) {
+                score += 20;
+              }
+              if (roleLower.includes(tr) || deptLower.includes('engineering') || roleLower.includes('technical')) {
+                score += 15;
+              }
+            }
+
+            return {
+              name: c.name || 'Hiring Lead',
+              company: c.company || 'Tech Company',
+              role: c.role || 'Talent Acquisition',
+              email: c.email || '',
+              department: c.department || (roleLower.includes('engineer') || roleLower.includes('manager') ? 'Engineering' : 'Talent Acquisition'),
+              verificationStatus: (c.verification_status || 'valid') as 'valid' | 'invalid' | 'risky' | 'pending',
+              verifiedAt: c.verified_at || 'Just now',
+              sentStatus: 'unsent' as const,
+              isTargetCompany: isTarget,
+              matchScore: score,
+            };
+          });
+
+          // Sort by matchScore descending
+          contacts.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
           return { success: true, contacts };
         }
       } catch (err: any) {
@@ -293,39 +349,111 @@ export function createBrowserApiShim(): ElectronAPI {
       };
     },
 
-    getApplications: async (): Promise<Application[]> => [
-      {
-        id: 1,
-        company: 'Vercel',
-        title: 'Full Stack Engineer',
-        apply_url: 'https://boards.greenhouse.io/vercel/jobs/5412093004',
-        mode: 'autonomous',
-        status: 'applied',
-        applied_at: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        company: 'Microsoft',
-        title: 'Senior Software Engineer',
-        apply_url: 'https://www.linkedin.com/jobs/view/3991204821',
-        mode: 'review',
-        status: 'reviewed',
-        applied_at: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: 3,
-        company: 'Urban Tech Innovations',
-        title: 'Software Development Intern',
-        apply_url: 'https://internshala.com/internship/detail/software-development-internship-172901',
-        mode: 'autonomous',
-        status: 'applied',
-        applied_at: new Date(Date.now() - 7200000).toISOString(),
-      }
-    ],
+    getApplications: async (): Promise<Application[]> => {
+      try {
+        const stored = localStorage.getItem('hirestack_applications');
+        if (stored) return JSON.parse(stored);
+      } catch {}
+      return [
+        {
+          id: 1,
+          company: 'Vercel',
+          title: 'Full Stack Engineer',
+          apply_url: 'https://boards.greenhouse.io/vercel/jobs/5412093004',
+          mode: 'autonomous',
+          status: 'interviewing',
+          applied_at: new Date(Date.now() - 86400000).toISOString(),
+        },
+        {
+          id: 2,
+          company: 'Linear',
+          title: 'Associate Product Manager',
+          apply_url: 'https://jobs.ashbyhq.com/linear/apm-opportunity',
+          mode: 'semi-auto',
+          status: 'applied',
+          applied_at: new Date(Date.now() - 172800000).toISOString(),
+        },
+        {
+          id: 3,
+          company: 'Stripe',
+          title: 'Software Development Intern',
+          apply_url: 'https://internshala.com/internship/detail/stripe-react-intern',
+          mode: 'autonomous',
+          status: 'applied',
+          applied_at: new Date(Date.now() - 259200000).toISOString(),
+        }
+      ];
+    },
 
-    getSavedJobs: async (): Promise<Job[]> => [],
-    saveJob: async () => ({ success: true }),
-    removeSavedJob: async () => ({ success: true }),
+    updateApplicationStatus: async (id: number | string, status: string) => {
+      try {
+        const stored = localStorage.getItem('hirestack_applications');
+        const apps: Application[] = stored ? JSON.parse(stored) : [
+          { id: 1, company: 'Vercel', title: 'Full Stack Engineer', apply_url: 'https://boards.greenhouse.io/vercel/jobs/5412093004', mode: 'autonomous', status: 'interviewing', applied_at: new Date().toISOString() },
+          { id: 2, company: 'Linear', title: 'Associate Product Manager', apply_url: 'https://jobs.ashbyhq.com/linear/apm-opportunity', mode: 'semi-auto', status: 'applied', applied_at: new Date().toISOString() },
+        ];
+        const updated = apps.map(a => a.id === id || String(a.id) === String(id) ? { ...a, status } : a);
+        localStorage.setItem('hirestack_applications', JSON.stringify(updated));
+        emitLog(`[Applications] Status updated to "${status}" for #${id}`);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    },
+
+    deleteApplication: async (id: number | string) => {
+      try {
+        const stored = localStorage.getItem('hirestack_applications');
+        if (stored) {
+          const apps: Application[] = JSON.parse(stored);
+          const updated = apps.filter(a => a.id !== id && String(a.id) !== String(id));
+          localStorage.setItem('hirestack_applications', JSON.stringify(updated));
+        }
+        emitLog(`[Applications] Removed record #${id}`);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    },
+
+    getSavedJobs: async (): Promise<Job[]> => {
+      try {
+        const stored = localStorage.getItem('hirestack_saved_jobs');
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    },
+
+    saveJob: async (job: Job) => {
+      try {
+        const stored = localStorage.getItem('hirestack_saved_jobs');
+        const jobs: Job[] = stored ? JSON.parse(stored) : [];
+        if (!jobs.some(j => j.applyUrl === job.applyUrl)) {
+          jobs.unshift(job);
+          localStorage.setItem('hirestack_saved_jobs', JSON.stringify(jobs));
+        }
+        emitLog(`[Saved Jobs] Bookmarked position: ${job.title} at ${job.company}`);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    },
+
+    removeSavedJob: async (applyUrl: string) => {
+      try {
+        const stored = localStorage.getItem('hirestack_saved_jobs');
+        if (stored) {
+          const jobs: Job[] = JSON.parse(stored);
+          const updated = jobs.filter(j => j.applyUrl !== applyUrl);
+          localStorage.setItem('hirestack_saved_jobs', JSON.stringify(updated));
+        }
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    },
+
     openExternalUrl: async (url: string) => {
       try {
         window.open(url, '_blank');
@@ -333,6 +461,58 @@ export function createBrowserApiShim(): ElectronAPI {
       } catch (err: any) {
         return { success: false, error: err?.message };
       }
+    },
+
+    getLearnerProgress: async (roadmapId: string) => {
+      try {
+        const key = `hirestack_learner_progress_${roadmapId}`;
+        const stored = localStorage.getItem(key);
+        if (stored) return JSON.parse(stored);
+      } catch {}
+      return {
+        roadmapId,
+        completedNodes: ['html-css-dom'],
+        targetHorizon: '2 Months',
+        dailyCommitment: '2 Hours/Day',
+        streakCount: 5,
+        lastActiveDate: new Date().toISOString().split('T')[0],
+      };
+    },
+
+    saveLearnerProgress: async (progress) => {
+      try {
+        const key = `hirestack_learner_progress_${progress.roadmapId}`;
+        localStorage.setItem(key, JSON.stringify(progress));
+        emitLog(`[Learner] Progress saved for track "${progress.roadmapId}".`);
+        return { success: true };
+      } catch {
+        return { success: false };
+      }
+    },
+
+    evaluateInterviewAnswer: async (params) => {
+      const words = params.answerText.trim().split(/\s+/).length;
+      const lower = params.answerText.toLowerCase();
+
+      const hasSituation = lower.includes('when') || lower.includes('project') || lower.includes('during') || lower.includes('team');
+      const hasTask = lower.includes('needed') || lower.includes('goal') || lower.includes('responsible');
+      const hasAction = lower.includes('built') || lower.includes('implemented') || lower.includes('designed') || lower.includes('refactored');
+      const hasResult = lower.includes('result') || lower.includes('%') || lower.includes('reduced') || lower.includes('improved');
+
+      let score = 70;
+      if (words >= 70) score += 10;
+      if (hasAction) score += 8;
+      if (hasResult) score += 9;
+
+      const finalScore = Math.min(96, Math.max(62, score));
+      emitLog(`[Interview AI] Evaluated answer: ${finalScore}/100.`);
+
+      return {
+        score: finalScore,
+        review: `Strong response structure. You demonstrated ${hasAction ? 'clear technical ownership' : 'good conceptual awareness'}. ${hasResult ? 'Highlighting quantified impact was compelling.' : 'For maximum impact, add concrete metrics (e.g., % improvement or latency saved).' }`,
+        strengths: ['Well-structured response', 'Professional technical vocabulary'],
+        improvements: hasResult ? ['Maintain this cadence in technical rounds'] : ['Anchor the outcome with concrete metrics'],
+      };
     },
 
     // Auth & Admin Handlers
@@ -464,6 +644,157 @@ export function createBrowserApiShim(): ElectronAPI {
       saveStoredUsers(updated);
       emitLog(`[Admin] Deleted user ID ${id}`);
       return { success: true };
+    },
+
+    adminAssignPlan: async (data) => {
+      const users = getStoredUsers();
+      const updated = users.map(u => {
+        if (u.id === data.userId || String(u.id) === String(data.userId) || (data.email && u.email.toLowerCase() === data.email.toLowerCase())) {
+          return {
+            ...u,
+            tier: data.planTier as any,
+            expiresAt: data.expiresAt || (data.planTier === 'lifetime' ? undefined : new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]),
+          };
+        }
+        return u;
+      });
+      saveStoredUsers(updated);
+      emitLog(`[Admin] Assigned plan "${data.planTier}" to user ${data.email || data.userId}.`);
+      return { success: true };
+    },
+
+    adminGetLearningResources: async () => {
+      try {
+        const s = localStorage.getItem('hirestack_curated_resources');
+        if (s) return JSON.parse(s);
+      } catch {}
+      return [
+        {
+          id: 1,
+          title: 'Next.js 14 Full Stack Architecture & Server Components',
+          youtubeUrl: 'https://www.youtube.com/watch?v=wm5gMKuwSYk',
+          topic: 'React & Next.js',
+          targetRole: 'Frontend Engineer, Full Stack Developer',
+          summary: 'Deep dive into React Server Components, streaming SSR, App Router architecture, and edge caching.',
+          duration: '35 mins',
+        },
+        {
+          id: 2,
+          title: 'System Design Interview: Distributed Cache & Redis Sharding',
+          youtubeUrl: 'https://www.youtube.com/watch?v=iuqZvajTOyA',
+          topic: 'System Design & Scalability',
+          targetRole: 'Backend Engineer, Full Stack Developer, Systems Architect',
+          summary: 'LRU eviction algorithms, cache-aside patterns, write-through vs write-back, and cluster failover mechanisms.',
+          duration: '45 mins',
+        },
+        {
+          id: 3,
+          title: 'Node.js Event Loop, Worker Threads & Concurrency In-Depth',
+          youtubeUrl: 'https://www.youtube.com/watch?v=8aGhZQkoFbQ',
+          topic: 'Node.js & Backend Architecture',
+          targetRole: 'Backend Developer, Node.js Engineer, Full Stack',
+          summary: 'Microtask queues, libuv thread pool architecture, non-blocking asynchronous I/O, and CPU profiling.',
+          duration: '28 mins',
+        },
+        {
+          id: 4,
+          title: 'Docker & Production Kubernetes Deployment Pipelines',
+          youtubeUrl: 'https://www.youtube.com/watch?v=X48VuDVv0do',
+          topic: 'DevOps & Cloud Infrastructure',
+          targetRole: 'DevOps Engineer, Platform Engineer, Cloud Architect',
+          summary: 'Multi-stage container optimization, zero-downtime rolling deploys, Helm templates, and ingress networking.',
+          duration: '40 mins',
+        },
+      ];
+    },
+
+    adminAddLearningResource: async (resource) => {
+      try {
+        const s = localStorage.getItem('hirestack_curated_resources');
+        const list = s ? JSON.parse(s) : [];
+        const newItem = {
+          id: Date.now(),
+          ...resource,
+          createdAt: new Date().toISOString().split('T')[0],
+        };
+        list.unshift(newItem);
+        localStorage.setItem('hirestack_curated_resources', JSON.stringify(list));
+        emitLog(`[Admin Curator] Added learning video: ${resource.title}`);
+        return { success: true, id: newItem.id };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    },
+
+    adminDeleteLearningResource: async (id) => {
+      try {
+        const s = localStorage.getItem('hirestack_curated_resources');
+        if (s) {
+          const list = JSON.parse(s);
+          const updated = list.filter((r: any) => r.id !== id && String(r.id) !== String(id));
+          localStorage.setItem('hirestack_curated_resources', JSON.stringify(updated));
+        }
+        emitLog(`[Admin Curator] Deleted resource #${id}`);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message };
+      }
+    },
+
+    getRecommendedResourcesForJob: async (params) => {
+      let list = [];
+      try {
+        const s = localStorage.getItem('hirestack_curated_resources');
+        list = s ? JSON.parse(s) : [];
+      } catch {}
+      if (!list.length) {
+        list = [
+          {
+            id: 1,
+            title: 'Next.js 14 Full Stack Architecture & Server Components',
+            youtubeUrl: 'https://www.youtube.com/watch?v=wm5gMKuwSYk',
+            topic: 'React & Next.js',
+            targetRole: 'Frontend Engineer, Full Stack Developer',
+            summary: 'Deep dive into React Server Components, streaming SSR, App Router architecture, and edge caching.',
+            duration: '35 mins',
+          },
+          {
+            id: 2,
+            title: 'System Design Interview: Distributed Cache & Redis Sharding',
+            youtubeUrl: 'https://www.youtube.com/watch?v=iuqZvajTOyA',
+            topic: 'System Design & Scalability',
+            targetRole: 'Backend Engineer, Full Stack Developer, Systems Architect',
+            summary: 'LRU eviction algorithms, cache-aside patterns, write-through vs write-back, and cluster failover mechanisms.',
+            duration: '45 mins',
+          },
+        ];
+      }
+
+      const titleLower = (params.title || '').toLowerCase();
+      const descLower = (params.description || '').toLowerCase();
+      const stackLower = (params.techStack || '').toLowerCase();
+
+      const scored = list.map((r: any) => {
+        let score = 0;
+        const topicTokens = (r.topic || '').toLowerCase().split(/[^a-z0-9]+/);
+        const roleTokens = (r.targetRole || '').toLowerCase().split(/[^a-z0-9]+/);
+
+        for (const tok of roleTokens) {
+          if (tok.length > 2 && titleLower.includes(tok)) score += 6;
+        }
+        for (const tok of topicTokens) {
+          if (tok.length > 2) {
+            if (titleLower.includes(tok)) score += 5;
+            if (stackLower.includes(tok)) score += 4;
+            if (descLower.includes(tok)) score += 2;
+          }
+        }
+        return { resource: r, score };
+      });
+
+      scored.sort((a: any, b: any) => b.score - a.score);
+      const matched = scored.filter((s: any) => s.score > 0).map((s: any) => s.resource);
+      return matched.length > 0 ? matched.slice(0, 4) : list.slice(0, 3);
     },
 
     adminGetBilling: async () => getStoredBilling(),

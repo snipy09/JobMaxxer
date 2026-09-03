@@ -1,74 +1,77 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  FileText, RefreshCw, Search, Download, ExternalLink,
-  CheckCircle2, Clock, XCircle, AlertCircle, Filter,
-  Building, Zap, Layers, TrendingUp, Calendar, ArrowRight,
-  ChevronRight, Sparkles, UserCheck, Briefcase, BarChart3
+  Search, ExternalLink, Filter, Building, Download,
+  CheckCircle2, Clock, XCircle, ArrowRight, LayoutGrid, List,
+  RefreshCw, Trash2
 } from 'lucide-react';
 import { Application, getApi } from '../types';
 
-const SAMPLE_INITIAL_APPLICATIONS: Application[] = [
+const SAMPLE_APPLICATIONS: Application[] = [
   {
     id: 1,
-    title: 'Frontend Engineer',
-    company: 'Linear',
-    apply_url: 'https://jobs.ashbyhq.com/linear/frontend-engineer',
+    title: 'Senior Frontend Architect',
+    company: 'Vercel',
+    apply_url: 'https://boards.greenhouse.io/vercel/jobs/592019',
     status: 'interviewing',
-    mode: 'semi-auto',
+    mode: 'autonomous',
     applied_at: new Date(Date.now() - 2 * 86400000).toISOString(),
     created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
   },
   {
-    id: 2,
-    title: 'Backend Systems Engineer',
-    company: 'Vercel',
-    apply_url: 'https://boards.greenhouse.io/vercel/jobs/592019',
+    title: 'Software Development Intern (Frontend)',
+    company: 'Stripe',
+    apply_url: 'https://internshala.com/internship/detail/stripe-react-intern',
     status: 'applied',
-    mode: 'autonomous',
+    mode: 'semi-auto',
     applied_at: new Date(Date.now() - 4 * 86400000).toISOString(),
     created_at: new Date(Date.now() - 4 * 86400000).toISOString(),
   },
   {
     id: 3,
-    title: 'Full Stack Developer',
-    company: 'Supabase',
-    apply_url: 'https://jobs.lever.co/supabase/fullstack-engineer',
-    status: 'applied',
-    mode: 'autonomous',
-    applied_at: new Date(Date.now() - 6 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 6 * 86400000).toISOString(),
+    title: 'Associate Product Manager',
+    company: 'Linear',
+    apply_url: 'https://jobs.ashbyhq.com/linear/apm-opportunity',
+    status: 'interviewing',
+    mode: 'semi-auto',
+    applied_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
   },
   {
     id: 4,
-    title: 'Product Operations Lead',
-    company: 'Stripe',
-    apply_url: 'https://boards.greenhouse.io/stripe/jobs/482011',
-    status: 'interviewing',
-    mode: 'semi-auto',
-    applied_at: new Date(Date.now() - 8 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+    title: 'Distributed Systems Engineer',
+    company: 'Supabase',
+    apply_url: 'https://jobs.lever.co/supabase/distributed-systems',
+    status: 'applied',
+    mode: 'autonomous',
+    applied_at: new Date(Date.now() - 7 * 86400000).toISOString(),
+    created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
   },
   {
     id: 5,
-    title: 'UI/UX Design Specialist',
-    company: 'Figma',
-    apply_url: 'https://jobs.ashbyhq.com/figma/ui-designer',
+    title: 'Backend API Specialist',
+    company: 'Postman',
+    apply_url: 'https://boards.greenhouse.io/postman/jobs/381920',
     status: 'applied',
-    mode: 'semi-auto',
-    applied_at: new Date(Date.now() - 11 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 11 * 86400000).toISOString(),
+    mode: 'autonomous',
+    applied_at: new Date(Date.now() - 10 * 86400000).toISOString(),
+    created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
   }
 ];
 
-export const ApplicationsView: React.FC = () => {
-  const [applications, setApplications] = useState<Application[]>(SAMPLE_INITIAL_APPLICATIONS);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [modeFilter, setModeFilter] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState<'7d' | '14d' | '30d' | 'all'>('30d');
+const COLUMNS = [
+  { id: 'applied', label: 'Applied', color: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300' },
+  { id: 'interviewing', label: 'Interviewing', color: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200' },
+  { id: 'offered', label: 'Offered', color: 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200' },
+  { id: 'rejected', label: 'Archived', color: 'bg-slate-100 text-slate-500 dark:bg-zinc-800' },
+];
 
-  const loadApplications = async () => {
+export const ApplicationsView: React.FC = () => {
+  const [applications, setApplications] = useState<Application[]>(SAMPLE_APPLICATIONS);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const fetchApps = async () => {
     const api = getApi();
     if (!api) return;
     setLoading(true);
@@ -76,422 +79,272 @@ export const ApplicationsView: React.FC = () => {
       const data = await api.getApplications();
       if (data && data.length > 0) {
         setApplications(data);
-      } else {
-        setApplications(SAMPLE_INITIAL_APPLICATIONS);
       }
-    } catch {
-      setApplications(SAMPLE_INITIAL_APPLICATIONS);
-    } finally {
+    } catch {}
+    finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadApplications();
+    fetchApps();
   }, []);
 
-  // Filtered applications
   const filteredApps = useMemo(() => {
     return applications.filter(app => {
       const q = searchQuery.toLowerCase().trim();
-      const matchesSearch =
-        q === '' ||
+      return q === '' ||
         (app.title || '').toLowerCase().includes(q) ||
-        (app.company || '').toLowerCase().includes(q) ||
-        (app.apply_url || '').toLowerCase().includes(q);
-
-      const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
-      const matchesMode = modeFilter === 'all' || app.mode === modeFilter;
-
-      return matchesSearch && matchesStatus && matchesMode;
+        (app.company || '').toLowerCase().includes(q);
     });
-  }, [applications, searchQuery, statusFilter, modeFilter]);
+  }, [applications, searchQuery]);
 
-  // Stage update handler for interactive testing
-  const handleUpdateStatus = (id: number, newStatus: string) => {
-    setApplications(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
+  const handleUpdateStatus = async (appId: any, newStatus: string) => {
+    setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus as any } : a));
+    const api = getApi();
+    if (api && api.updateApplicationStatus) {
+      try {
+        await api.updateApplicationStatus(appId, newStatus);
+      } catch {}
+    }
   };
 
-  // Export CSV handler
-  const handleExportCsv = () => {
-    if (filteredApps.length === 0) return;
-    const headers = ['ID', 'Company', 'Job Title', 'Apply URL', 'Status', 'Mode', 'Applied At'];
-    const rows = filteredApps.map(a => [
-      a.id,
-      `"${(a.company || '').replace(/"/g, '""')}"`,
-      `"${(a.title || '').replace(/"/g, '""')}"`,
-      `"${(a.apply_url || '').replace(/"/g, '""')}"`,
-      a.status,
-      a.mode,
-      a.applied_at || a.created_at || '',
-    ]);
+  const handleDeleteApp = async (appId: any) => {
+    setApplications(prev => prev.filter(a => a.id !== appId));
+    const api = getApi();
+    if (api && api.deleteApplication) {
+      try {
+        await api.deleteApplication(appId);
+      } catch {}
+    }
+  };
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+  const handleExportCSV = () => {
+    const rows = [
+      ['Company', 'Job Title', 'Status', 'Mode', 'Applied Date', 'URL'],
+      ...filteredApps.map(a => [a.company, a.title, a.status, a.mode, a.applied_at || '', a.apply_url || ''])
+    ];
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `hirestack_pipeline_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `hirestack_applications_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Funnel & Stats Calculation
-  const totalCount = applications.length;
-  const appliedCount = applications.filter(a => a.status === 'applied').length;
-  const reviewingCount = applications.filter(a => a.status === 'reviewed').length;
-  const interviewingCount = applications.filter(a => a.status === 'interviewing').length;
-  const offerCount = applications.filter(a => a.status === 'offer').length;
-
-  const semiAutoCount = applications.filter(a => a.mode === 'semi-auto').length;
-  const autonomousCount = applications.filter(a => a.mode === 'autonomous').length;
-  
-  const successCount = interviewingCount + offerCount + appliedCount;
-  const successRate = totalCount > 0 ? Math.round(((interviewingCount + offerCount) / totalCount) * 100) : 0;
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'offer':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-950 border border-emerald-300">
-            <CheckCircle2 className="w-3 h-3 text-emerald-700" /> OFFER RECEIVED
-          </span>
-        );
-      case 'interviewing':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
-            <Calendar className="w-3 h-3 text-emerald-600" /> INTERVIEW SCHEDULED
-          </span>
-        );
-      case 'applied':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
-            <Clock className="w-3 h-3 text-slate-500" /> APPLIED / ACTIVE
-          </span>
-        );
-      case 'reviewed':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 border border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800">
-            <FileText className="w-3 h-3 text-slate-400" /> UNDER REVIEW
-          </span>
-        );
-      case 'rejected':
-      case 'failed':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
-            <XCircle className="w-3 h-3 text-rose-600" /> REJECTED
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-            {status.toUpperCase()}
-          </span>
-        );
-    }
-  };
-
-  const getModeBadge = (mode: string) => {
-    if (mode === 'autonomous') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs">
-          <Zap className="w-2.5 h-2.5" /> AUTONOMOUS
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-        <Layers className="w-2.5 h-2.5 text-slate-500" /> SEMI-AUTO
-      </span>
-    );
-  };
-
   return (
-    <div className="space-y-6 font-sans select-none max-w-6xl mx-auto pb-12">
+    <div className="space-y-6 font-sans select-none max-w-6xl mx-auto pb-20">
       
-      {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-slate-950 text-white dark:bg-white dark:text-slate-950 flex items-center justify-center shadow-sm">
-            <BarChart3 className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-extrabold text-slate-950 dark:text-white">Application Pipeline &amp; Conversion Board</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Real-time funnel conversion metrics, submission timeline tracking, and active stage management.
-            </p>
-          </div>
+      {/* Top Banner Header */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">Application Pipeline</h1>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+            Track submitted applications, interview stages, and offers.
+          </p>
         </div>
 
+        {/* View Switcher & Export */}
         <div className="flex items-center gap-2">
+          <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-700">
+            <button
+              onClick={() => setViewMode('board')}
+              className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'board'
+                  ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-zinc-100'
+              }`}
+              title="Board View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-zinc-100'
+              }`}
+              title="Table List View"
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           <button
-            type="button"
-            onClick={handleExportCsv}
-            disabled={filteredApps.length === 0}
-            className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            onClick={fetchApps}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1.5 shadow-2xs"
+            title="Refresh applications list"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1.5 shadow-2xs"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
           </button>
-
-          <button
-            type="button"
-            onClick={loadApplications}
-            disabled={loading}
-            className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 p-2 rounded-xl transition-colors"
-            title="Refresh Pipeline"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
-      {/* Visual Application Funnel Bar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-mono uppercase tracking-wider font-bold text-slate-400">Application Funnel Stages</span>
-          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 font-mono">
-            {successRate}% Response / Interview Rate
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          {/* Stage 1: Applied */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-500">
-              <span>01. SUBMITTED</span>
-              <span>100%</span>
-            </div>
-            <div className="text-2xl font-extrabold text-slate-950 dark:text-white font-mono">
-              {totalCount}
-            </div>
-            <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div className="h-full bg-slate-900 dark:bg-white rounded-full w-full" />
-            </div>
-          </div>
-
-          {/* Stage 2: Reviewed */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-500">
-              <span>02. UNDER REVIEW</span>
-              <span>{totalCount > 0 ? Math.round(((appliedCount + interviewingCount + offerCount) / totalCount) * 100) : 0}%</span>
-            </div>
-            <div className="text-2xl font-extrabold text-slate-950 dark:text-white font-mono">
-              {appliedCount + interviewingCount + offerCount}
-            </div>
-            <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-slate-900 dark:bg-white rounded-full"
-                style={{ width: `${totalCount > 0 ? ((appliedCount + interviewingCount + offerCount) / totalCount) * 100 : 0}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Stage 3: Interviewing */}
-          <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-              <span>03. INTERVIEWS</span>
-              <span>{totalCount > 0 ? Math.round(((interviewingCount + offerCount) / totalCount) * 100) : 0}%</span>
-            </div>
-            <div className="text-2xl font-extrabold text-emerald-800 dark:text-emerald-300 font-mono">
-              {interviewingCount + offerCount}
-            </div>
-            <div className="h-1.5 w-full bg-emerald-100 dark:bg-emerald-950 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-600 dark:bg-emerald-400 rounded-full"
-                style={{ width: `${totalCount > 0 ? ((interviewingCount + offerCount) / totalCount) * 100 : 0}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Stage 4: Offers */}
-          <div className="p-4 rounded-2xl bg-emerald-100/60 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-mono font-bold text-emerald-900 dark:text-emerald-300">
-              <span>04. OFFERS</span>
-              <span>{totalCount > 0 ? Math.round((offerCount / totalCount) * 100) : 0}%</span>
-            </div>
-            <div className="text-2xl font-extrabold text-emerald-950 dark:text-emerald-200 font-mono">
-              {offerCount}
-            </div>
-            <div className="h-1.5 w-full bg-emerald-200 dark:bg-emerald-950 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-700 dark:bg-emerald-300 rounded-full"
-                style={{ width: `${totalCount > 0 ? (offerCount / totalCount) * 100 : 0}%` }}
-              />
-            </div>
-          </div>
-        </div>
+      {/* Search Bar */}
+      <div className="relative w-full sm:w-80">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          placeholder="Filter applications by company or title..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors shadow-2xs"
+        />
       </div>
 
-      {/* Mode Distribution & Time Trends */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">Autonomous vs Semi-Auto</span>
-          <div className="flex items-center justify-between pt-1">
-            <div className="space-y-0.5">
-              <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 text-slate-900 dark:text-white" /> Autonomous: {autonomousCount}
-              </div>
-              <div className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5 text-slate-400" /> Semi-Auto: {semiAutoCount}
-              </div>
-            </div>
-            <span className="text-xl font-extrabold font-mono text-slate-900 dark:text-white">
-              {totalCount > 0 ? Math.round((autonomousCount / totalCount) * 100) : 0}% Auto
-            </span>
-          </div>
-        </div>
+      {/* ── NOTION KANBAN BOARD VIEW ───────────────────────────────────────── */}
+      {viewMode === 'board' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+          {COLUMNS.map(col => {
+            const colApps = filteredApps.filter(a => (a.status || 'applied') === col.id);
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">Weekly Velocity</span>
-          <div className="flex items-center justify-between pt-1">
-            <div>
-              <div className="text-xl font-extrabold text-slate-950 dark:text-white font-mono">
-                {applications.length} Submissions
-              </div>
-              <p className="text-[11px] text-emerald-600 font-medium">+3 vs prior 7 days</p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
+            return (
+              <div key={col.id} className="bg-slate-50 dark:bg-zinc-900/40 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-zinc-800 text-xs font-bold">
+                  <span className="text-slate-800 dark:text-zinc-200">{col.label}</span>
+                  <span className="text-[11px] font-mono text-slate-400">{colApps.length}</span>
+                </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">Active Opportunities</span>
-          <div className="flex items-center justify-between pt-1">
-            <div>
-              <div className="text-xl font-extrabold text-slate-950 dark:text-white font-mono">
-                {interviewingCount + appliedCount} Active
-              </div>
-              <p className="text-[11px] text-slate-500">Awaiting recruiter feedback</p>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center">
-              <Briefcase className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Toolbar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search applications by role, company, or portal URL..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
-            />
-          </div>
-
-          {/* Filters */}
-          <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none font-semibold"
-            >
-              <option value="all">All Stages</option>
-              <option value="applied">Applied / Active</option>
-              <option value="interviewing">Interview Scheduled</option>
-              <option value="offer">Offer Received</option>
-              <option value="reviewed">Under Review</option>
-              <option value="rejected">Rejected</option>
-            </select>
-
-            <select
-              value={modeFilter}
-              onChange={e => setModeFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none font-semibold"
-            >
-              <option value="all">All Modes</option>
-              <option value="semi-auto">Semi-Auto (Review)</option>
-              <option value="autonomous">Autonomous (Autopilot)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Applications Data Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-        {filteredApps.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-mono text-[10px]">
-                <tr>
-                  <th className="px-5 py-3.5 font-bold">Role &amp; Company</th>
-                  <th className="px-5 py-3.5 font-bold">Submission Mode</th>
-                  <th className="px-5 py-3.5 font-bold">Pipeline Stage</th>
-                  <th className="px-5 py-3.5 font-bold">Date Submitted</th>
-                  <th className="px-5 py-3.5 text-right font-bold">Manage Stage</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredApps.map(app => (
-                  <tr key={app.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="font-bold text-slate-950 dark:text-white text-xs">
-                        {app.title}
+                <div className="space-y-2.5">
+                  {colApps.map(app => (
+                    <div
+                      key={app.id || app.apply_url}
+                      className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs space-y-2.5 transition-all hover:border-slate-300 dark:hover:border-zinc-700"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase text-slate-400">{app.company}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 capitalize">
+                            {app.mode}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteApp(app.id)}
+                            className="text-slate-400 hover:text-rose-500 transition-colors p-0.5"
+                            title="Remove application record"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
-                        <span>{app.company}</span>
-                        <span>·</span>
+
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 leading-snug">
+                        {app.title}
+                      </h4>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <select
+                          value={app.status || 'applied'}
+                          onChange={(e) => handleUpdateStatus(app.id, e.target.value)}
+                          className="text-[10px] font-mono bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 text-slate-700 dark:text-zinc-300 outline-none cursor-pointer"
+                        >
+                          <option value="applied">Applied</option>
+                          <option value="interviewing">Interviewing</option>
+                          <option value="offered">Offered</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+
                         <a
                           href={app.apply_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="hover:text-slate-950 dark:hover:text-white flex items-center gap-0.5 truncate max-w-[200px]"
+                          className="hover:text-slate-900 dark:hover:text-zinc-100 text-slate-400"
                         >
-                          <span className="truncate">{app.apply_url}</span>
-                          <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                          <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
-                    </td>
 
-                    <td className="px-5 py-4">
-                      {getModeBadge(app.mode)}
-                    </td>
+                      <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                        <span>{app.applied_at ? new Date(app.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent'}</span>
+                      </div>
+                    </div>
+                  ))}
 
-                    <td className="px-5 py-4">
-                      {getStatusBadge(app.status)}
-                    </td>
+                  {colApps.length === 0 && (
+                    <div className="text-center py-6 text-xs text-slate-400 font-mono">
+                      No applications
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-                    <td className="px-5 py-4 font-mono text-[11px] text-slate-500">
-                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'}
-                    </td>
-
-                    <td className="px-5 py-4 text-right">
-                      <select
-                        value={app.status}
-                        onChange={(e) => handleUpdateStatus(app.id, e.target.value)}
-                        className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-800 dark:text-slate-200 focus:outline-none"
+      {/* ── NOTION TABLE LIST VIEW ─────────────────────────────────────────── */}
+      {viewMode === 'list' && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-xs">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-zinc-800/50 text-slate-400 font-mono text-[10px] uppercase border-b border-slate-200 dark:border-zinc-800">
+              <tr>
+                <th className="py-3 px-4 font-semibold">Company</th>
+                <th className="py-3 px-4 font-semibold">Job Title</th>
+                <th className="py-3 px-4 font-semibold">Status</th>
+                <th className="py-3 px-4 font-semibold">Mode</th>
+                <th className="py-3 px-4 font-semibold">Applied</th>
+                <th className="py-3 px-4 font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+              {filteredApps.map((app) => (
+                <tr key={app.id || app.apply_url} className="hover:bg-slate-50 dark:hover:bg-zinc-800/30 transition-colors">
+                  <td className="py-3 px-4 font-bold text-slate-900 dark:text-zinc-100">{app.company}</td>
+                  <td className="py-3 px-4 text-slate-700 dark:text-zinc-300">{app.title}</td>
+                  <td className="py-3 px-4">
+                    <select
+                      value={app.status || 'applied'}
+                      onChange={(e) => handleUpdateStatus(app.id, e.target.value)}
+                      className="text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-0.5 text-slate-700 dark:text-zinc-300 outline-none cursor-pointer capitalize"
+                    >
+                      <option value="applied">Applied</option>
+                      <option value="interviewing">Interviewing</option>
+                      <option value="offered">Offered</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </td>
+                  <td className="py-3 px-4 text-slate-500 font-mono text-[11px] capitalize">{app.mode}</td>
+                  <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
+                    {app.applied_at ? new Date(app.applied_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent'}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <a
+                        href={app.apply_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
                       >
-                        <option value="applied">Applied</option>
-                        <option value="reviewed">Under Review</option>
-                        <option value="interviewing">Interview Scheduled</option>
-                        <option value="offer">Offer Received</option>
-                        <option value="rejected">Rejected</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-12 text-center space-y-3">
-            <FileText className="w-8 h-8 text-slate-300 mx-auto" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">No applications match your filter</h3>
-            <p className="text-xs text-slate-500">
-              Clear or change your stage filters to view your submitted positions.
-            </p>
-          </div>
-        )}
-      </div>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                      <button
+                        onClick={() => handleDeleteApp(app.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                        title="Delete application"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
     </div>
   );
 };

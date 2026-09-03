@@ -3,14 +3,30 @@ import path from 'path';
 import fs from 'fs';
 import https from 'https';
 import crypto from 'crypto';
-import { initLocalDatabase, getDb, persistDb } from './db.js';
+import {
+  initLocalDatabase,
+  getDb,
+  persistDb,
+  getLearnerProgressDb,
+  saveLearnerProgressDb,
+  getCachedFormAnswerDb,
+  saveCachedFormAnswerDb,
+  updateApplicationStatusDb,
+  deleteApplicationDb,
+  getCuratedLearningResourcesDb,
+  addCuratedLearningResourceDb,
+  deleteCuratedLearningResourceDb,
+  adminAssignPlanDb,
+  getDailyApplicationCountDb,
+  checkUserPlanLimitDb,
+} from './db.js';
 import {
   AutoApplyEngine,
   findChromeExecutable,
   ensureChromeForTesting,
   type MasterProfile,
 } from '@job-automator/automation';
-import { runAllScrapers } from '@job-automator/scrapers';
+import { runAllScrapers, scrapeRecruiterLeads, computeRelevanceScore, extractProfileKeywords } from '@job-automator/scrapers';
 import {
   getSupabaseClient,
   registerDeviceSession,
@@ -192,13 +208,13 @@ async function syncPullUserDataToLocalDb(
           `INSERT OR REPLACE INTO local_applications (company, title, apply_url, status, mode, applied_at)
            VALUES (?, ?, ?, ?, ?, ?)`,
           [
-            app.company,
-            app.title,
-            app.apply_url,
-            app.status || 'applied',
-            app.mode || 'autonomous',
-            app.applied_at || new Date().toISOString()
-          ]
+            String(app.company),
+            String(app.title),
+            String(app.apply_url),
+            String(app.status || 'applied'),
+            String(app.mode || 'autonomous'),
+            String(app.applied_at || new Date().toISOString())
+          ] as any
         );
       }
     }
@@ -214,16 +230,16 @@ async function syncPullUserDataToLocalDb(
              title=excluded.title, company=excluded.company, location=excluded.location, salary=excluded.salary,
              source=excluded.source, score=excluded.score, description=excluded.description`,
           [
-            job.title,
-            job.company,
-            job.apply_url,
-            job.location || null,
-            job.salary || null,
-            job.source || 'Cloud Feed',
-            job.score || 100,
-            job.description || null,
-            job.saved_at || new Date().toISOString()
-          ]
+            String(job.title),
+            String(job.company),
+            String(job.apply_url),
+            job.location ? String(job.location) : null,
+            job.salary ? String(job.salary) : null,
+            String(job.source || 'Cloud Feed'),
+            Number(job.score || 100),
+            job.description ? String(job.description) : null,
+            String(job.saved_at || new Date().toISOString())
+          ] as any
         );
       }
     }
@@ -236,12 +252,12 @@ async function syncPullUserDataToLocalDb(
           `INSERT OR IGNORE INTO resumes (name, target_role, file_path, is_default, created_at)
            VALUES (?, ?, ?, ?, ?)`,
           [
-            r.name,
-            r.target_role || '',
-            r.file_path || '',
+            String(r.name),
+            String(r.target_role || ''),
+            String(r.file_path || ''),
             r.is_default ? 1 : 0,
-            r.created_at || new Date().toISOString()
-          ]
+            String(r.created_at || new Date().toISOString())
+          ] as any
         );
       }
     }
@@ -776,6 +792,18 @@ ipcMain.handle('get-applications', () => {
   );
 });
 
+ipcMain.handle('update-application-status', (_, data: { id: number | string; status: string }) => {
+  const ok = updateApplicationStatusDb(data.id, data.status);
+  log(`[Applications] Status for #${data.id} -> ${data.status}`);
+  return { success: ok };
+});
+
+ipcMain.handle('delete-application', (_, id: number | string) => {
+  const ok = deleteApplicationDb(id);
+  log(`[Applications] Removed record #${id}`);
+  return { success: ok };
+});
+
 // ── IPC: Run Scrapers ──────────────────────────────────────────────────────
 ipcMain.handle('run-scrapers', async () => {
   log('[Scrapers] Starting high-throughput scraper pipeline...');
@@ -817,18 +845,26 @@ ipcMain.handle('get-cloud-feed', async () => {
           .limit(800);
 
         if (!error && dbJobs && Array.isArray(dbJobs) && dbJobs.length > 0) {
-          cloudJobs = dbJobs.map((j, idx) => ({
-            title: j['title'] as string,
-            company: j['company'] as string,
-            location: (j['location'] as string) || 'Remote',
-            applyUrl: j['apply_url'] as string,
-            salary: (j['salary_range'] as string) || undefined,
-            source: (j['source'] as string) || 'Cloud Feed',
-            description: j['description'] as string | undefined,
-            createdAt: (j['created_at'] as string) || new Date(nowTime - idx * 60000).toISOString(),
-            jobHash: j['job_hash'] as string,
-          }));
-          log(`[Cloud Sync] Loaded ${cloudJobs.length} active opportunities from Supabase cloud database.`);
+          const profileKeywords = extractProfileKeywords(profileData);
+          cloudJobs = dbJobs.map((j, idx) => {
+            const rawJob = {
+              title: (j['title'] as string) || '',
+              company: (j['company'] as string) || '',
+              location: (j['location'] as string) || 'Remote',
+              applyUrl: (j['apply_url'] as string) || '',
+              source: (j['source'] as string) || 'Cloud Feed',
+              description: (j['description'] as string) || '',
+              jobHash: (j['job_hash'] as string) || '',
+            };
+            const score = computeRelevanceScore(rawJob, profileKeywords);
+            return {
+              ...rawJob,
+              salary: (j['salary_range'] as string) || undefined,
+              score,
+              createdAt: (j['created_at'] as string) || new Date(nowTime - idx * 60000).toISOString(),
+            };
+          });
+          log(`[Cloud Sync] Loaded ${cloudJobs.length} active opportunities from Supabase (scored against candidate profile).`);
         }
       }
     } catch (err: any) {
@@ -881,8 +917,24 @@ const SAMPLE_VERIFIED_HR_CONTACTS = [
   { name: 'Karthik Nair', company: 'Swiggy', role: 'Engineering Manager - Platform', email: 'karthik.nair@swiggy.in', verificationStatus: 'valid', sentStatus: 'unsent' },
 ];
 
-ipcMain.handle('get-hr-contacts', async () => {
-  log('[Recruiter Sync] Querying verified hiring manager contacts from Supabase...');
+ipcMain.handle('get-hr-contacts', async (_, targetRole?: string) => {
+  log(`[Recruiter Sync] Querying verified hiring manager contacts for "${targetRole || 'All Roles'}"...`);
+  const combinedContacts: any[] = [];
+  const seenEmails = new Set<string>();
+
+  const db = getDb();
+  const targetCompanies = new Set<string>();
+  try {
+    const sj = db.exec('SELECT company FROM saved_jobs');
+    if (sj.length && sj[0].values.length) {
+      sj[0].values.forEach(v => targetCompanies.add(String(v[0]).toLowerCase().trim()));
+    }
+    const la = db.exec('SELECT company FROM local_applications');
+    if (la.length && la[0].values.length) {
+      la[0].values.forEach(v => targetCompanies.add(String(v[0]).toLowerCase().trim()));
+    }
+  } catch {}
+
   try {
     const supabase = getAnonSupabase();
     if (supabase) {
@@ -890,27 +942,80 @@ ipcMain.handle('get-hr-contacts', async () => {
         .from('hr_contacts')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (!error && data && data.length > 0) {
-        log(`[Recruiter Sync] Fetched ${data.length} verified hiring managers from Supabase.`);
-        return {
-          success: true,
-          contacts: data.map((r) => ({
-            name: r.name,
-            company: r.company,
-            role: r.role,
-            email: r.email,
-            verificationStatus: r.verification_status || 'valid',
-            sentStatus: 'unsent',
-          })),
-        };
+        data.forEach(r => {
+          if (r.email && !seenEmails.has(r.email.toLowerCase())) {
+            seenEmails.add(r.email.toLowerCase());
+            const compLower = (r.company || '').toLowerCase().trim();
+            const isTarget = targetCompanies.has(compLower);
+            let score = 50;
+            if (isTarget) score += 35;
+            const roleLower = (r.role || '').toLowerCase();
+            const deptLower = (r.department || '').toLowerCase();
+            if (targetRole) {
+              const tr = targetRole.toLowerCase();
+              if (roleLower.includes('manager') || roleLower.includes('lead') || roleLower.includes('vp') || roleLower.includes('director')) {
+                score += 20;
+              }
+              if (roleLower.includes(tr) || deptLower.includes('engineering') || roleLower.includes('technical')) {
+                score += 15;
+              }
+            }
+
+            combinedContacts.push({
+              name: r.name,
+              company: r.company,
+              role: r.role,
+              email: r.email,
+              department: r.department || 'Talent Acquisition',
+              verificationStatus: r.verification_status || 'valid',
+              sentStatus: 'unsent',
+              isTargetCompany: isTarget,
+              matchScore: score,
+            });
+          }
+        });
+        log(`[Recruiter Sync] Fetched ${combinedContacts.length} verified hiring managers from Supabase.`);
       }
     }
   } catch (err: any) {
     log(`[Recruiter Sync] Note: ${err?.message}`);
   }
-  return { success: true, contacts: SAMPLE_VERIFIED_HR_CONTACTS };
+
+  // Synthesize rich recruiter leads from top tech companies if feed is small
+  if (combinedContacts.length < 30) {
+    try {
+      const liveLeads = await scrapeRecruiterLeads([], targetRole || 'Software Engineer');
+      liveLeads.forEach(lead => {
+        if (lead.email && !seenEmails.has(lead.email.toLowerCase())) {
+          seenEmails.add(lead.email.toLowerCase());
+          const compLower = (lead.company || '').toLowerCase().trim();
+          const isTarget = targetCompanies.has(compLower);
+          combinedContacts.push({
+            name: lead.name,
+            company: lead.company,
+            role: lead.role,
+            email: lead.email,
+            department: lead.department,
+            verificationStatus: 'valid',
+            sentStatus: 'unsent',
+            isTargetCompany: isTarget,
+            matchScore: isTarget ? 85 : 70,
+          });
+        }
+      });
+      log(`[Recruiter Sync] Synthesized ${liveLeads.length} live executive & HR decision makers.`);
+    } catch (err: any) {
+      log(`[Recruiter Sync] Recruiter generator note: ${err?.message}`);
+    }
+  }
+
+  // Sort by match score descending (Target companies and relevant Engineering Leads first)
+  combinedContacts.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+
+  return { success: true, contacts: combinedContacts.length > 0 ? combinedContacts : SAMPLE_VERIFIED_HR_CONTACTS };
 });
 
 // ── IPC: Multi-Resume Management Handlers ─────────────────────────────────
@@ -1037,6 +1142,17 @@ ipcMain.handle('launch-semi-auto', async (_, jobUrls: string[]) => {
       });
     }
 
+    // Load cached form answers from SQLite
+    const cachedAnswersMap: Record<string, string> = {};
+    try {
+      const ca = db.exec('SELECT question_key, answer_text FROM cached_form_answers');
+      if (ca.length && ca[0].values.length) {
+        ca[0].values.forEach(v => {
+          cachedAnswersMap[String(v[0])] = String(v[1]);
+        });
+      }
+    } catch {}
+
     const profile: MasterProfile = {
       firstName:    String(profileRaw['first_name'] ?? ''),
       lastName:     String(profileRaw['last_name'] ?? ''),
@@ -1055,9 +1171,15 @@ ipcMain.handle('launch-semi-auto', async (_, jobUrls: string[]) => {
       customAnswers: (() => {
         try { return JSON.parse(String(profileRaw['custom_answers_json'] ?? 'null')); } catch { return undefined; }
       })(),
+      cachedAnswers: cachedAnswersMap,
+      onAnswerResolved: (q: string, a: string) => {
+        saveCachedFormAnswerDb(q, a);
+        log(`[Answer Cache] Cached response for question: "${q.slice(0, 40)}..."`);
+      },
     };
 
-    await AutoApplyEngine.prefillParallelTabs(jobUrls, profile, 20, (m) => log(`[Review Mode] ${m}`));
+    // RAM-safe parallel prefill with 3 parallel workers max
+    await AutoApplyEngine.prefillParallelTabs(jobUrls, profile, 3, (m) => log(`[Review Mode] ${m}`));
 
     // Record dynamic applications in SQLite & Cloud
     for (const url of jobUrls) {
@@ -1179,6 +1301,17 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
       });
     }
 
+    // Load cached form answers from SQLite
+    const cachedAnswersMap: Record<string, string> = {};
+    try {
+      const ca = db.exec('SELECT question_key, answer_text FROM cached_form_answers');
+      if (ca.length && ca[0].values.length) {
+        ca[0].values.forEach(v => {
+          cachedAnswersMap[String(v[0])] = String(v[1]);
+        });
+      }
+    } catch {}
+
     const profile: MasterProfile = {
       firstName:    String(profileRaw['first_name'] ?? ''),
       lastName:     String(profileRaw['last_name'] ?? ''),
@@ -1197,67 +1330,115 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
       customAnswers: (() => {
         try { return JSON.parse(String(profileRaw['custom_answers_json'] ?? 'null')); } catch { return undefined; }
       })(),
+      cachedAnswers: cachedAnswersMap,
+      onAnswerResolved: (q: string, a: string) => {
+        saveCachedFormAnswerDb(q, a);
+        log(`[Answer Cache] Cached response for question: "${q.slice(0, 40)}..."`);
+      },
     };
+
+    // 1. Enforce usage and plan rules
+    let userTier = 'pro';
+    try {
+      const uc = db.exec('SELECT tier FROM user_cache ORDER BY cached_at DESC LIMIT 1');
+      if (uc.length && uc[0].values.length) {
+        userTier = String(uc[0].values[0][0] || 'pro');
+      }
+    } catch {}
+
+    const planCheck = checkUserPlanLimitDb(jobUrls.length, userTier);
+    if (!planCheck.allowed) {
+      log(`[Plan Rules] Submission halted: ${planCheck.reason}`);
+      return {
+        success: false,
+        error: planCheck.reason,
+        limitReached: true,
+        currentUsage: planCheck.currentUsage,
+        maxAllowed: planCheck.maxAllowed,
+      };
+    }
+
+    // 2. Sequential batch processing: chunk jobs into 5-job batches (e.g. 50 jobs = 10 batches of 5)
+    const BATCH_SIZE = 5;
+    const batches: string[][] = [];
+    for (let i = 0; i < jobUrls.length; i += BATCH_SIZE) {
+      batches.push(jobUrls.slice(i, i + BATCH_SIZE));
+    }
+
+    log(`[Sequential Batch Engine] Allocating ${jobUrls.length} positions across ${batches.length} sequential batches (${BATCH_SIZE} jobs per batch, 3-tab RAM safety pool)...`);
 
     let applied = 0;
     let skipped = 0;
+    let totalProcessed = 0;
 
-    for (let i = 0; i < jobUrls.length; i++) {
-      const url = jobUrls[i];
-      let jobCompany = 'Tech Company';
-      let jobTitle = 'Software Engineer';
+    for (let b = 0; b < batches.length; b++) {
+      const currentBatch = batches[b];
+      log(`[Batch Worker] Starting Batch ${b + 1}/${batches.length} (${currentBatch.length} jobs in queue)...`);
 
-      try {
-        const sj = db.exec('SELECT company, title FROM saved_jobs WHERE apply_url = ?', [url]);
-        if (sj.length && sj[0].values.length) {
-          jobCompany = String(sj[0].values[0][0]);
-          jobTitle = String(sj[0].values[0][1]);
-        }
-      } catch {}
+      for (let i = 0; i < currentBatch.length; i++) {
+        const url = currentBatch[i];
+        totalProcessed++;
+        let jobCompany = 'Tech Company';
+        let jobTitle = 'Software Engineer';
 
-      log(`[Auto-Apply ${i + 1}/${jobUrls.length}] Processing position at ${jobCompany} (${url})`);
+        try {
+          const sj = db.exec('SELECT company, title FROM saved_jobs WHERE apply_url = ?', [url]);
+          if (sj.length && sj[0].values.length) {
+            jobCompany = String(sj[0].values[0][0]);
+            jobTitle = String(sj[0].values[0][1]);
+          }
+        } catch {}
 
-      try {
-        const result = await AutoApplyEngine.submitApplication(url, profile, (m) => log(m));
-        if (result.captchaDetected) {
-          log(`[Auto-Apply] CAPTCHA challenge at ${url} — left open for candidate.`);
-          logAndSyncApplication({
-            company: jobCompany,
-            title: jobTitle,
-            apply_url: url,
-            status: 'captcha_blocked',
-            mode: 'autonomous',
-          });
+        log(`[Auto-Apply ${totalProcessed}/${jobUrls.length}] Submitting to ${jobCompany} (${url})...`);
+
+        try {
+          const result = await AutoApplyEngine.submitApplication(url, profile, (m) => log(m));
+          if (result.captchaDetected) {
+            log(`[Auto-Apply] CAPTCHA challenge at ${url} — left open for candidate.`);
+            logAndSyncApplication({
+              company: jobCompany,
+              title: jobTitle,
+              apply_url: url,
+              status: 'captcha_blocked',
+              mode: 'autonomous',
+            });
+            skipped++;
+          } else if (result.submitted || result.success) {
+            logAndSyncApplication({
+              company: jobCompany,
+              title: jobTitle,
+              apply_url: url,
+              status: 'applied',
+              mode: 'autonomous',
+            });
+            applied++;
+            log(`[Auto-Apply] Successfully submitted ${totalProcessed}/${jobUrls.length} ✓`);
+          } else {
+            logAndSyncApplication({
+              company: jobCompany,
+              title: jobTitle,
+              apply_url: url,
+              status: 'failed',
+              mode: 'autonomous',
+            });
+            skipped++;
+          }
+        } catch (jobErr: any) {
+          log(`[Auto-Apply] Error on ${url}: ${jobErr?.message}`);
           skipped++;
-        } else if (result.submitted || result.success) {
-          logAndSyncApplication({
-            company: jobCompany,
-            title: jobTitle,
-            apply_url: url,
-            status: 'applied',
-            mode: 'autonomous',
-          });
-          applied++;
-          log(`[Auto-Apply] Successfully processed ${i + 1}/${jobUrls.length} ✓`);
-        } else {
-          logAndSyncApplication({
-            company: jobCompany,
-            title: jobTitle,
-            apply_url: url,
-            status: 'failed',
-            mode: 'autonomous',
-          });
-          skipped++;
         }
-      } catch (jobErr: any) {
-        log(`[Auto-Apply] Error on ${url}: ${jobErr?.message}`);
-        skipped++;
+      }
+
+      // Between batches: cool-down jitter delay to protect user from ATS anti-bot IP throttling
+      if (b < batches.length - 1) {
+        log(`[Batch Cooldown] Batch ${b + 1}/${batches.length} completed. Pausing 2.5s to prevent ATS anti-bot IP rate-limiting...`);
+        await new Promise((resolve) => setTimeout(resolve, 2500));
       }
     }
 
     persistDb();
-    log(`[Auto-Apply Engine] Finished: ${applied} Applied, ${skipped} Skipped.`);
-    return { success: true, applied, skipped };
+    log(`[Auto-Apply Engine] Finished all ${batches.length} batches: ${applied} Applied, ${skipped} Skipped.`);
+    return { success: true, applied, skipped, totalBatches: batches.length };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`[Auto-Apply] ERROR: ${msg}`);
@@ -1393,6 +1574,152 @@ ipcMain.handle('send-outreach', async (
     log(`[Outreach Bot] ERROR: ${msg}`);
     return { success: false, error: msg, sent: 0 };
   }
+});
+
+// ── IPC: Learner Hub Progress & Streaks ──────────────────────────────────
+ipcMain.handle('get-learner-progress', async (_, roadmapId: string) => {
+  try {
+    const progress = getLearnerProgressDb(roadmapId || 'frontend');
+    return progress;
+  } catch (err: unknown) {
+    log(`[Learner] Fetch progress note: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+});
+
+ipcMain.handle('save-learner-progress', async (_, progress: {
+  roadmapId: string;
+  completedNodes: string[];
+  targetHorizon?: string;
+  dailyCommitment?: string;
+  streakCount?: number;
+}) => {
+  try {
+    const ok = saveLearnerProgressDb(progress);
+    log(`[Learner] Progress saved for track "${progress.roadmapId}" (${progress.completedNodes?.length || 0} nodes completed).`);
+    return { success: ok };
+  } catch (err: unknown) {
+    log(`[Learner] Save progress error: ${err instanceof Error ? err.message : String(err)}`);
+    return { success: false };
+  }
+});
+
+// ── IPC: AI Interview Question Evaluation (STAR & System Design) ───────────
+ipcMain.handle('evaluate-interview-answer', async (_, params: {
+  questionId: string;
+  questionTitle: string;
+  answerText: string;
+  category?: string;
+}) => {
+  const { questionTitle, answerText, category } = params;
+  log(`[Interview AI] Evaluating candidate response for: "${questionTitle}"...`);
+
+  const db = getDb();
+  let groqKey = '';
+  try {
+    const prof = db.exec('SELECT groq_api_key FROM master_profile WHERE id = 1');
+    if (prof.length && prof[0].values.length) {
+      groqKey = String(prof[0].values[0][0] ?? '');
+    }
+  } catch {}
+
+  // 1. If Groq API Key is present, evaluate with Groq LLaMA 3.1 8B
+  if (groqKey) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an elite Principal Technical Hiring Manager and Bar Raiser at a top tier tech company.
+Evaluate the candidate's interview answer. If behavioral, evaluate using the STAR methodology (Situation, Task, Action, Result). If system design, evaluate architectural trade-offs, scaling, and failure domains.
+Respond strictly with valid JSON only in this schema:
+{
+  "score": <number between 50 and 98>,
+  "review": "<2-3 sentence clear constructive evaluation>",
+  "strengths": ["<strength 1>", "<strength 2>"],
+  "improvements": ["<actionable improvement 1>", "<actionable improvement 2>"]
+}`,
+            },
+            {
+              role: 'user',
+              content: `Category: ${category || 'General'}\nQuestion: ${questionTitle}\n\nCandidate's Response:\n${answerText}`,
+            },
+          ],
+          temperature: 0.2,
+          max_tokens: 350,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+        const raw = data?.choices?.[0]?.message?.content?.trim() || '{}';
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.score === 'number' && parsed.review) {
+          log(`[Interview AI] Groq AI evaluated response: Score ${parsed.score}/100.`);
+          return {
+            score: Math.min(100, Math.max(50, Math.round(parsed.score))),
+            review: parsed.review,
+            strengths: parsed.strengths || ['Clear communication'],
+            improvements: parsed.improvements || ['Add more metric quantification'],
+          };
+        }
+      }
+    } catch (err: any) {
+      log(`[Interview AI] Groq evaluation note: ${err?.message}`);
+    }
+  }
+
+  // 2. Intelligent offline rubric evaluation fallback
+  const words = answerText.trim().split(/\s+/).length;
+  const lower = answerText.toLowerCase();
+
+  const hasSituation = lower.includes('when') || lower.includes('project') || lower.includes('during') || lower.includes('team') || lower.includes('production');
+  const hasTask = lower.includes('needed') || lower.includes('goal') || lower.includes('responsible') || lower.includes('task') || lower.includes('challenge');
+  const hasAction = lower.includes('built') || lower.includes('implemented') || lower.includes('designed') || lower.includes('architected') || lower.includes('refactored') || lower.includes('analyzed');
+  const hasResult = lower.includes('result') || lower.includes('%') || lower.includes('reduced') || lower.includes('improved') || lower.includes('increased') || lower.includes('saved');
+
+  let baseScore = 70;
+  const strengths: string[] = [];
+  const improvements: string[] = [];
+
+  if (words >= 80) {
+    baseScore += 8;
+    strengths.push('Comprehensive depth and detailed context provided');
+  } else if (words < 40) {
+    baseScore -= 12;
+    improvements.push('Expand response with deeper technical specifics and context');
+  }
+
+  if (hasAction) {
+    baseScore += 7;
+    strengths.push('Strong individual ownership and clear engineering action verbs');
+  } else {
+    improvements.push('Clarify your specific personal technical contributions vs team work');
+  }
+
+  if (hasResult) {
+    baseScore += 9;
+    strengths.push('Effective quantification of outcomes and tangible business impact');
+  } else {
+    improvements.push('Quantify the final result with concrete metrics (latency, % improvement, or uptime)');
+  }
+
+  const finalScore = Math.min(96, Math.max(60, baseScore));
+  log(`[Interview AI] Rubric evaluated response: Score ${finalScore}/100.`);
+
+  return {
+    score: finalScore,
+    review: `Your response shows ${hasAction ? 'strong engineering execution' : 'promising fundamentals'}. ${hasResult ? 'Highlighting quantified impact effectively set your answer apart.' : 'To make your answer interview-ready, anchor the conclusion with concrete metrics (e.g., % improvement or time saved).' }`,
+    strengths: strengths.length > 0 ? strengths : ['Professional tone and direct answer'],
+    improvements: improvements.length > 0 ? improvements : ['Maintain concise pacing in high-pressure rounds'],
+  };
 });
 
 // ── IPC: Single-Laptop Heartbeat ───────────────────────────────────────────
@@ -1863,4 +2190,91 @@ ipcMain.handle('admin-get-metrics', async () => {
     log(`[Admin] Metrics computation error: ${err instanceof Error ? err.message : String(err)}`);
     return empty;
   }
+});
+
+// ── IPC: Admin Assign User Plan ───────────────────────────────────────────
+ipcMain.handle('admin-assign-plan', async (_, data: { userId: string | number; email?: string; planTier: string; expiresAt?: string }) => {
+  log(`[Admin Plan Assignment] Updating user ${data.email || data.userId} to ${data.planTier}...`);
+  const ok = adminAssignPlanDb(data.email || data.userId, data.planTier, data.expiresAt);
+
+  const supabase = getServiceSupabase();
+  if (supabase) {
+    try {
+      const matchClause = data.email ? { email: data.email.toLowerCase() } : { id: data.userId };
+      await supabase
+        .from('users_profile')
+        .update({
+          subscription_tier: data.planTier,
+          expires_at: data.expiresAt || null,
+        })
+        .match(matchClause);
+      log(`[Admin Plan Assignment] Synced user plan to Supabase ✓`);
+    } catch (err: any) {
+      log(`[Admin Plan Assignment] Supabase sync note: ${err?.message}`);
+    }
+  }
+
+  return { success: ok };
+});
+
+// ── IPC: Admin Learning Resource Management ───────────────────────────────
+ipcMain.handle('admin-get-learning-resources', async () => {
+  return getCuratedLearningResourcesDb();
+});
+
+ipcMain.handle('admin-add-learning-resource', async (_, res: {
+  title: string;
+  youtubeUrl: string;
+  topic: string;
+  targetRole: string;
+  summary?: string;
+  duration?: string;
+}) => {
+  const result = addCuratedLearningResourceDb(res);
+  log(`[Admin Curator] Added resource: "${res.title}" for topic ${res.topic}`);
+  return result;
+});
+
+ipcMain.handle('admin-delete-learning-resource', async (_, id: number | string) => {
+  const ok = deleteCuratedLearningResourceDb(id);
+  log(`[Admin Curator] Removed resource #${id}`);
+  return { success: ok };
+});
+
+// ── IPC: AI Recommended Learning Resources on Job Click / Selection ───────
+ipcMain.handle('get-recommended-resources-for-job', async (_, params: {
+  title: string;
+  description?: string;
+  techStack?: string;
+}) => {
+  const allResources = getCuratedLearningResourcesDb();
+  if (!allResources.length) return [];
+
+  const titleLower = (params.title || '').toLowerCase();
+  const descLower = (params.description || '').toLowerCase();
+  const stackLower = (params.techStack || '').toLowerCase();
+
+  const scored = allResources.map(r => {
+    let score = 0;
+    const topicTokens = r.topic.toLowerCase().split(/[^a-z0-9]+/);
+    const roleTokens = r.targetRole.toLowerCase().split(/[^a-z0-9]+/);
+
+    // Score based on role matches
+    for (const tok of roleTokens) {
+      if (tok.length > 2 && titleLower.includes(tok)) score += 6;
+    }
+    // Score based on topic matches
+    for (const tok of topicTokens) {
+      if (tok.length > 2) {
+        if (titleLower.includes(tok)) score += 5;
+        if (stackLower.includes(tok)) score += 4;
+        if (descLower.includes(tok)) score += 2;
+      }
+    }
+    return { resource: r, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const matched = scored.filter(s => s.score > 0).map(s => s.resource);
+  return matched.length > 0 ? matched.slice(0, 4) : allResources.slice(0, 3);
 });

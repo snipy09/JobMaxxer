@@ -14,10 +14,7 @@ export default {
           '"SF Pro Text"',
           '"Geist"',
           '"Inter"',
-          '"Segoe UI"',
-          'Roboto',
-          'Helvetica',
-          'Arial',
+          'system-ui',
           'sans-serif'
         ],
         mono: [
@@ -35,6 +32,7 @@ export default {
         ink: {
           950: '#000000',
           900: '#09090b',
+          850: '#121215',
           800: '#18181b',
           700: '#27272a',
           600: '#3f3f46',
@@ -45,6 +43,18 @@ export default {
           100: '#f4f4f5',
           50: '#fafafa',
           0: '#ffffff',
+        },
+        apple: {
+          canvas: '#fbfbfd',
+          subtle: '#f5f5f7',
+          border: '#d2d2d7',
+          muted: '#86868b',
+          charcoal: '#1d1d1f',
+          blue: '#0071e3',
+          'blue-hover': '#0077ed',
+          emerald: '#30d158',
+          amber: '#ff9f0a',
+          purple: '#af52de',
         }
       },
       boxShadow: {
@@ -52,6 +62,12 @@ export default {
         'lifted': '0 10px 30px -10px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06)',
         'float': '0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08)',
         'dark-fine': '0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 10px rgba(0, 0, 0, 0.5)',
+        'apple-card': '0 2px 8px -2px rgba(0, 0, 0, 0.04), 0 12px 32px -4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+        'apple-glass': '0 8px 32px 0 rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04)',
+        'apple-glow': '0 0 60px -15px rgba(0, 113, 227, 0.25)',
+      },
+      animation: {
+        'subtle-pulse': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       }
     },
   },

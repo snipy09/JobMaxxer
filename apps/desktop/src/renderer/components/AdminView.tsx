@@ -4,9 +4,9 @@ import {
   AlertCircle, Loader2, RefreshCw, Key, DollarSign, Activity,
   TrendingUp, Search, UserPlus, UserCheck, UserX, Copy, Check,
   SlidersHorizontal, Download, FileText, ArrowUpRight, Clock,
-  Sparkles, RotateCcw
+  Sparkles, RotateCcw, Youtube, ExternalLink, PlayCircle
 } from 'lucide-react';
-import { AppUser, BillingRecord, AdminMetrics, getApi } from '../types';
+import { AppUser, BillingRecord, AdminMetrics, CuratedResource, getApi } from '../types';
 
 interface AdminViewProps {
   onLog: (msg: string) => void;
@@ -14,7 +14,7 @@ interface AdminViewProps {
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'billing'>('overview');
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'billing' | 'resources'>('overview');
   const [loading, setLoading] = useState<boolean>(true);
   const [metrics, setMetrics] = useState<AdminMetrics>({
     totalUsers: 0,
@@ -43,23 +43,104 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
   const [creatingUser, setCreatingUser] = useState<boolean>(false);
   const [createFeedback, setCreateFeedback] = useState<string | null>(null);
 
+  // Curated Learning Video Resources State
+  const [learningResources, setLearningResources] = useState<CuratedResource[]>([]);
+  const [showResourceModal, setShowResourceModal] = useState<boolean>(false);
+  const [resTitle, setResTitle] = useState<string>('');
+  const [resUrl, setResUrl] = useState<string>('');
+  const [resTopic, setResTopic] = useState<string>('');
+  const [resRole, setResRole] = useState<string>('');
+  const [resSummary, setResSummary] = useState<string>('');
+  const [resDuration, setResDuration] = useState<string>('25 mins');
+  const [savingResource, setSavingResource] = useState<boolean>(false);
+
+  // Plan Assignment State
+  const [assigningPlanUser, setAssigningPlanUser] = useState<AppUser | null>(null);
+  const [selectedPlanTier, setSelectedPlanTier] = useState<'trial' | 'pro' | 'max' | 'lifetime'>('pro');
+  const [savingPlan, setSavingPlan] = useState<boolean>(false);
+
   const fetchAdminData = async () => {
     const api = getApi();
     if (!api) return;
     setLoading(true);
     try {
-      const [fetchedMetrics, fetchedUsers, fetchedBilling] = await Promise.all([
+      const [fetchedMetrics, fetchedUsers, fetchedBilling, fetchedResources] = await Promise.all([
         api.adminGetMetrics(),
         api.adminGetUsers(),
         api.adminGetBilling(),
+        api.adminGetLearningResources ? api.adminGetLearningResources() : Promise.resolve([]),
       ]);
       setMetrics(fetchedMetrics);
       setUsers(fetchedUsers);
       setBillingRecords(fetchedBilling);
+      setLearningResources(fetchedResources || []);
     } catch (err: any) {
       onLog(`[Admin] Failed to load admin metrics: ${err?.message || String(err)}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssignPlan = async (user: AppUser, planTier: 'trial' | 'pro' | 'max' | 'lifetime') => {
+    const api = getApi();
+    if (!api || !api.adminAssignPlan) return;
+    setSavingPlan(true);
+    try {
+      await api.adminAssignPlan({
+        userId: user.id,
+        email: user.email,
+        planTier,
+      });
+      onLog(`[Admin] Assigned plan "${planTier}" to ${user.email} ✓`);
+      await fetchAdminData();
+      setAssigningPlanUser(null);
+    } catch (err: any) {
+      onLog(`[Admin] Plan assignment error: ${err?.message}`);
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const handleCreateResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resTitle || !resUrl || !resTopic || !resRole) return;
+    const api = getApi();
+    if (!api || !api.adminAddLearningResource) return;
+    setSavingResource(true);
+    try {
+      await api.adminAddLearningResource({
+        title: resTitle,
+        youtubeUrl: resUrl,
+        topic: resTopic,
+        targetRole: resRole,
+        summary: resSummary,
+        duration: resDuration,
+      });
+      onLog(`[Admin Curator] Added YouTube tutorial: "${resTitle}" (${resTopic})`);
+      setResTitle('');
+      setResUrl('');
+      setResTopic('');
+      setResRole('');
+      setResSummary('');
+      setShowResourceModal(false);
+      await fetchAdminData();
+    } catch (err: any) {
+      onLog(`[Admin] Error adding video: ${err?.message}`);
+    } finally {
+      setSavingResource(false);
+    }
+  };
+
+  const handleDeleteResource = async (id: number | string, title: string) => {
+    if (!window.confirm(`Delete curated tutorial "${title}"?`)) return;
+    const api = getApi();
+    if (!api || !api.adminDeleteLearningResource) return;
+    try {
+      await api.adminDeleteLearningResource(id);
+      onLog(`[Admin Curator] Removed resource: "${title}"`);
+      await fetchAdminData();
+    } catch (err: any) {
+      onLog(`[Admin] Delete resource error: ${err?.message}`);
     }
   };
 
@@ -243,6 +324,19 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
         >
           <CreditCard className="w-3.5 h-3.5" />
           <span>Billing &amp; Revenue</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveAdminTab('resources')}
+          className={`flex-1 py-2 rounded-lg text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-all ${
+            activeAdminTab === 'resources'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Youtube className="w-3.5 h-3.5 text-rose-600" />
+          <span>Video Tutorials ({learningResources.length})</span>
         </button>
       </div>
 
@@ -468,9 +562,18 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                     </td>
 
                     <td className="py-3">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${getTierBadge(u.tier)}`}>
-                        {u.tier}
-                      </span>
+                      <select
+                        value={u.tier}
+                        onChange={(e) => handleAssignPlan(u, e.target.value as any)}
+                        disabled={savingPlan}
+                        className={`text-[10px] font-bold px-2 py-1 rounded border uppercase cursor-pointer outline-none ${getTierBadge(u.tier)}`}
+                        title="Click to change plan tier"
+                      >
+                        <option value="trial">Trial</option>
+                        <option value="pro">Pro</option>
+                        <option value="max">Max</option>
+                        <option value="lifetime">Lifetime</option>
+                      </select>
                     </td>
 
                     <td className="py-3 font-mono text-[11px] text-slate-600">
@@ -503,6 +606,18 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
 
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssigningPlanUser(u);
+                            setSelectedPlanTier(u.tier);
+                          }}
+                          className="text-xs font-semibold px-2 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+                          title="Assign custom plan & duration"
+                        >
+                          Assign Plan
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleToggleStatus(u)}
@@ -598,6 +713,277 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 4: CURATED VIDEO TUTORIALS & TOPIC CURATOR ───────────────────── */}
+      {activeAdminTab === 'resources' && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Youtube className="w-4 h-4 text-rose-600" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Curated YouTube Learning Resources &amp; AI Auto-Matcher
+                </h2>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Add YouTube tutorial links and topics. When candidates select or inspect any matching job title, our AI automatically recommends these prep videos.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowResourceModal(true)}
+              className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Curated Video</span>
+            </button>
+          </div>
+
+          {/* Resources Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {learningResources.map((res) => (
+              <div
+                key={res.id}
+                className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-all shadow-2xs flex flex-col justify-between space-y-3 group"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                      <Youtube className="w-3 h-3 text-rose-600" />
+                      <span>{res.topic}</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {res.duration || '20 mins'}
+                    </span>
+                  </div>
+
+                  <h3 className="text-xs font-bold text-slate-900 leading-snug">
+                    {res.title}
+                  </h3>
+
+                  <div className="text-[10px] text-slate-600 font-medium">
+                    <span className="text-slate-400">Target Roles: </span>
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{res.targetRole}</span>
+                  </div>
+
+                  {res.summary && (
+                    <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                      {res.summary}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <a
+                    href={res.youtubeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+                  >
+                    <span>Watch Tutorial</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteResource(res.id, res.title)}
+                    className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors"
+                    title="Delete Resource"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {learningResources.length === 0 && (
+            <div className="text-center py-10 border border-dashed border-slate-200 rounded-xl">
+              <Youtube className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-slate-600">No curated videos added yet.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Click "Add Curated Video" to link your first YouTube tutorial.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ADD CURATED RESOURCE MODAL ─────────────────────────────────────── */}
+      {showResourceModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Youtube className="w-4 h-4 text-rose-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Add Curated YouTube Learning Resource
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowResourceModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateResource} className="space-y-3 text-xs">
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-700">Video Tutorial Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Next.js 14 Server Components & App Router Masterclass"
+                  value={resTitle}
+                  onChange={e => setResTitle(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-700">YouTube Video URL</label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={resUrl}
+                  onChange={e => setResUrl(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-slate-700">Topic / Tech Focus</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. React & Next.js"
+                    value={resTopic}
+                    onChange={e => setResTopic(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-slate-700">Duration</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 30 mins"
+                    value={resDuration}
+                    onChange={e => setResDuration(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-700">Target Role(s)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Frontend Engineer, Full Stack Developer"
+                  value={resRole}
+                  onChange={e => setResRole(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-700">Summary / Key Takeaways</label>
+                <textarea
+                  rows={2}
+                  placeholder="Brief synopsis of what candidate will learn..."
+                  value={resSummary}
+                  onChange={e => setResSummary(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowResourceModal(false)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingResource}
+                  className="px-4 py-1.5 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {savingResource ? 'Saving...' : 'Add Curated Video'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── ASSIGN PLAN MODAL ───────────────────────────────────────────────── */}
+      {assigningPlanUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-slate-900" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Assign Plan to User
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssigningPlanUser(null)}
+                className="text-slate-400 hover:text-slate-700 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="font-bold text-slate-900">{assigningPlanUser.fullName}</div>
+                <div className="text-slate-500 font-mono text-[11px]">{assigningPlanUser.email}</div>
+                <div className="text-[10px] text-slate-400">Current: <span className="uppercase font-bold text-slate-700">{assigningPlanUser.tier}</span></div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-bold text-slate-700">Select New Plan Tier</label>
+                <select
+                  value={selectedPlanTier}
+                  onChange={(e) => setSelectedPlanTier(e.target.value as any)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none"
+                >
+                  <option value="trial">Trial (7 Days, 10 apps/day)</option>
+                  <option value="pro">Pro Plan (₹149/mo, 100 apps/day)</option>
+                  <option value="max">Max Plan (₹299/mo, 200 apps/day)</option>
+                  <option value="lifetime">Lifetime License (₹999, Permanent)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAssigningPlanUser(null)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingPlan}
+                  onClick={() => handleAssignPlan(assigningPlanUser, selectedPlanTier)}
+                  className="px-4 py-1.5 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {savingPlan ? 'Assigning...' : 'Confirm Assignment'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

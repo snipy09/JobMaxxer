@@ -13,6 +13,8 @@
     "automation:run": "tsx packages/automation/src/index.ts",
     "automation:test": "tsx packages/automation/src/test-run.ts",
     "scrapers:run": "tsx packages/scrapers/src/index.ts",
+    "scrapers:jobs": "tsx packages/scrapers/src/publish-jobs.ts",
+    "scrapers:hrs": "tsx packages/scrapers/src/publish-hrs.ts",
     "scrapers:test": "tsx packages/scrapers/src/test-run.ts",
     "email:verify": "tsx packages/email-verifier/src/index.ts",
     "postinstall": "npx playwright install chromium",

@@ -35,6 +35,7 @@ export interface Job {
   salary?: string;
   source?: string;
   score?: number;
+  matchedSkills?: string[];
   tags?: string[];
   description?: string;
   employmentType?: 'job' | 'internship';
@@ -44,13 +45,14 @@ export interface Job {
 }
 
 export interface Application {
-  id: number;
+  id?: number;
   company: string;
   title: string;
   apply_url: string;
   status: string;
   mode: string;
   applied_at: string;
+  created_at?: string;
 }
 
 export interface OutreachContact {
@@ -58,9 +60,25 @@ export interface OutreachContact {
   name?: string;
   company?: string;
   role?: string;
+  department?: 'Engineering' | 'Talent Acquisition' | 'Product' | 'Executive' | string;
   verificationStatus?: 'valid' | 'invalid' | 'pending' | 'risky' | 'catch-all';
   sentStatus?: 'unsent' | 'sent' | 'failed';
   sentAt?: string;
+  verifiedAt?: string;
+  isTargetCompany?: boolean;
+  matchScore?: number;
+  linkedinUrl?: string;
+}
+
+export interface CuratedResource {
+  id: number;
+  title: string;
+  youtubeUrl: string;
+  topic: string;
+  targetRole: string;
+  summary: string;
+  duration: string;
+  createdAt?: string;
 }
 
 export interface DependencyStatus {
@@ -85,8 +103,10 @@ export type TabType =
   | 'home'
   | 'feed'
   | 'outreach'
+  | 'applications'
   | 'logs'
   | 'settings'
+  | 'profile'
   | 'admin-overview'
   | 'admin-users'
   | 'admin-billing';
@@ -107,10 +127,10 @@ export interface AppUser {
   email: string;
   fullName: string;
   role: 'admin' | 'user';
-  tier: 'trial' | 'pro' | 'max' | 'lifetime';
+  tier: 'trial' | 'free' | 'learner_pro' | 'seeker_pro' | 'seeker_max' | 'pro' | 'max' | 'lifetime';
   licenseKey: string;
   status: 'active' | 'suspended';
-  appsCount: number;
+  appsCount?: number;
   createdAt: string;
   expiresAt?: string;
   lastLogin?: string;
@@ -169,10 +189,42 @@ export interface ElectronAPI {
   testGroqKey: (key: string) => Promise<{ success: boolean; error?: string }>;
   onLog: (callback: (msg: string) => void) => () => void;
   getApplications: () => Promise<Application[]>;
+  updateApplicationStatus: (id: number | string, status: string) => Promise<{ success: boolean; error?: string }>;
+  deleteApplication: (id: number | string) => Promise<{ success: boolean; error?: string }>;
   getSavedJobs: () => Promise<Job[]>;
   saveJob: (job: Job) => Promise<{ success: boolean; error?: string }>;
   removeSavedJob: (applyUrl: string) => Promise<{ success: boolean; error?: string }>;
   openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Learner Progress & Roadmap State
+  getLearnerProgress: (roadmapId: string) => Promise<{
+    roadmapId: string;
+    completedNodes: string[];
+    targetHorizon?: string;
+    dailyCommitment?: string;
+    streakCount?: number;
+    lastActiveDate?: string;
+  } | null>;
+  saveLearnerProgress: (progress: {
+    roadmapId: string;
+    completedNodes: string[];
+    targetHorizon?: string;
+    dailyCommitment?: string;
+    streakCount?: number;
+  }) => Promise<{ success: boolean }>;
+
+  // Interview Evaluation
+  evaluateInterviewAnswer: (params: {
+    questionId: string;
+    questionTitle: string;
+    answerText: string;
+    category?: string;
+  }) => Promise<{
+    score: number;
+    review: string;
+    strengths?: string[];
+    improvements?: string[];
+  }>;
 
   // Admin & Auth Handlers
   authLogin: (credentials: {
@@ -205,6 +257,30 @@ export interface ElectronAPI {
   }) => Promise<{ success: boolean; id?: number | string; error?: string }>;
   adminUpdateUserStatus: (id: number | string, status: 'active' | 'suspended') => Promise<{ success: boolean; error?: string }>;
   adminDeleteUser: (id: number | string) => Promise<{ success: boolean; error?: string }>;
+  adminAssignPlan: (data: {
+    userId: string | number;
+    email?: string;
+    planTier: string;
+    expiresAt?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+
+  // Admin Curated Video & Learning Resource Management
+  adminGetLearningResources: () => Promise<CuratedResource[]>;
+  adminAddLearningResource: (resource: {
+    title: string;
+    youtubeUrl: string;
+    topic: string;
+    targetRole: string;
+    summary?: string;
+    duration?: string;
+  }) => Promise<{ success: boolean; id?: number; error?: string }>;
+  adminDeleteLearningResource: (id: number | string) => Promise<{ success: boolean; error?: string }>;
+  getRecommendedResourcesForJob: (params: {
+    title: string;
+    description?: string;
+    techStack?: string;
+  }) => Promise<CuratedResource[]>;
+
   adminGetBilling: () => Promise<BillingRecord[]>;
   adminCreateBillingRecord: (record: {
     userEmail: string;
