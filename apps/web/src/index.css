@@ -5,21 +5,21 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    background-color: #fbfbfd;
-    color: #1d1d1f;
+    background-color: #ffffff;
+    color: #0a0a0a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    letter-spacing: -0.011em;
+    letter-spacing: -0.014em;
   }
   
   body {
-    background-color: #fbfbfd;
+    background-color: #ffffff;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
   ::selection {
-    background-color: #0071e3;
+    background-color: #000000;
     color: #ffffff;
   }
 }
