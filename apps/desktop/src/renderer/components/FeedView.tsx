@@ -134,14 +134,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
         setJobs(combined);
         saveJobsToLocalStorage(combined);
         onLog(`[Feed] Stream synced ${res.jobs.length} opportunities.`);
-      } else if (api.runScrapers) {
-        const scraped = await api.runScrapers();
-        if (scraped && scraped.jobs && scraped.jobs.length > 0) {
-          const combined = [DEMO_TEST_JOB, ...scraped.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)];
-          setJobs(combined);
-          saveJobsToLocalStorage(combined);
-          onLog(`[Feed] Extracted ${scraped.jobs.length} fresh opportunities.`);
-        }
       }
       const saved = await api.getSavedJobs();
       setSavedJobs(saved || []);

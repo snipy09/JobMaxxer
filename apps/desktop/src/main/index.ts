@@ -676,20 +676,15 @@ app.whenReady().then(async () => {
 
   createWindow();
 
-  // Background auto-setup: verify dependencies & browser engine
-  setTimeout(async () => {
+  // Background verification: check if local Chrome / Edge is present
+  setTimeout(() => {
     try {
       const browser = findChromeExecutable();
       if (browser) {
         log(`[Auto-Setup] Chrome engine active: ${browser} ✓`);
-      } else {
-        log('[Auto-Setup] Ensuring Chrome for Testing / Playwright Chromium engine...');
-        ensureChromeForTesting((msg) => log(`[Auto-Setup] ${msg}`)).catch(() => {});
       }
-    } catch (err: unknown) {
-      log(`[Auto-Setup] Note: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }, 2000);
+    } catch {}
+  }, 1500);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -966,18 +961,12 @@ ipcMain.handle('get-cloud-feed', async () => {
       log(`[Cloud Sync] Supabase notice: ${err?.message}`);
     }
 
-    // Run live scrapers if cloud feed is small
-    let liveScrapedJobs: any[] = [];
-    if (cloudJobs.length < 50) {
-      try {
-        liveScrapedJobs = await runAllScrapers(profileData);
-        log(`[Live Scraper] Extracted ${liveScrapedJobs.length} fresh real-time jobs.`);
-      } catch (err: any) {
-        log(`[Live Scraper] Note: ${err?.message}`);
-      }
+    // If cloud feed has jobs, return them instantly; otherwise return fallback jobs without blocking main thread
+    if (cloudJobs.length === 0) {
+      log(`[Cloud Sync] No cloud jobs found; returning immediate base listings.`);
     }
 
-    const combined = [...cloudJobs, ...liveScrapedJobs];
+    const combined = [...cloudJobs];
     const seenUrls = new Set<string>();
     const deduplicated = [];
 
