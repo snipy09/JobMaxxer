@@ -76,12 +76,10 @@ process.on('unhandledRejection', (reason) => {
   console.error('[Unhandled Rejection]', reason);
 });
 
-// ── Performance & GPU Hardware Acceleration ──────────────────────────────
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('enable-smooth-scrolling');
+// ── Safe Chromium Flags for 100% Windows Hardware Compatibility ────────
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 // ── Deep Linking & OAuth ──────────────────────────────────────────────
 if (process.defaultApp) {
@@ -574,16 +572,17 @@ function createWindow(): void {
     height: 860,
     minWidth: 980,
     minHeight: 680,
-    title: 'Nomadic — Universal Career OS & Application Automation Platform',
+    title: 'Nomadic — Universal Career OS',
     icon: appIcon,
     backgroundColor: '#09090b',
     autoHideMenuBar: true,
-    show: true,
+    show: false,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
+      spellcheck: false,
     },
   });
 
@@ -594,23 +593,39 @@ function createWindow(): void {
     }
   });
 
-  // Failsafe: Ensure window is shown even if ready-to-show event timing varies
+  // Failsafe: guarantee window visibility after 400ms across all Windows environments
   setTimeout(() => {
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
       mainWindow.show();
       mainWindow.focus();
     }
-  }, 600);
+  }, 400);
+
+  // Crash recovery listeners
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[Renderer Crash]', details);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.reload();
+    }
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[Renderer] Failed to load URL: ${validatedURL}, error: ${errorDescription} (${errorCode})`);
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (isSafeUrl(url)) {
+      shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (url !== mainWindow?.webContents.getURL() && !url.startsWith('file://')) {
       event.preventDefault();
-      shell.openExternal(url);
+      if (isSafeUrl(url)) {
+        shell.openExternal(url);
+      }
     }
   });
 
@@ -656,8 +671,23 @@ function createWindow(): void {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
+// ── Strict Protocol Whitelist Security ────────────────────────────────────
+const ALLOWED_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
+
+function isSafeUrl(urlStr: string): boolean {
+  if (!urlStr || typeof urlStr !== 'string') return false;
+  try {
+    const trimmed = urlStr.trim();
+    if (trimmed.startsWith('https://wa.me/') || trimmed.startsWith('http://localhost:')) return true;
+    const parsed = new URL(trimmed);
+    return ALLOWED_PROTOCOLS.has(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 ipcMain.handle('open-external-url', async (_, url: string) => {
-  if (url && typeof url === 'string') {
+  if (url && typeof url === 'string' && isSafeUrl(url)) {
     try {
       await shell.openExternal(url);
       return { success: true };
@@ -665,7 +695,7 @@ ipcMain.handle('open-external-url', async (_, url: string) => {
       return { success: false, error: err?.message };
     }
   }
-  return { success: false, error: 'Invalid URL' };
+  return { success: false, error: 'Blocked: Disallowed or invalid URL' };
 });
 
 app.whenReady().then(async () => {
