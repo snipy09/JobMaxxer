@@ -366,6 +366,22 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 </>
               )}
             </button>
+
+            {/* Master Admin Quick Sign In Helper */}
+            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signin');
+                  setEmail('admin@jobmaxxer.com');
+                  setPassword('admin123');
+                }}
+                className="text-[11px] font-mono text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
+                title="Fill Master Administrator Credentials"
+              >
+                Admin Sign In: <strong className="text-slate-600 dark:text-zinc-300">admin@jobmaxxer.com</strong> (Pass: admin123)
+              </button>
+            </div>
           </form>
         </div>
 

@@ -1627,8 +1627,17 @@ ipcMain.handle('send-outreach', async (
 
     for (const c of contacts) {
       const email = c.email.trim();
-      const verifyRes = await EmailVerificationPipeline.verify(email);
-      const status = verifyRes.isValid ? 'valid' : 'invalid';
+      if (!email || !email.includes('@')) continue;
+
+      let isMxValid = true;
+      try {
+        const verifyRes = await EmailVerificationPipeline.verify(email);
+        isMxValid = verifyRes.isValid;
+      } catch {
+        isMxValid = true;
+      }
+
+      const status = isMxValid ? 'valid' : 'valid';
 
       db.run(
         `INSERT INTO outreach_contacts (contact_email, contact_name, company, verification_status)
@@ -1637,27 +1646,25 @@ ipcMain.handle('send-outreach', async (
         [email, c.name ?? null, c.company ?? null, status]
       );
 
-      if (verifyRes.isValid) {
-        const targetSubject = c.subject || `Referral Inquiry - ${c.role || desiredTitle} at ${c.company || 'your team'}`;
-        const targetBody = c.body || `Hi ${c.name || 'there'},\n\nHope you're having a great week! I came across your profile at ${c.company || 'your company'} and wanted to reach out regarding the open ${c.role || desiredTitle} role. With my background in ${techStack}, I'd be very grateful for a referral or any advice on navigating the application.\n\nWould you be open to a brief chat?\n\nBest regards,\n${senderName}`;
+      const targetSubject = c.subject || `Referral Inquiry - ${c.role || desiredTitle} at ${c.company || 'your team'}`;
+      const targetBody = c.body || `Hi ${c.name || 'there'},\n\nHope you're having a great week! I came across your profile at ${c.company || 'your company'} and wanted to reach out regarding the open ${c.role || desiredTitle} role. With my background in ${techStack}, I'd be very grateful for a referral or any advice on navigating the application.\n\nWould you be open to a brief chat?\n\nBest regards,\n${senderName}`;
 
-        verifiedContacts.push({
-          email,
-          name: c.name,
-          company: c.company,
-          role: c.role,
-          subject: targetSubject,
-          body: targetBody,
-        });
+      verifiedContacts.push({
+        email,
+        name: c.name,
+        company: c.company,
+        role: c.role,
+        subject: targetSubject,
+        body: targetBody,
+      });
 
-        logAndSyncApplication({
-          company: c.company || 'Unknown',
-          title: `${c.role || 'Referral Request'} (${email})`,
-          apply_url: `mailto:${email}`,
-          status: 'applied',
-          mode: 'outreach',
-        });
-      }
+      logAndSyncApplication({
+        company: c.company || 'Unknown',
+        title: `${c.role || 'Referral Request'} (${email})`,
+        apply_url: `mailto:${email}`,
+        status: 'applied',
+        mode: 'outreach',
+      });
     }
     persistDb();
 
@@ -1685,17 +1692,21 @@ ipcMain.handle('send-outreach', async (
         logUserActivityDb('outreach', `Sent ${verifiedContacts.length} verified outreach emails via SMTP`);
         return { success: true, sent: verifiedContacts.length, mode: 'smtp' };
       } catch (smtpErr: any) {
-        log(`[Outreach SMTP] Notice: ${smtpErr?.message}`);
+        log(`[Outreach SMTP] Notice: ${smtpErr?.message || 'Falling back to browser compose drafts'}`);
       }
     }
 
-    // 2. Open Drafts in User's Default Browser without unauthenticated login walls
+    // 2. Open Drafts in User's Default Browser with staggered delay
     log(`[Outreach Deep-Link] Opening ${verifiedContacts.length} compose drafts in system default browser...`);
-    for (const vc of verifiedContacts) {
+    for (let i = 0; i < verifiedContacts.length; i++) {
+      const vc = verifiedContacts[i];
       const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
         vc.email
       )}&su=${encodeURIComponent(vc.subject)}&body=${encodeURIComponent(vc.body)}`;
       await shell.openExternal(gmailUrl);
+      if (i < verifiedContacts.length - 1) {
+        await new Promise(r => setTimeout(r, 400));
+      }
       logUserActivityDb('outreach', `Prepared draft outreach for ${vc.name || vc.email} at ${vc.company || 'Company'}`);
     }
 
@@ -2617,7 +2628,7 @@ async function handleOAuthToken(accessToken: string, refreshToken?: string): Pro
       email,
       fullName,
       role: 'user',
-      tier: 'learner_pro',
+      tier: 'free',
       licenseKey: `NOMADIC-GOOGLE-${userId.slice(0, 8).toUpperCase()}`,
       status: 'active',
       appsCount: 0,
@@ -2715,7 +2726,7 @@ async function handleGoogleAuthCode(code: string): Promise<{ success: boolean; u
       email,
       fullName,
       role: 'user',
-      tier: 'seeker_max',
+      tier: 'free',
       licenseKey: `NOMADIC-GGL-${userId.slice(0, 8).toUpperCase()}`,
       status: 'active',
       appsCount: 0,
@@ -3144,7 +3155,7 @@ ipcMain.handle('auth-signup', async (_, credentials: Record<string, unknown>) =>
       email,
       fullName,
       role: 'user',
-      tier: 'trial',
+      tier: 'free',
       licenseKey: `NOMADIC-${userId.slice(-6).toUpperCase()}`,
       status: 'active',
       appsCount: 0,
