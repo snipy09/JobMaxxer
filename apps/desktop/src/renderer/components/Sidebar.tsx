@@ -34,13 +34,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
-  // Seeker Edition: Job Board, Opportunity Board, Outreach, Tracking, Resource Vault, Logs, Settings
+  // Seeker Edition: Job Board, Opportunity Board, Outreach, Tracking, Logs, Settings
   const seekerItems: Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'feed', label: 'Job Board', icon: Briefcase },
     { id: 'opportunities', label: 'Opportunity Board', icon: Compass },
     { id: 'outreach', label: 'Outreach', icon: Mail },
     { id: 'applications', label: 'Tracking', icon: LayoutGrid },
-    { id: 'learner-resources', label: 'Resource Vault', icon: BookOpen },
     { id: 'logs', label: 'Logs', icon: Terminal },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];

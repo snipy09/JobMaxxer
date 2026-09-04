@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   ArrowRight, ArrowLeft, Check, User,
   Briefcase, Target, Clock, Search,
   Compass, BookOpen, Layers, CheckCircle2,
   Code2, Phone, Mail, Lock, Shield, Sparkles,
-  Zap, FileText, Upload, Key, Loader2, Calendar, Plus
+  Zap, FileText, Upload, Key, Loader2, Calendar, Plus, X
 } from 'lucide-react';
 import { MasterProfile, getApi } from '../types';
 
@@ -17,26 +17,33 @@ interface OnboardingWizardProps {
 
 const EXPERIENCE_LEVELS = [
   { id: 'fresher', label: 'Entry / Early Career', desc: '0–2 years or transitioning fields' },
-  { id: 'mid', label: 'Mid-Level Specialist', desc: '2–5 years of domain execution' },
+  { id: 'mid', label: 'Mid-Level Specialist', desc: '2–5 years of direct execution' },
   { id: 'senior', label: 'Senior & Leadership', desc: '5+ years leading projects or teams' },
 ];
 
 const TIMELINE_OPTIONS = [
-  { id: '1 Month', label: '1 Month', sub: 'Fast-Track / Sprint' },
+  { id: '1 Month', label: '1 Month', sub: 'Fast-Track Sprint' },
   { id: '3 Months', label: '3 Months', sub: 'Standard (Recommended)' },
   { id: '6 Months', label: '6 Months', sub: 'Comprehensive Mastery' },
 ];
 
 const COMMITMENT_OPTIONS = [
-  { id: '1 Hour/Day', label: '1 Hour / Day', sub: 'Consistent Pacing' },
+  { id: '1 Hour/Day', label: '1 Hour / Day', sub: 'Consistent Pace' },
   { id: '2 Hours/Day', label: '2 Hours / Day', sub: 'Optimal Growth' },
   { id: '4+ Hours/Day', label: '4+ Hours / Day', sub: 'Full Immersion' },
+];
+
+const ROLE_SUGGESTIONS = [
+  'Software Engineer', 'Frontend Engineer', 'Backend Engineer', 'Fullstack Engineer',
+  'Product Manager', 'UI/UX Designer', 'Growth Marketer', 'Data Analyst',
+  'Financial Analyst', 'DevOps & Cloud', 'AI / ML Engineer', 'Operations Lead'
 ];
 
 const DEFAULT_POPULAR_SKILLS = [
   'Product Strategy', 'UI/UX Design', 'User Research', 'SQL & Data Analysis',
   'TypeScript', 'React', 'Python', 'Growth Marketing & SEO',
-  'Financial Modeling', 'Project Management', 'System Architecture', 'Market Research'
+  'Financial Modeling', 'Project Management', 'System Architecture', 'Market Research',
+  'REST APIs', 'Docker', 'Next.js', 'Figma', 'Node.js', 'PostgreSQL'
 ];
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
@@ -45,14 +52,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   onComplete,
   onSwitchToLogin,
 }) => {
-  const [step, setStep] = useState<1 | 2>(1);
+  // 4 Focused Form Steps + Final Step 5 Review
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Authenticated user initials
   const userEmail = currentUser?.email || initialProfile.email || '';
   const initialFirst = initialProfile.firstName || (currentUser?.fullName ? currentUser.fullName.split(' ')[0] : '');
   const initialLast = initialProfile.lastName || (currentUser?.fullName ? currentUser.fullName.split(' ').slice(1).join(' ') : '');
 
-  // Step 1 State: Core Inputs (Clean, zero pre-filled placeholders)
+  // Core State (Clean, zero forced pre-filled placeholders)
   const [firstName, setFirstName] = useState<string>(initialFirst || '');
   const [lastName, setLastName] = useState<string>(initialLast || '');
   const [phone, setPhone] = useState<string>(initialProfile.phone || '');
@@ -74,7 +82,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   });
   const [newSkillInput, setNewSkillInput] = useState<string>('');
 
-  // Step 2 State: AI Synthesis Results
+  // AI Synthesis Results
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [synthesizedProfile, setSynthesizedProfile] = useState<Partial<MasterProfile>>({});
@@ -137,7 +145,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     }
   };
 
-  // ── Step 1 → 2: Trigger Real AI Profile & Roadmap Generation ──────────────
+  // ── Trigger Neural Profile & Deep Roadmap Generation ──────────────────────
   const handleGenerateAIProfile = async () => {
     setIsGenerating(true);
     setAiError(null);
@@ -173,55 +181,91 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           onboardingCompleted: true,
         });
         setSynthesizedRoadmap(roadmapObj);
-        setStep(2);
+        setStep(5);
       } else {
         throw new Error(res?.error || 'AI synthesis failed.');
       }
     } catch (err: any) {
       console.warn('[Onboarding AI] Fallback triggered:', err?.message);
-      // Universal fallback
-      const fallbackStack = Array.from(selectedSkills).join(', ');
+      // Detailed fallback roadmap
       const fallbackId = `roadmap-${Date.now()}`;
       const fallbackRoadmap = {
         id: fallbackId,
         title: `${targetRoleTitle.trim() || 'Career'} Acceleration Roadmap`,
-        domain: 'Professional Track',
+        domain: 'Professional Mastery',
         targetRoles: [targetRoleTitle.trim() || 'Specialist'],
         targetHorizon,
         dailyCommitment,
         milestones: [
           {
             id: 'phase-1',
-            title: 'Phase 1: Foundations & Core Principles',
+            title: 'Phase 1: Foundations & Core Architecture',
             level: 'Foundations',
-            estimatedHours: 20,
-            description: 'Core concepts, operating workflows, and essential toolsets.',
+            estimatedHours: 25,
+            description: 'Core concepts, industry standards, and environment setup.',
             subModules: [
               {
                 id: 'sub-1-1',
-                title: 'Fundamentals & Industry Standards',
-                description: 'Key principles, frameworks, and workflow best practices.',
-                keyConcepts: ['Core theory & standards', 'Daily productivity tools', 'Workflow execution'],
+                title: 'Core Fundamentals & Industry Workflows',
+                description: 'Deep dive into standard operating procedures and best practices.',
+                keyConcepts: ['Foundational Principles', 'Execution Standards', 'Core Data Structures / Frameworks', 'Quality Control'],
                 resources: [
-                  { title: `${targetRoleTitle} Fundamentals Masterclass`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' basics')}`, type: 'video', duration: '35 mins' }
+                  { title: `${targetRoleTitle || 'Role'} Fundamentals Masterclass`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent((targetRoleTitle || 'career') + ' fundamentals masterclass')}`, type: 'video', duration: '35 mins' },
+                  { title: 'Official Documentation & Standards', url: `https://google.com/search?q=${encodeURIComponent((targetRoleTitle || 'career') + ' official documentation best practices')}`, type: 'doc' }
                 ]
               }
             ]
           },
           {
             id: 'phase-2',
-            title: 'Phase 2: Intermediate Execution & Deliverables',
-            level: 'Practice',
-            estimatedHours: 30,
-            description: 'Practical project deliverables, case studies, and artifact creation.',
+            title: 'Phase 2: Execution & Real-World Deliverables',
+            level: 'Core Execution',
+            estimatedHours: 35,
+            description: 'Hands-on practical projects, artifact design, and case studies.',
             subModules: [
               {
                 id: 'sub-2-1',
-                title: 'Deliverables & Case Execution',
-                description: 'Hands-on workflow execution and deliverable management.',
-                keyConcepts: ['Execution framework', 'Quality metrics', 'Cross-functional alignment'],
+                title: 'Production Artifacts & Case Studies',
+                description: 'Building end-to-end deliverables for portfolio demonstration.',
+                keyConcepts: ['End-to-End Workflow Execution', 'Performance Optimization', 'Metrics Tracking', 'Cross-Functional Strategy'],
                 resources: [
-                  { title: `${targetRoleTitle} Case Study Breakdown`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' case study')}`, type: 'video', duration: '40 mins' }
+                  { title: 'Project Case Study Breakdown', url: `https://www.youtube.com/results?search_query=${encodeURIComponent((targetRoleTitle || 'career') + ' real world case study')}`, type: 'video', duration: '45 mins' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'phase-3',
+            title: 'Phase 3: Advanced Optimization & Scaling',
+            level: 'Advanced',
+            estimatedHours: 30,
+            description: 'System design, scalability, leadership, and edge-case resolution.',
+            subModules: [
+              {
+                id: 'sub-3-1',
+                title: 'Enterprise Architecture & Scale',
+                description: 'Solving complex scaling challenges and architectural trade-offs.',
+                keyConcepts: ['High-Availability Architecture', 'Bottleneck Diagnostics', 'Cost & Latency Optimization', 'Security Protocols'],
+                resources: [
+                  { title: 'System Architecture & Scaling Guide', url: `https://www.youtube.com/results?search_query=${encodeURIComponent((targetRoleTitle || 'system architecture') + ' design and scaling')}`, type: 'video', duration: '50 mins' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'phase-4',
+            title: 'Phase 4: Interview Mastery & Portfolio Defense',
+            level: 'Interview Ready',
+            estimatedHours: 20,
+            description: 'Behavioral STAR storytelling, mock drills, and technical deep-dives.',
+            subModules: [
+              {
+                id: 'sub-4-1',
+                title: 'Interview Strategy & Technical Defense',
+                description: 'Bar-raiser interview preparation and portfolio presentation.',
+                keyConcepts: ['STAR Storytelling Framework', 'Technical Problem Solving', 'Salary Negotiation', 'Behavioral Drills'],
+                resources: [
+                  { title: 'Mock Interview & Strategy Drills', url: `https://www.youtube.com/results?search_query=${encodeURIComponent((targetRoleTitle || 'career') + ' mock interview questions and answers')}`, type: 'video', duration: '40 mins' }
                 ]
               }
             ]
@@ -235,209 +279,307 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         lastName: lastName.trim() || '',
         email: userEmail || initialProfile.email || 'user@nomadic.app',
         phone: phone.trim(),
-        desiredTitle: targetRoleTitle.trim() || 'Specialist',
-        techStack: fallbackStack || 'Strategy, Analysis, Execution',
-        desiredSalary: '₹12 LPA – ₹26 LPA · $90k – $150k',
-        resumeText: bioOrResumeText.trim(),
+        desiredTitle: targetRoleTitle.trim() || 'Professional Specialist',
+        techStack: Array.from(selectedSkills).join(', ') || 'Core Skills',
+        desiredSalary: '₹12 LPA – ₹26 LPA',
+        resumeText: bioOrResumeText.trim() || 'Professional ready for high-impact opportunities.',
         resumeFilePath: uploadedResumePath || initialProfile.resumeFilePath,
         experienceLevel: experienceLevel as any,
         geminiApiKey: customAiKey.trim() || undefined,
         onboardingCompleted: true,
       });
       setSynthesizedRoadmap(fallbackRoadmap);
-      setStep(2);
+      setStep(5);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // ── Step 2: Finalize & Persist Onboarding ──────────────────────────────────
-  const handleFinalSubmit = async () => {
-    setIsGenerating(true);
+  const handleFinalizeAndLaunch = async () => {
     const api = getApi();
-
-    const finalProf: MasterProfile = {
+    const finalProfile: MasterProfile = {
       ...initialProfile,
       ...synthesizedProfile,
       firstName: firstName.trim() || synthesizedProfile.firstName || 'Candidate',
       lastName: lastName.trim() || synthesizedProfile.lastName || '',
-      email: userEmail || initialProfile.email || 'user@nomadic.app',
+      email: userEmail || synthesizedProfile.email || 'user@nomadic.app',
       phone: phone.trim() || synthesizedProfile.phone || '',
-      desiredTitle: synthesizedProfile.desiredTitle || targetRoleTitle,
-      techStack: synthesizedProfile.techStack || Array.from(selectedSkills).join(', '),
-      resumeFilePath: uploadedResumePath || synthesizedProfile.resumeFilePath || initialProfile.resumeFilePath,
-      geminiApiKey: customAiKey.trim() || undefined,
+      desiredTitle: targetRoleTitle.trim() || synthesizedProfile.desiredTitle || 'Professional Specialist',
+      techStack: Array.from(selectedSkills).join(', ') || synthesizedProfile.techStack || 'Core Skills',
+      experienceLevel: experienceLevel as any,
+      resumeFilePath: uploadedResumePath || synthesizedProfile.resumeFilePath || '',
       onboardingCompleted: true,
     };
 
-    try {
-      await api.saveMasterProfile(finalProf as any);
-      if (synthesizedRoadmap && api.saveCustomRoadmap) {
-        await api.saveCustomRoadmap({
-          id: synthesizedRoadmap.id || `roadmap-${Date.now()}`,
-          roleTitle: finalProf.desiredTitle || targetRoleTitle,
-          domain: synthesizedRoadmap.domain || 'Professional Track',
-          roadmapJson: JSON.stringify(synthesizedRoadmap),
-          targetHorizon,
-          dailyCommitment,
-        });
+    if (synthesizedRoadmap && api && api.saveCustomRoadmap) {
+      try {
+        await api.saveCustomRoadmap(synthesizedRoadmap);
+      } catch (err: any) {
+        console.warn('[Onboarding Save Roadmap] Error:', err?.message);
       }
-      if (api.logUserActivity) {
-        await api.logUserActivity('milestone', `Completed AI Onboarding for ${finalProf.desiredTitle}`);
-      }
-    } catch (err: any) {
-      console.error('[Onboarding Save Error]:', err);
-    } finally {
-      setIsGenerating(false);
-      onComplete(finalProf);
     }
+
+    if (api && api.updateMasterProfile) {
+      try {
+        await api.updateMasterProfile(finalProfile);
+      } catch (err: any) {
+        console.warn('[Onboarding Save Profile] Error:', err?.message);
+      }
+    }
+
+    onComplete(finalProfile);
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-zinc-100 flex flex-col justify-between p-4 sm:p-8 font-sans selection:bg-zinc-200 dark:selection:bg-zinc-800">
-      
-      {/* Top Header */}
-      <div className="max-w-3xl w-full mx-auto flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-black dark:bg-white text-white dark:text-black font-bold flex items-center justify-center text-sm tracking-tight">
-            N
-          </div>
-          <div>
-            <span className="font-semibold tracking-tight text-sm text-slate-900 dark:text-white">Nomadic</span>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-mono">Career Setup</span>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 select-none relative overflow-hidden">
+      {/* Subtle Background Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-powder-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${step >= 1 ? 'bg-black dark:bg-white' : 'bg-slate-300 dark:bg-zinc-800'}`} />
-          <div className={`w-2 h-2 rounded-full ${step >= 2 ? 'bg-black dark:bg-white' : 'bg-slate-300 dark:bg-zinc-800'}`} />
-          <span className="text-xs font-mono text-slate-500 dark:text-zinc-400 ml-2">Step {step} of 2</span>
-        </div>
-      </div>
+      {/* Main Container */}
+      <div className="w-full max-w-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 space-y-6 animate-in fade-in duration-200">
+        
+        {/* Top Header & Step Stepper */}
+        {step < 5 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs shadow-xs">
+                  N
+                </div>
+                <span className="text-xs font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                  Nomadic Setup
+                </span>
+              </div>
 
-      {/* Main Form Content */}
-      <div className="max-w-3xl w-full mx-auto my-auto py-8">
-        {step === 1 ? (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
-                Initialize your career profile
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
-                Enter your target role across any discipline (Product, Design, Marketing, Finance, Engineering, Operations). Our AI will analyze your background and structure your learning roadmap.
+              <div className="flex items-center gap-1.5 text-xs font-mono text-slate-400">
+                <span>Step {step} of 4</span>
+              </div>
+            </div>
+
+            {/* Visual Step Progress Bar */}
+            <div className="grid grid-cols-4 gap-1.5 pt-1">
+              {[1, 2, 3, 4].map((s) => (
+                <div
+                  key={s}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    s <= step
+                      ? 'bg-powder-500 dark:bg-powder-400'
+                      : 'bg-slate-100 dark:bg-zinc-800'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 1: IDENTITY & CONTACT ─────────────────────────────────── */}
+        {step === 1 && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                Welcome to Nomadic
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Let's set up your profile for personalized learning and autonomous ATS applications.
               </p>
             </div>
 
-            {/* Candidate Name & Contact */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
-                  First Name <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Jane"
-                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
-                  />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                    First Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="e.g. Alex"
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-powder-500 transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                    Last Name
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="e.g. Morgan"
+                      className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-powder-500 transition"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
-                  Phone Number <span className="text-red-500">*</span>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                  Phone Number <span className="text-slate-400 font-normal">(Used for ATS auto-fills)</span>
                 </label>
                 <div className="relative">
-                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 (555) 019-2834"
-                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                    placeholder="e.g. +91 98765 43210"
+                    className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-powder-500 transition"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Target Profession */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Target Role / Career Focus <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type="text"
-                  value={targetRoleTitle}
-                  onChange={(e) => setTargetRoleTitle(e.target.value)}
-                  placeholder="e.g. Software Engineer, Product Manager, UI/UX Designer, Growth Marketer, Data Analyst, Financial Analyst"
-                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
-                />
-              </div>
-              {/* Quick Role Suggestions */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                <span className="text-[10px] font-mono text-slate-400">Suggestions:</span>
-                {['Software Engineer', 'Product Manager', 'UI/UX Designer', 'Growth Marketer', 'Data Analyst', 'Financial Analyst', 'DevOps & Cloud', 'Operations Lead'].map(role => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => setTargetRoleTitle(role)}
-                    className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition"
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
+            <div className="pt-2 flex items-center justify-between">
+              {onSwitchToLogin ? (
+                <button
+                  type="button"
+                  onClick={onSwitchToLogin}
+                  className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 transition"
+                >
+                  Already have an account? Sign in
+                </button>
+              ) : <div />}
+
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                disabled={!firstName.trim()}
+                className="px-5 py-2.5 bg-black hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-black rounded-xl text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-40 shadow-xs"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 2: CAREER GOAL & AMBITION ─────────────────────────────── */}
+        {step === 2 && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                What is your target role?
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Nomadic creates tailored roadmaps and scans live ATS feeds matching your career goal.
+              </p>
             </div>
 
-            {/* Experience Level */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Current Experience Level
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {EXPERIENCE_LEVELS.map((lvl) => (
-                  <button
-                    key={lvl.id}
-                    type="button"
-                    onClick={() => setExperienceLevel(lvl.id)}
-                    className={`text-left p-3 rounded-xl border text-xs transition ${
-                      experienceLevel === lvl.id
-                        ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-semibold text-slate-950 dark:text-white shadow-2xs'
-                        : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400'
-                    }`}
-                  >
-                    <div className="font-medium text-slate-900 dark:text-zinc-200">{lvl.label}</div>
-                    <div className="text-[10px] text-slate-500 dark:text-zinc-500 mt-0.5">{lvl.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Timeline Horizon & Daily Commitment Calibration */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Target Horizon */}
+            <div className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Target Timeline Horizon</span>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                  Target Title / Profession <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    value={targetRoleTitle}
+                    onChange={(e) => setTargetRoleTitle(e.target.value)}
+                    placeholder="e.g. Software Engineer, Product Manager, UI/UX Designer..."
+                    className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-powder-500 transition"
+                  />
+                </div>
+
+                {/* Role Suggestion Pills */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[10px] font-mono text-slate-400">Suggestions:</span>
+                  {ROLE_SUGGESTIONS.map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setTargetRoleTitle(role)}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-lg border transition ${
+                        targetRoleTitle === role
+                          ? 'border-powder-500 bg-powder-50 dark:bg-powder-950/60 text-powder-900 dark:text-powder-300 font-bold'
+                          : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:border-slate-400'
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Experience Level Selector */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                  Experience Level
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {EXPERIENCE_LEVELS.map((lvl) => {
+                    const isSelected = experienceLevel === lvl.id;
+                    return (
+                      <button
+                        key={lvl.id}
+                        type="button"
+                        onClick={() => setExperienceLevel(lvl.id)}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-800/80'
+                            : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                        }`}
+                      >
+                        <div className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                          {lvl.label}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          {lvl.desc}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center gap-1 transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                disabled={!targetRoleTitle.trim()}
+                className="px-5 py-2.5 bg-black hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-black rounded-xl text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-40 shadow-xs"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3: TIMELINE, DAILY RHYTHM & RESUME ────────────────────── */}
+        {step === 3 && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                Target Rhythm &amp; Resume
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Configure your pace and attach your resume for automated ATS applications.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Target Horizon */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                  Target Timeline Horizon
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {TIMELINE_OPTIONS.map((opt) => (
@@ -445,24 +587,23 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       key={opt.id}
                       type="button"
                       onClick={() => setTargetHorizon(opt.id)}
-                      className={`text-center p-2.5 rounded-xl border text-xs transition ${
+                      className={`p-2.5 rounded-xl border text-center transition ${
                         targetHorizon === opt.id
-                          ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-bold text-slate-950 dark:text-white shadow-2xs'
-                          : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 text-slate-600 dark:text-zinc-400'
+                          ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-800 font-bold text-slate-900 dark:text-zinc-100'
+                          : 'border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300'
                       }`}
                     >
-                      <div className="font-semibold text-slate-900 dark:text-zinc-100">{opt.label}</div>
-                      <div className="text-[9px] text-slate-500 font-mono mt-0.5">{opt.sub}</div>
+                      <div className="text-xs">{opt.label}</div>
+                      <div className="text-[10px] text-slate-400 font-normal">{opt.sub}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Daily Commitment */}
-              <div className="space-y-2">
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Daily Time Commitment</span>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                  Daily Time Commitment
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {COMMITMENT_OPTIONS.map((opt) => (
@@ -470,267 +611,174 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       key={opt.id}
                       type="button"
                       onClick={() => setDailyCommitment(opt.id)}
-                      className={`text-center p-2.5 rounded-xl border text-xs transition ${
+                      className={`p-2.5 rounded-xl border text-center transition ${
                         dailyCommitment === opt.id
-                          ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-bold text-slate-950 dark:text-white shadow-2xs'
-                          : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 text-slate-600 dark:text-zinc-400'
+                          ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-800 font-bold text-slate-900 dark:text-zinc-100'
+                          : 'border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300'
                       }`}
                     >
-                      <div className="font-semibold text-slate-900 dark:text-zinc-100">{opt.label}</div>
-                      <div className="text-[9px] text-slate-500 font-mono mt-0.5">{opt.sub}</div>
+                      <div className="text-xs">{opt.label}</div>
+                      <div className="text-[10px] text-slate-400 font-normal">{opt.sub}</div>
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Skills selection */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              {/* Resume File Upload Card */}
+              <div className="space-y-1.5 pt-1">
                 <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                  Key Skills &amp; Competencies <span className="text-slate-400 font-normal">(Click suggestions below to add)</span>
+                  Attach Resume Document <span className="text-slate-400 font-normal">(.pdf or .docx)</span>
                 </label>
-                {selectedSkills.size > 0 && (
-                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                    {selectedSkills.size} selected
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {DEFAULT_POPULAR_SKILLS.map((skill) => {
-                  const active = selectedSkills.has(skill);
-                  return (
-                    <button
-                      key={skill}
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition flex items-center gap-1 ${
-                        active
-                          ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-semibold'
-                          : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:border-slate-400 dark:hover:border-zinc-600'
-                      }`}
-                    >
-                      {active ? <Check className="w-3 h-3 text-emerald-400 dark:text-emerald-600" /> : <Plus className="w-3 h-3 text-slate-400" />}
-                      <span>{skill}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <input
-                  type="text"
-                  value={newSkillInput}
-                  onChange={(e) => setNewSkillInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddSkill(); }}
-                  placeholder="Add custom competency (e.g. User Journey Mapping, Excel Modeling, Brand Identity)..."
-                  className="flex-1 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddSkill()}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 text-xs font-medium hover:bg-slate-50 dark:hover:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-
-            {/* Resume Upload File Box */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Upload Resume Document (.pdf, .docx) (Optional)
-              </label>
-              
-              {uploadedResumePath ? (
-                <div className="p-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
-                        {uploadedResumeName || uploadedResumePath.split(/[/\\]/).pop()}
+                <div className="p-4 border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between bg-slate-50 dark:bg-zinc-950">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate max-w-[200px] sm:max-w-xs">
+                        {uploadedResumeName || uploadedResumePath.split(/[/\\]/).pop() || 'No resume file attached yet'}
                       </div>
-                      <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-mono">
-                        ✓ Resume document attached successfully
+                      <div className="text-[10px] text-slate-400">
+                        {uploadedResumePath ? '✓ Attached for 1-click ATS auto-apply' : 'Optional — you can also add it later in Profile'}
                       </div>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handlePickResumeFile}
-                    className="text-xs text-slate-600 dark:text-zinc-400 hover:text-black dark:hover:text-white underline font-medium"
-                  >
-                    Change File
-                  </button>
+                  <label className="cursor-pointer px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-slate-400 rounded-xl text-xs font-semibold text-slate-800 dark:text-zinc-200 transition shadow-xs flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadedResumePath ? 'Change' : 'Browse'}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.docx,.doc"
+                      className="hidden"
+                      onChange={handlePickResumeFile}
+                      disabled={isPickingResumeFile}
+                    />
+                  </label>
                 </div>
-              ) : (
-                <div
-                  onClick={handlePickResumeFile}
-                  className="p-3.5 rounded-xl border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-slate-400 dark:hover:border-zinc-500 bg-slate-50/50 dark:bg-zinc-900/30 text-center cursor-pointer transition flex items-center justify-center gap-2"
-                >
-                  {isPickingResumeFile ? <Loader2 className="w-4 h-4 animate-spin text-slate-500" /> : <Upload className="w-4 h-4 text-slate-400" />}
-                  <span className="text-xs font-medium text-slate-700 dark:text-zinc-300">
-                    {isPickingResumeFile ? 'Selecting document...' : 'Click to attach your Resume (.pdf, .docx)'}
-                  </span>
-                </div>
-              )}
+              </div>
             </div>
 
-            {/* Resume / Background Text */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Summary, Bio or Resume Notes (Optional)
-              </label>
-              <textarea
-                value={bioOrResumeText}
-                onChange={(e) => setBioOrResumeText(e.target.value)}
-                rows={3}
-                placeholder="Paste your resume summary, portfolio details, or experience notes. AI will use this to fine-tune your personalized curriculum."
-                className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-3 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition resize-none font-mono"
-              />
+            <div className="pt-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center gap-1 transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep(4)}
+                className="px-5 py-2.5 bg-black hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-black rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 4: SKILLS & AI SYNTHESIS ──────────────────────────────── */}
+        {step === 4 && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                Select your key skills
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Click suggestions below or type custom tools to tailor your curriculum and auto-matches.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Custom Skill Input */}
+              <form onSubmit={handleAddSkill} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSkillInput}
+                  onChange={(e) => setNewSkillInput(e.target.value)}
+                  placeholder="Type custom skill and press Enter..."
+                  className="flex-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-powder-500 transition"
+                />
+                <button
+                  type="submit"
+                  disabled={!newSkillInput.trim()}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-900 dark:text-zinc-100 rounded-xl text-xs font-semibold transition disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </form>
+
+              {/* Suggestions Grid */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-700 dark:text-zinc-300">
+                    Suggested Competencies
+                  </span>
+                  {selectedSkills.size > 0 && (
+                    <span className="text-[10px] font-mono text-powder-600 dark:text-powder-400 font-bold">
+                      {selectedSkills.size} selected
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pt-0.5">
+                  {DEFAULT_POPULAR_SKILLS.map((skill) => {
+                    const active = selectedSkills.has(skill);
+                    return (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => toggleSkill(skill)}
+                        className={`text-xs px-2.5 py-1 rounded-lg border transition flex items-center gap-1 ${
+                          active
+                            ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-semibold'
+                            : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 hover:border-slate-400'
+                        }`}
+                      >
+                        {active ? <Check className="w-3 h-3 text-emerald-400 dark:text-emerald-600" /> : <Plus className="w-3 h-3 text-slate-400" />}
+                        <span>{skill}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {aiError && (
-              <div className="p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 text-xs text-red-600 dark:text-red-400">
+              <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-xs text-red-600 dark:text-red-400">
                 {aiError}
               </div>
             )}
 
-            {/* Action Bar */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-zinc-800">
-              {onSwitchToLogin ? (
-                <button
-                  type="button"
-                  onClick={onSwitchToLogin}
-                  className="text-xs text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition"
-                >
-                  Already have an account? Sign In
-                </button>
-              ) : <div />}
-
+            <div className="pt-2 flex items-center justify-between">
               <button
                 type="button"
-                disabled={isGenerating || !firstName.trim() || !phone.trim() || !targetRoleTitle.trim()}
-                onClick={handleGenerateAIProfile}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Synthesizing Curriculum...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Generate AI Curriculum</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Step 2: Confirmation & Overview */
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-[11px] font-medium text-slate-800 dark:text-zinc-200 mb-3">
-                <Sparkles className="w-3 h-3 text-emerald-500" />
-                <span>Curriculum Synthesized</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
-                Your Career Roadmap is Ready
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
-                Structured dynamic curriculum tailored for {synthesizedProfile.desiredTitle || targetRoleTitle} ({targetHorizon}, {dailyCommitment}).
-              </p>
-            </div>
-
-            {/* Profile Overview Card */}
-            <div className="bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {synthesizedProfile.firstName} {synthesizedProfile.lastName}
-                  </h3>
-                  <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                    {synthesizedProfile.desiredTitle} · {targetHorizon} Horizon ({dailyCommitment})
-                  </div>
-                </div>
-                <div className="text-xs font-mono font-bold text-slate-900 dark:text-zinc-100 bg-white dark:bg-black px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-800">
-                  {synthesizedProfile.desiredSalary || '₹12 LPA – ₹26 LPA'}
-                </div>
-              </div>
-
-              {/* Verified Competencies */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
-                  Competency Focus:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {(synthesizedProfile.techStack || '').split(',').map((skill, idx) => (
-                    <span
-                      key={idx}
-                      className="text-xs font-mono px-2 py-0.5 rounded bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200"
-                    >
-                      {skill.trim()}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Milestones Preview */}
-              {synthesizedRoadmap && synthesizedRoadmap.milestones && (
-                <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-zinc-800">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
-                    Curriculum Milestones ({synthesizedRoadmap.milestones.length} Phases):
-                  </span>
-                  <div className="space-y-2">
-                    {synthesizedRoadmap.milestones.map((m: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-mono font-bold flex items-center justify-center">
-                            {idx + 1}
-                          </span>
-                          <span className="font-semibold text-slate-900 dark:text-white">{m.title}</span>
-                        </div>
-                        <span className="text-[10px] font-mono text-slate-400">
-                          {m.estimatedHours || 20} hrs
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-zinc-800">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-medium hover:bg-slate-50 dark:hover:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition flex items-center gap-1.5"
+                onClick={() => setStep(3)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center gap-1 transition"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Adjust Parameters</span>
+                <span>Back</span>
               </button>
 
               <button
                 type="button"
+                onClick={handleGenerateAIProfile}
                 disabled={isGenerating}
-                onClick={handleFinalSubmit}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold hover:opacity-90 transition shadow-xs"
+                className="px-5 py-2.5 bg-black hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-black rounded-xl text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 shadow-xs"
               >
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving Profile...</span>
+                    <span>Synthesizing OS...</span>
                   </>
                 ) : (
                   <>
-                    <span>Enter Learner Workspace</span>
+                    <Sparkles className="w-3.5 h-3.5 text-powder-400" />
+                    <span>Generate Career OS</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
@@ -738,13 +786,79 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             </div>
           </div>
         )}
-      </div>
 
-      {/* Footer Branding */}
-      <div className="max-w-3xl w-full mx-auto text-center pt-4 border-t border-slate-100 dark:border-zinc-900 text-[11px] text-slate-400 font-mono">
-        Nomadic Career Intelligence Platform · Zero Operating Cost
-      </div>
+        {/* ── STEP 5: REVIEW SYNTHESIZED PROFILE & LAUNCH ────────────────── */}
+        {step === 5 && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-1 text-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold mb-2">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Operating System Synthesized</span>
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                Ready to Launch
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
+                Your personalized learning curriculum, 428+ company question bank, and ATS radar are prepared.
+              </p>
+            </div>
 
+            {/* Profile & Roadmap Summary Card */}
+            <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-zinc-800">
+                <div>
+                  <div className="font-bold text-slate-900 dark:text-zinc-100 text-sm">
+                    {firstName} {lastName}
+                  </div>
+                  <div className="text-slate-500 text-[11px] font-mono">
+                    {targetRoleTitle} · {targetHorizon} Horizon
+                  </div>
+                </div>
+                <div className="px-2.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg font-mono text-[10px] text-powder-600 dark:text-powder-400 font-bold">
+                  {experienceLevel.toUpperCase()}
+                </div>
+              </div>
+
+              {synthesizedRoadmap && (
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold text-slate-700 dark:text-zinc-300">
+                    {synthesizedRoadmap.title || '4-Phase Career Mastery Roadmap'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                    {synthesizedRoadmap.milestones?.slice(0, 4).map((m: any, idx: number) => (
+                      <div key={idx} className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800/80">
+                        <div className="font-bold text-slate-900 dark:text-zinc-100 truncate">{m.title}</div>
+                        <div className="text-slate-400">{m.estimatedHours || 25} hours estimated</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(4)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 flex items-center gap-1 transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Adjust Skills</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFinalizeAndLaunch}
+                className="px-6 py-3 bg-black hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-black rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-md active:scale-95"
+              >
+                <span>Launch My Workspace</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 };

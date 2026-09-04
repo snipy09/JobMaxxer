@@ -95,6 +95,6 @@ describe('10,000 Job Roles Dataset & AI Detection Engine', () => {
         onComplete: () => {},
       })
     );
-    expect(html).toContain('Initialize your career profile');
+    expect(html).toContain('Welcome to Nomadic');
   });
 });

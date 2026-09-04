@@ -413,33 +413,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
           </div>
         )}
 
-        {/* ── SEEKER OS PHILOSOPHY & WORKFLOW BANNER ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-700/60 text-xs">
-          <div className="flex items-start gap-2">
-            <span className="w-4 h-4 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5">1</span>
-            <div>
-              <span className="font-bold text-slate-900 dark:text-zinc-100">Live Verified Feed</span>
-              <p className="text-[10px] text-slate-500 dark:text-zinc-400">Greenhouse, Lever, Ashby, &amp; Internshala updated in real time.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <span className="w-4 h-4 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5">2</span>
-            <div>
-              <span className="font-bold text-slate-900 dark:text-zinc-100">Autonomous Apply</span>
-              <p className="text-[10px] text-slate-500 dark:text-zinc-400">Playwright stealth engine pre-fills forms &amp; solves AI questions.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <span className="w-4 h-4 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5">3</span>
-            <div>
-              <span className="font-bold text-slate-900 dark:text-zinc-100">HR Direct Outreach</span>
-              <p className="text-[10px] text-slate-500 dark:text-zinc-400">Reach verified engineering managers &amp; recruiters directly.</p>
-            </div>
-          </div>
-        </div>
-
         {/* Search Bar & Clean Filter Tabs: All, Internshala, Latest, High Match, Remote, Saved */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="relative w-full md:w-80">

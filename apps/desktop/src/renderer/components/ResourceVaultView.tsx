@@ -75,6 +75,10 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
     if (logMsg) onLog?.(logMsg);
   };
 
+  const handleOpenLeetCodeAll = () => {
+    handleOpenExternal('https://leetcode.com/problemset/all/', '[Resource Vault] Opened All LeetCode Questions in browser.');
+  };
+
   const allCompanyNames = useMemo(() => {
     return Object.keys(leetcodeCompaniesData).sort();
   }, []);
