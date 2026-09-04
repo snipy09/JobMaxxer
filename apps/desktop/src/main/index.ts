@@ -77,20 +77,22 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // ── Safe Chromium Flags for 100% Windows Hardware Compatibility ────────
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('disable-gpu-compositing');
+app.commandLine.appendSwitch('disable-gpu-rasterization');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
-// ── Deep Linking & OAuth ──────────────────────────────────────────────
-// Resilient deep linking protocol registration
-try {
-  app.setAsDefaultProtocolClient('nomadic');
-  app.setAsDefaultProtocolClient('hirestack');
-  app.setAsDefaultProtocolClient('jobmaxxer');
-} catch {}
-
-// Second-instance focus handler (never exit prematurely)
-try {
+// ── Single Instance Lock & Deep Linking ─────────────────────────────────
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
   app.on('second-instance', (event, commandLine) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -102,6 +104,13 @@ try {
       createWindow();
     }
   });
+}
+
+// Resilient deep linking protocol registration
+try {
+  app.setAsDefaultProtocolClient('nomadic');
+  app.setAsDefaultProtocolClient('hirestack');
+  app.setAsDefaultProtocolClient('jobmaxxer');
 } catch {}
 
 app.on('open-url', (event, url) => {
@@ -536,10 +545,19 @@ const ADMIN_NO_SERVICE_ERR =
   'Admin actions require SUPABASE_SERVICE_ROLE_KEY to be set on this machine (operator only).';
 
 function createWindow(): void {
-  const preloadPath = path.join(__dirname, 'preload.cjs');
+  const possiblePreload = [
+    path.join(__dirname, 'preload.cjs'),
+    path.join(app.getAppPath(), 'out/main/preload.cjs'),
+  ];
+  const preloadPath = possiblePreload.find(p => {
+    try { return fs.existsSync(p); } catch { return false; }
+  }) || path.join(__dirname, 'preload.cjs');
+
   const possibleIcons = [
     path.join(__dirname, '../../assets/icon.ico'),
+    path.join(app.getAppPath(), 'assets/icon.ico'),
     path.join(__dirname, '../renderer/assets/logo-icon.png'),
+    path.join(app.getAppPath(), 'out/renderer/assets/logo-icon.png'),
   ];
   const appIcon = possibleIcons.find(p => {
     try { return fs.existsSync(p); } catch { return false; }
@@ -565,6 +583,30 @@ function createWindow(): void {
     },
   });
 
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  // Failsafe: guarantee window visibility after 400ms across all Windows environments
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }, 400);
+
+  // Crash recovery listeners
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[Renderer Crash]', details);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[Renderer] Failed to load URL: ${validatedURL}, error: ${errorDescription} (${errorCode})`);
+  });
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (isSafeUrl(url)) {
       shell.openExternal(url);
@@ -584,7 +626,16 @@ function createWindow(): void {
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html')).catch((err) => {
+    const possibleHtmlPaths = [
+      path.join(__dirname, '../renderer/index.html'),
+      path.join(app.getAppPath(), 'out/renderer/index.html'),
+      path.join(process.resourcesPath || '', 'app.asar/out/renderer/index.html'),
+    ];
+    const htmlPath = possibleHtmlPaths.find(p => {
+      try { return fs.existsSync(p); } catch { return false; }
+    }) || path.join(__dirname, '../renderer/index.html');
+
+    mainWindow.loadFile(htmlPath).catch((err) => {
       console.error('[Window] loadFile error:', err);
     });
   }
@@ -674,7 +725,7 @@ app.on('window-all-closed', () => {
     oauthServer = null;
   }
   if (process.platform !== 'darwin') {
-    app.exit(0);
+    app.quit();
   }
 });
 
