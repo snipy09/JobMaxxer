@@ -32,7 +32,7 @@ export default function Download() {
     }
   }, []);
 
-  const handleDownloadClick = (portable: boolean = false) => {
+  const handleDownloadClick = () => {
     setDownloadStarted(true);
 
     // Anime.js pulse feedback
@@ -49,10 +49,9 @@ export default function Download() {
     }
 
     // Trigger download
-    const fileName = portable ? 'Nomadic-1.0.0.exe' : 'Nomadic-Setup-1.0.0.exe';
     const link = document.createElement('a');
-    link.href = `./${fileName}`;
-    link.download = fileName;
+    link.href = './Nomadic-Setup-1.0.0.exe';
+    link.download = 'Nomadic-Setup-1.0.0.exe';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -162,27 +161,18 @@ export default function Download() {
               </ul>
             </div>
 
-            <div className="space-y-2.5 pt-4 border-t border-ink-100">
+            <div className="space-y-3 pt-4 border-t border-ink-100">
               <button
                 type="button"
-                onClick={() => handleDownloadClick(false)}
+                onClick={handleDownloadClick}
                 className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95"
               >
                 <DownloadIcon className="w-4 h-4" />
-                <span>Download Windows Installer (Setup.exe)</span>
+                <span>Download for Windows (Setup.exe)</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => handleDownloadClick(true)}
-                className="w-full py-2.5 bg-ink-100 hover:bg-ink-200 text-ink-900 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                <DownloadIcon className="w-3.5 h-3.5" />
-                <span>Download Portable (.exe — No Install)</span>
-              </button>
-
-              <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1 pt-1">
-                <span>Version 1.0.0 (Windows x64)</span>
+              <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
+                <span>File: Nomadic-Setup-1.0.0.exe</span>
                 <span>SHA-256 Verified</span>
               </div>
             </div>
