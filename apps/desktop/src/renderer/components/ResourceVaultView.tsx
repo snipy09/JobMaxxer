@@ -54,7 +54,16 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
   const [problemSearch, setProblemSearch] = useState<string>('');
   const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
 
-  const isFree = !currentUser?.tier || currentUser?.tier === 'free';
+  const hasLearnerProOrAbove = Boolean(
+    currentUser?.tier === 'learner_pro' ||
+    currentUser?.tier === 'seeker_pro' ||
+    currentUser?.tier === 'seeker_max' ||
+    currentUser?.tier === 'max' ||
+    currentUser?.tier === 'lifetime'
+  );
+  const isFree = !hasLearnerProOrAbove;
+
+  const FREE_PREVIEW_COMPANIES = ['Google', 'Meta', 'Amazon'];
 
   const handleOpenExternal = (url: string, logMsg?: string) => {
     const api = getApi();
@@ -237,22 +246,29 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
               {(companySearch ? filteredCompanyNames.slice(0, 30) : POPULAR_COMPANIES).map((comp) => {
                 const isSelected = selectedCompany === comp;
                 const count = leetcodeCompaniesData[comp]?.questionCount || 0;
+                const isCompanyLocked = isFree && !FREE_PREVIEW_COMPANIES.includes(comp);
 
                 return (
                   <button
                     key={comp}
                     type="button"
                     onClick={() => {
-                      setSelectedCompany(comp);
-                      setProblemSearch('');
+                      if (isCompanyLocked) {
+                        onOpenUpgrade?.(`Company Problem Sets for ${comp} (Learner Pro)`);
+                      } else {
+                        setSelectedCompany(comp);
+                        setProblemSearch('');
+                      }
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                       isSelected
                         ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-xs'
+                        : isCompanyLocked
+                        ? 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-emerald-400 border border-slate-200/80 dark:border-zinc-700'
                         : 'bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 border border-slate-200/80 dark:border-zinc-700'
                     }`}
                   >
-                    <span>{comp}</span>
+                    <span>{isCompanyLocked ? `🔒 ${comp}` : comp}</span>
                     <span className={`text-[10px] font-mono px-1 rounded ${
                       isSelected
                         ? 'bg-white/20 dark:bg-black/20 text-white dark:text-black'
