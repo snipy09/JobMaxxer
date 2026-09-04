@@ -585,6 +585,26 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(mainDir, '../renderer/index.html'));
   }
 
+  // ── Keyboard Shortcuts: F12 (DevTools) & Ctrl+Shift+R (Reload) ───────────
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown') {
+      // F12 or Ctrl+Shift+I -> Toggle DevTools
+      if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+        mainWindow?.webContents.toggleDevTools();
+        event.preventDefault();
+      }
+      // Ctrl+Shift+R or Ctrl+R or F5 -> Hard reload renderer
+      if (
+        (input.control && input.shift && input.key.toLowerCase() === 'r') ||
+        (input.control && input.key.toLowerCase() === 'r') ||
+        input.key === 'F5'
+      ) {
+        mainWindow?.webContents.reloadIgnoringCache();
+        event.preventDefault();
+      }
+    }
+  });
+
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 

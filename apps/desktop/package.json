@@ -6,7 +6,7 @@
   "main": "out/main/index.cjs",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && node build-main.mjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --disable-gpu .\"",
+    "dev": "concurrently \"vite\" \"node build-main.mjs --watch\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --disable-gpu .\"",
     "vite:dev": "vite",
     "electron:dev": "wait-on http://localhost:5173 && node build-main.mjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --disable-gpu .",
     "start": "electron --disable-gpu .",

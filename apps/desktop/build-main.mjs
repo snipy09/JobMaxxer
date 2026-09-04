@@ -8,10 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Hardcode official Supabase public endpoints for production client binaries
 const DEFAULT_SUPABASE_URL = 'https://jympejesevicwleptfzq.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bXBlamVzZXZpY3dsZXB0ZnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczOTU5NzQsImV4cCI6MjEwMjk3MTk3NH0.1b6XFrIxH1hLVdjp2arHLdJ4fkiKV-0gb6yNZ7eMbPA';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bXBlamVzZXZpY3dsZXB0ZnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAzODU0NDEsImV4cCI6MjA1NTk2MTQ0MX0.mE556iJzD3Y74vR8W_l5YxZMbPAnm4sQd90vjE8MbPA';
+
+const isWatch = process.argv.includes('--watch');
 
 async function build() {
-  console.log('[Build] Bundling main process and preload script with esbuild...');
+  console.log(`[Build] Bundling main process and preload script with esbuild (${isWatch ? 'watch mode' : 'single build'})...`);
 
   const googleIdParts = ['762160653751', 'u9gnn1sm9frqpjke4ajuhqcni569nplf', 'apps.googleusercontent.com'];
   const googleSecParts = ['GOCSPX', '9FxM3VXFYGeE2kd', 'F-FnQ2WlTAzQ'];
@@ -49,8 +51,7 @@ async function build() {
     console.warn('[Build Warning] sql-wasm.wasm not found in node_modules/sql.js/dist');
   }
 
-  // 1. Bundle Main Process
-  await esbuild.build({
+  const mainConfig = {
     entryPoints: [path.join(__dirname, 'src/main/index.ts')],
     outfile: path.join(__dirname, 'out/main/index.cjs'),
     bundle: true,
@@ -60,6 +61,7 @@ async function build() {
     define,
     external: [
       'electron',
+      'electron-reload',
       'fsevents',
       'playwright',
       'playwright-core',
@@ -77,10 +79,9 @@ async function build() {
     banner: {
       js: '// Nomadic Main Process Bundle',
     },
-  });
+  };
 
-  // 2. Bundle Preload Script
-  await esbuild.build({
+  const preloadConfig = {
     entryPoints: [path.join(__dirname, 'src/main/preload.ts')],
     outfile: path.join(__dirname, 'out/main/preload.cjs'),
     bundle: true,
@@ -91,9 +92,19 @@ async function build() {
     external: ['electron'],
     sourcemap: false,
     minify: process.env.NODE_ENV === 'production',
-  });
+  };
 
-  console.log('[Build] Main process & preload bundled successfully ✓');
+  if (isWatch) {
+    const mainCtx = await esbuild.context(mainConfig);
+    const preloadCtx = await esbuild.context(preloadConfig);
+    await mainCtx.watch();
+    await preloadCtx.watch();
+    console.log('[Build] Watching main process & preload for changes ✓');
+  } else {
+    await esbuild.build(mainConfig);
+    await esbuild.build(preloadConfig);
+    console.log('[Build] Main process & preload bundled successfully ✓');
+  }
 }
 
 build().catch((err) => {
