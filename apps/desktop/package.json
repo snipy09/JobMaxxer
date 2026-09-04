@@ -15,7 +15,7 @@
     "package:win": "node build-main.mjs && vite build && electron-builder --win nsis portable"
   },
   "build": {
-    "appId": "com.nomadic.desktop",
+    "appId": "com.nomadic.career.os",
     "productName": "Nomadic",
     "electronVersion": "31.7.7",
     "directories": {

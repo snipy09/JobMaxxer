@@ -59,7 +59,7 @@ import {
 
 const mainDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(process.execPath);
 
-app.setName('Nomadic');
+app.setName('Nomadic Career OS');
 const nomadicUserData = path.join(app.getPath('appData'), 'Nomadic');
 if (!fs.existsSync(nomadicUserData)) {
   try {
@@ -96,19 +96,21 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient('jobmaxxer');
 }
 
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (event, commandLine) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-      const url = commandLine.find(arg => arg.startsWith('nomadic://') || arg.startsWith('hirestack://') || arg.startsWith('jobmaxxer://'));
-      if (url) handleProtocolUrl(url);
-    }
-  });
-}
+// Resilient instance management: never let orphan background processes block new window launches
+try {
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (gotTheLock) {
+    app.on('second-instance', (event, commandLine) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+        const url = commandLine.find(arg => arg.startsWith('nomadic://') || arg.startsWith('hirestack://') || arg.startsWith('jobmaxxer://'));
+        if (url) handleProtocolUrl(url);
+      }
+    });
+  }
+} catch {}
 
 app.on('open-url', (event, url) => {
   event.preventDefault();
