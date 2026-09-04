@@ -466,7 +466,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
               onClick={() => checkProfileAndRun(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 50).map(j => j.applyUrl), 'autonomous')}
               disabled={executingAutoApply}
               className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
-              title="100% autonomous background application submission in 10 sequential batches of 5 jobs with Groq AI question answering"
+              title="100% autonomous background application submission in sequential batches with automated question answering"
             >
               <Zap className="w-3.5 h-3.5 text-emerald-400 fill-current" />
               <span>Autonomous Apply ({selectedUrls.size > 0 ? `${selectedUrls.size} Selected` : '50 Jobs / 10 Batches'})</span>
@@ -861,7 +861,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Autonomous Apply Engine Active</h3>
-                  <p className="text-[11px] text-slate-500 font-mono">Playwright Stealth + Groq LLaMA 3.1 8B</p>
+                  <p className="text-[11px] text-slate-500 font-mono">Playwright Stealth + Neural Form Solver</p>
                 </div>
               </div>
               {autoApplyProgress === 100 && (

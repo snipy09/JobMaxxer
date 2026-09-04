@@ -3,42 +3,40 @@ import {
   ArrowRight, ArrowLeft, Check, User,
   Briefcase, Target, Clock, Search,
   Compass, BookOpen, Layers, CheckCircle2,
-  Code2, Phone, Mail, Loader2, Key, Upload, FileText,
-  Shield, Cpu, Zap, Sparkles, ExternalLink
+  Code2, Phone, Mail, Lock, Shield, Sparkles,
+  Zap, FileText, Upload, Key, Loader2, Calendar
 } from 'lucide-react';
-import { MasterProfile, AppUser, getApi } from '../types';
+import { MasterProfile, getApi } from '../types';
 
 interface OnboardingWizardProps {
   initialProfile: MasterProfile;
-  currentUser?: AppUser | null;
-  onComplete: (profile: MasterProfile) => void;
+  currentUser?: { email?: string; fullName?: string } | null;
+  onComplete: (completedProfile: MasterProfile) => void;
   onSwitchToLogin?: () => void;
 }
 
 const EXPERIENCE_LEVELS = [
-  { id: 'fresher', label: 'Fresher / Student', desc: '0 – 1 years · Looking for internships or entry-level positions' },
-  { id: 'junior', label: 'Junior Associate', desc: '1 – 2 years · Solid fundamentals, looking to level up' },
-  { id: 'mid', label: 'Mid-Level Specialist', desc: '2 – 5 years · Experience delivering real-world projects & outcomes' },
-  { id: 'senior', label: 'Senior / Lead', desc: '5+ years · Strategy, system leadership, and high-stakes execution' },
-  { id: 'switcher', label: 'Career Switcher', desc: 'Transitioning from another discipline into this career path' },
+  { id: 'fresher', label: 'Entry / Early Career', desc: '0–2 years or transitioning fields' },
+  { id: 'mid', label: 'Mid-Level Specialist', desc: '2–5 years of domain execution' },
+  { id: 'senior', label: 'Senior & Leadership', desc: '5+ years leading projects or teams' },
+];
+
+const TIMELINE_OPTIONS = [
+  { id: '1 Month', label: '1 Month', sub: 'Fast-Track / Sprint' },
+  { id: '3 Months', label: '3 Months', sub: 'Standard (Recommended)' },
+  { id: '6 Months', label: '6 Months', sub: 'Comprehensive Mastery' },
+];
+
+const COMMITMENT_OPTIONS = [
+  { id: '1 Hour/Day', label: '1 Hour / Day', sub: 'Consistent Pacing' },
+  { id: '2 Hours/Day', label: '2 Hours / Day', sub: 'Optimal Growth' },
+  { id: '4+ Hours/Day', label: '4+ Hours / Day', sub: 'Full Immersion' },
 ];
 
 const DEFAULT_POPULAR_SKILLS = [
-  'Product Strategy', 'UI/UX Design', 'Figma', 'TypeScript',
-  'React', 'Growth Marketing', 'SQL', 'Project Management',
-  'Financial Modeling', 'Data Analysis', 'SEO / SEM', 'Python',
-  'User Research', 'Brand Strategy', 'Workflow Automation', 'Operations'
-];
-
-const SUGGESTED_ROLES = [
-  'Product Manager',
-  'UI/UX & Product Designer',
-  'Full Stack Software Engineer',
-  'Growth Marketing Manager',
-  'Data & Business Analyst',
-  'Financial Analyst',
-  'Operations Lead',
-  'Content & Brand Strategist',
+  'Product Strategy', 'UI/UX Design', 'User Research', 'SQL & Data Analysis',
+  'TypeScript', 'React', 'Python', 'Growth Marketing & SEO',
+  'Financial Modeling', 'Project Management', 'System Architecture', 'Market Research'
 ];
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
@@ -60,13 +58,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [phone, setPhone] = useState<string>(initialProfile.phone || '');
   const [targetRoleTitle, setTargetRoleTitle] = useState<string>(initialProfile.desiredTitle || 'Product Manager');
   const [experienceLevel, setExperienceLevel] = useState<string>(initialProfile.experienceLevel || 'fresher');
+  const [targetHorizon, setTargetHorizon] = useState<string>('3 Months');
+  const [dailyCommitment, setDailyCommitment] = useState<string>('2 Hours/Day');
   const [bioOrResumeText, setBioOrResumeText] = useState<string>(initialProfile.resumeText || '');
   const [uploadedResumePath, setUploadedResumePath] = useState<string>(initialProfile.resumeFilePath || '');
   const [uploadedResumeName, setUploadedResumeName] = useState<string>('');
   const [isPickingResumeFile, setIsPickingResumeFile] = useState<boolean>(false);
-  const [customGeminiKey, setCustomGeminiKey] = useState<string>(initialProfile.geminiApiKey || '');
+  const [customAiKey, setCustomAiKey] = useState<string>(initialProfile.geminiApiKey || '');
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(() => {
-    const s = new Set<string>(['Product Strategy', 'UI/UX Design', 'User Research', 'SQL']);
+    const s = new Set<string>(['Product Strategy', 'UI/UX Design', 'User Research', 'SQL & Data Analysis']);
     if (initialProfile.techStack) {
       initialProfile.techStack.split(',').map(x => x.trim()).filter(Boolean).forEach(x => s.add(x));
     }
@@ -149,7 +149,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         experienceLevel,
         bioOrResumeText: bioOrResumeText.trim(),
         customSkills: Array.from(selectedSkills),
-        geminiKey: customGeminiKey.trim() || undefined,
+        targetHorizon,
+        dailyCommitment,
+        geminiKey: customAiKey.trim() || undefined,
         groqKey: initialProfile.groqApiKey || undefined,
       });
 
@@ -167,7 +169,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           resumeText: bioOrResumeText.trim() || res.profile.resumeText || '',
           resumeFilePath: uploadedResumePath || initialProfile.resumeFilePath,
           experienceLevel: experienceLevel as any,
-          geminiApiKey: customGeminiKey.trim() || undefined,
+          geminiApiKey: customAiKey.trim() || undefined,
           onboardingCompleted: true,
         });
         setSynthesizedRoadmap(roadmapObj);
@@ -185,6 +187,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         title: `${targetRoleTitle.trim() || 'Career'} Acceleration Roadmap`,
         domain: 'Professional Track',
         targetRoles: [targetRoleTitle.trim() || 'Specialist'],
+        targetHorizon,
+        dailyCommitment,
         milestones: [
           {
             id: 'phase-1',
@@ -197,16 +201,16 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 id: 'sub-1-1',
                 title: 'Fundamentals & Industry Standards',
                 description: 'Key principles, frameworks, and workflow best practices.',
-                keyConcepts: ['Core theory', 'Workflow standards', 'Daily toolkits'],
+                keyConcepts: ['Core theory & standards', 'Daily productivity tools', 'Workflow execution'],
                 resources: [
-                  { title: 'Foundational Overview & Guide', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' basics')}`, type: 'video' }
+                  { title: `${targetRoleTitle} Fundamentals Masterclass`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' basics')}`, type: 'video', duration: '35 mins' }
                 ]
               }
             ]
           },
           {
             id: 'phase-2',
-            title: 'Phase 2: Intermediate Execution & Strategy',
+            title: 'Phase 2: Intermediate Execution & Deliverables',
             level: 'Practice',
             estimatedHours: 30,
             description: 'Practical project deliverables, case studies, and artifact creation.',
@@ -215,9 +219,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 id: 'sub-2-1',
                 title: 'Deliverables & Case Execution',
                 description: 'Hands-on workflow execution and deliverable management.',
-                keyConcepts: ['Execution framework', 'Quality metrics', 'Collaboration'],
+                keyConcepts: ['Execution framework', 'Quality metrics', 'Cross-functional alignment'],
                 resources: [
-                  { title: 'Case Study & Project Guide', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' case study')}`, type: 'video' }
+                  { title: `${targetRoleTitle} Case Study Breakdown`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' case study')}`, type: 'video', duration: '40 mins' }
                 ]
               }
             ]
@@ -235,8 +239,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         techStack: fallbackStack || 'Strategy, Analysis, Execution',
         desiredSalary: '₹12 LPA – ₹26 LPA · $90k – $150k',
         resumeText: bioOrResumeText.trim(),
+        resumeFilePath: uploadedResumePath || initialProfile.resumeFilePath,
         experienceLevel: experienceLevel as any,
-        geminiApiKey: customGeminiKey.trim() || undefined,
+        geminiApiKey: customAiKey.trim() || undefined,
         onboardingCompleted: true,
       });
       setSynthesizedRoadmap(fallbackRoadmap);
@@ -261,7 +266,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       desiredTitle: synthesizedProfile.desiredTitle || targetRoleTitle,
       techStack: synthesizedProfile.techStack || Array.from(selectedSkills).join(', '),
       resumeFilePath: uploadedResumePath || synthesizedProfile.resumeFilePath || initialProfile.resumeFilePath,
-      geminiApiKey: customGeminiKey.trim() || undefined,
+      geminiApiKey: customAiKey.trim() || undefined,
       onboardingCompleted: true,
     };
 
@@ -273,8 +278,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           roleTitle: finalProf.desiredTitle || targetRoleTitle,
           domain: synthesizedRoadmap.domain || 'Professional Track',
           roadmapJson: JSON.stringify(synthesizedRoadmap),
-          targetHorizon: '2 Months',
-          dailyCommitment: '2 Hours/Day',
+          targetHorizon,
+          dailyCommitment,
         });
       }
       if (api.logUserActivity) {
@@ -310,40 +315,39 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         </div>
       </div>
 
-      {/* Main Container */}
+      {/* Main Form Content */}
       <div className="max-w-3xl w-full mx-auto my-auto py-8">
-        
         {step === 1 ? (
-          /* ── STEP 1: CANDIDATE INFO & UNIVERSAL CAREER GOAL ──────────────── */
-          <div className="space-y-8 animate-in fade-in duration-200">
+          <div className="space-y-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
                 Initialize your career profile
               </h1>
-              <p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">
-                Enter your target role across any discipline (Product, Design, Marketing, Finance, Engineering, Operations). Gemini AI will analyze your background and structure your learning roadmap.
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
+                Enter your target role across any discipline (Product, Design, Marketing, Finance, Engineering, Operations). Our AI will analyze your background and structure your learning roadmap.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Candidate Name & Contact */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
                   First Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
+                  <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Jane"
-                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
                   Last Name
                 </label>
                 <input
@@ -351,88 +355,58 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Doe"
-                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
+                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+1 (555) 019-2834"
-                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
-                  Account Email
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
-                  <input
-                    type="email"
-                    disabled
-                    value={userEmail || 'user@nomadic.app'}
-                    className="w-full bg-slate-100 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-500 dark:text-zinc-400 cursor-not-allowed"
+                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Target Role with Real-time autocomplete suggestions */}
+            {/* Target Profession */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Target Role / Career Goal <span className="text-red-500">*</span>
+                Target Role / Career Focus <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <Briefcase className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
+                <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
                   type="text"
                   value={targetRoleTitle}
                   onChange={(e) => setTargetRoleTitle(e.target.value)}
-                  placeholder="e.g. Product Manager, UI/UX Designer, Growth Marketing, Software Engineer, Financial Analyst"
-                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                  placeholder="e.g. Product Manager, UI/UX Designer, Growth Marketer, Software Engineer, Financial Analyst, Operations Lead"
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
                 />
-              </div>
-
-              {/* Popular career role suggestions */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                <span className="text-[11px] text-slate-400 dark:text-zinc-500">Popular Paths:</span>
-                {SUGGESTED_ROLES.map((title) => (
-                  <button
-                    key={title}
-                    type="button"
-                    onClick={() => setTargetRoleTitle(title)}
-                    className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition"
-                  >
-                    {title}
-                  </button>
-                ))}
               </div>
             </div>
 
-            {/* Seniority Level */}
+            {/* Experience Level */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
                 Current Experience Level
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {EXPERIENCE_LEVELS.slice(0, 3).map((lvl) => (
+                {EXPERIENCE_LEVELS.map((lvl) => (
                   <button
                     key={lvl.id}
                     type="button"
                     onClick={() => setExperienceLevel(lvl.id)}
                     className={`text-left p-3 rounded-xl border text-xs transition ${
                       experienceLevel === lvl.id
-                        ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-semibold text-slate-950 dark:text-white'
+                        ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-semibold text-slate-950 dark:text-white shadow-2xs'
                         : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400'
                     }`}
                   >
@@ -443,10 +417,63 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               </div>
             </div>
 
+            {/* Timeline Horizon & Daily Commitment Calibration */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Target Horizon */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Target Timeline Horizon</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {TIMELINE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setTargetHorizon(opt.id)}
+                      className={`text-center p-2.5 rounded-xl border text-xs transition ${
+                        targetHorizon === opt.id
+                          ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-bold text-slate-950 dark:text-white shadow-2xs'
+                          : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 text-slate-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      <div className="font-semibold text-slate-900 dark:text-zinc-100">{opt.label}</div>
+                      <div className="text-[9px] text-slate-500 font-mono mt-0.5">{opt.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Daily Commitment */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Daily Time Commitment</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {COMMITMENT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setDailyCommitment(opt.id)}
+                      className={`text-center p-2.5 rounded-xl border text-xs transition ${
+                        dailyCommitment === opt.id
+                          ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-bold text-slate-950 dark:text-white shadow-2xs'
+                          : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 text-slate-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      <div className="font-semibold text-slate-900 dark:text-zinc-100">{opt.label}</div>
+                      <div className="text-[9px] text-slate-500 font-mono mt-0.5">{opt.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             {/* Skills selection */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Key Skills & Competencies
+                Key Skills &amp; Competencies
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {DEFAULT_POPULAR_SKILLS.map((skill) => {
@@ -537,27 +564,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 value={bioOrResumeText}
                 onChange={(e) => setBioOrResumeText(e.target.value)}
                 rows={3}
-                placeholder="Paste your resume summary, portfolio details, or experience notes. Gemini will use this to fine-tune your personalized curriculum."
+                placeholder="Paste your resume summary, portfolio details, or experience notes. AI will use this to fine-tune your personalized curriculum."
                 className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-3 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition resize-none font-mono"
-              />
-            </div>
-
-            {/* Optional Custom Gemini Key */}
-            <div className="border border-slate-200 dark:border-zinc-800 rounded-xl p-3 bg-slate-50/50 dark:bg-zinc-900/40 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-slate-500" /> Google Gemini API Key (Optional)
-                </span>
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
-                  Built-in Free AI Active
-                </span>
-              </div>
-              <input
-                type="password"
-                value={customGeminiKey}
-                onChange={(e) => setCustomGeminiKey(e.target.value)}
-                placeholder="Paste your personal Gemini API key or leave blank for built-in engine"
-                className="w-full bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 transition font-mono"
               />
             </div>
 
@@ -588,11 +596,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Analyzing with Gemini...</span>
+                    <span>Synthesizing Curriculum...</span>
                   </>
                 ) : (
                   <>
-                    <span>Generate AI Track & Roadmap</span>
+                    <span>Generate AI Curriculum</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
@@ -600,43 +608,47 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             </div>
           </div>
         ) : (
-          /* ── STEP 2: AI SYNTHESIS REVIEW & CONFIRMATION ──────────────────── */
-          <div className="space-y-6 animate-in fade-in duration-200">
+          /* Step 2: Confirmation & Overview */
+          <div className="space-y-6 animate-in fade-in duration-300">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
-                Review Your Learning Track
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-[11px] font-medium text-slate-800 dark:text-zinc-200 mb-3">
+                <Sparkles className="w-3 h-3 text-emerald-500" />
+                <span>Curriculum Synthesized</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white">
+                Your Career Roadmap is Ready
               </h1>
-              <p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">
-                Gemini synthesized a comprehensive curriculum for {synthesizedProfile.desiredTitle || targetRoleTitle}. You can launch directly into your personalized workspace.
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
+                Structured dynamic curriculum tailored for {synthesizedProfile.desiredTitle || targetRoleTitle} ({targetHorizon}, {dailyCommitment}).
               </p>
             </div>
 
             {/* Profile Overview Card */}
             <div className="bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-zinc-800 pb-4">
+              <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">
-                    {firstName} {lastName}
-                  </div>
-                  <div className="text-xs font-mono text-slate-500 dark:text-zinc-400 mt-0.5">
-                    {userEmail || 'user@nomadic.app'} · {phone}
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {synthesizedProfile.firstName} {synthesizedProfile.lastName}
+                  </h3>
+                  <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    {synthesizedProfile.desiredTitle} · {targetHorizon} Horizon ({dailyCommitment})
                   </div>
                 </div>
-                <div className="px-2.5 py-1 rounded-md bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 text-xs font-medium text-slate-800 dark:text-zinc-200">
-                  {synthesizedProfile.desiredTitle || targetRoleTitle}
+                <div className="text-xs font-mono font-bold text-slate-900 dark:text-zinc-100 bg-white dark:bg-black px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-800">
+                  {synthesizedProfile.desiredSalary || '₹12 LPA – ₹26 LPA'}
                 </div>
               </div>
 
-              {/* Skills */}
+              {/* Verified Competencies */}
               <div className="space-y-1.5">
-                <span className="text-[11px] font-mono uppercase text-slate-400 dark:text-zinc-500">
-                  Core Competencies & Tools
+                <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
+                  Competency Focus:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {(synthesizedProfile.techStack || '').split(',').map((skill, idx) => (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 rounded-md bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 text-xs text-slate-800 dark:text-zinc-200"
+                      className="text-xs font-mono px-2 py-0.5 rounded bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200"
                     >
                       {skill.trim()}
                     </span>
@@ -644,74 +656,50 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 </div>
               </div>
 
-              {/* Estimated Compensation */}
-              {synthesizedProfile.desiredSalary && (
-                <div className="text-xs text-slate-600 dark:text-zinc-400 flex items-center gap-2">
-                  <span className="text-slate-400 dark:text-zinc-500">Market Range:</span>
-                  <span className="font-mono font-medium text-slate-900 dark:text-zinc-100">
-                    {synthesizedProfile.desiredSalary}
+              {/* Milestones Preview */}
+              {synthesizedRoadmap && synthesizedRoadmap.milestones && (
+                <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-zinc-800">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
+                    Curriculum Milestones ({synthesizedRoadmap.milestones.length} Phases):
                   </span>
+                  <div className="space-y-2">
+                    {synthesizedRoadmap.milestones.map((m: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-mono font-bold flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{m.title}</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {m.estimatedHours || 20} hrs
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Generated Dynamic Roadmap Preview */}
-            {synthesizedRoadmap && synthesizedRoadmap.milestones && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-black dark:text-white" />
-                    <span>Generated Track: {synthesizedRoadmap.title}</span>
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
-                    {synthesizedRoadmap.milestones.length} Phases
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {synthesizedRoadmap.milestones.map((m: any, i: number) => (
-                    <div
-                      key={m.id || i}
-                      className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-start gap-3"
-                    >
-                      <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5 font-bold">
-                        {i + 1}
-                      </div>
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 truncate">
-                            {m.title}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 shrink-0">
-                            {m.level || 'Core'}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1">
-                          {m.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Bottom Actions */}
+            {/* Actions */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-zinc-800">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition"
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-medium hover:bg-slate-50 dark:hover:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition flex items-center gap-1.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Edit</span>
+                <span>Adjust Parameters</span>
               </button>
 
               <button
                 type="button"
                 disabled={isGenerating}
                 onClick={handleFinalSubmit}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-xs"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold hover:opacity-90 transition shadow-xs"
               >
                 {isGenerating ? (
                   <>
@@ -720,22 +708,19 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Confirm & Go to Learner Track</span>
+                    <span>Enter Learner Workspace</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
             </div>
           </div>
         )}
-
       </div>
 
-      {/* Footer */}
-      <div className="max-w-3xl w-full mx-auto text-center border-t border-slate-100 dark:border-zinc-900 pt-4">
-        <p className="text-[11px] text-slate-400 dark:text-zinc-600">
-          Nomadic Offline-First Storage · Career and learning progress stored locally in SQLite
-        </p>
+      {/* Footer Branding */}
+      <div className="max-w-3xl w-full mx-auto text-center pt-4 border-t border-slate-100 dark:border-zinc-900 text-[11px] text-slate-400 font-mono">
+        Nomadic Career Intelligence Platform · Zero Operating Cost
       </div>
 
     </div>

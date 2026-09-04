@@ -622,10 +622,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-emerald-500" />
-              <span>Built-in Gemini AI Engine</span>
+              <span>Built-in Neural AI Engine</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Powered by Google Gemini 3.6 Flash for intelligent open-ended job autofill and STAR interview grading.
+              High-speed neural AI pipeline for intelligent open-ended job autofill, career roadmap synthesis, and interview prep.
             </p>
           </div>
 

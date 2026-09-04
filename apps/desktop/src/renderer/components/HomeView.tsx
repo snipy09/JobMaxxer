@@ -412,7 +412,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {hasGroqKey ? 'AI Enhanced (Groq LLM + Heuristics)' : 'Active (Profile & ATS Heuristics)'}
+            {hasGroqKey ? 'AI Enhanced (Neural Model + Heuristics)' : 'Active (Profile & ATS Heuristics)'}
           </p>
         </div>
       </div>

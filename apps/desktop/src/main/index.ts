@@ -1663,15 +1663,21 @@ ipcMain.handle('generate-ai-onboarding-profile', async (_, params: {
   experienceLevel?: string;
   bioOrResumeText?: string;
   customSkills?: string[];
+  targetHorizon?: string;
+  dailyCommitment?: string;
   geminiKey?: string;
   groqKey?: string;
 }) => {
-  const { targetRole, experienceLevel, bioOrResumeText, customSkills, geminiKey, groqKey } = params;
-  log(`[AI Onboarding] Synthesizing candidate profile & roadmap for: "${targetRole}"...`);
+  const { targetRole, experienceLevel, bioOrResumeText, customSkills, targetHorizon, dailyCommitment, geminiKey, groqKey } = params;
+  const horizon = targetHorizon || '3 Months';
+  const commitment = dailyCommitment || '2 Hours/Day';
+  log(`[AI Onboarding] Synthesizing candidate profile & roadmap for: "${targetRole}" (${horizon}, ${commitment})...`);
 
   const prompt = `Candidate Input:
-- Target Role / Career Goal: ${targetRole || 'Software Engineer / Product Designer / Manager'}
+- Target Role / Career Goal: ${targetRole || 'Professional Specialist'}
 - Seniority/Level: ${experienceLevel || 'fresher'}
+- Target Timeline: ${horizon}
+- Daily Commitment: ${commitment}
 - Skills / Background: ${(customSkills || []).join(', ')}
 - Bio / Resume Summary: ${bioOrResumeText || 'Passionate professional looking to build modern, production-grade industry capabilities.'}
 
@@ -1690,8 +1696,8 @@ Analyze the candidate details and generate a JSON response matching this schema:
     "title": "${targetRole} Acceleration Roadmap",
     "domain": "Domain Name (e.g. Product Management, UI/UX Design, Software Engineering, Marketing & Growth, Financial Analysis, Sales)",
     "targetRoles": ["${targetRole}"],
-    "targetHorizon": "2 Months",
-    "dailyCommitment": "2 Hours/Day",
+    "targetHorizon": "${horizon}",
+    "dailyCommitment": "${commitment}",
     "milestones": [
       {
         "id": "phase-1",
@@ -1706,26 +1712,27 @@ Analyze the candidate details and generate a JSON response matching this schema:
             "id": "sub-1-1",
             "title": "Core Fundamentals & Industry Workflows",
             "description": "Overview of foundational standards and best practices.",
-            "keyConcepts": ["Key Concept 1", "Key Concept 2", "Key Concept 3"],
+            "keyConcepts": ["Key Concept 1", "Key Concept 2", "Key Concept 3", "Key Concept 4"],
             "resources": [
-              { "title": "Comprehensive Industry Guide", "url": "https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(targetRole)}", "type": "doc" },
-              { "title": "Foundations Video Masterclass", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' fundamentals')}", "type": "video", "duration": "30 mins" }
+              { "title": "${targetRole} Core Concepts Masterclass", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' fundamentals masterclass')}", "type": "video", "duration": "35 mins" },
+              { "title": "Comprehensive Reference & Docs", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' fundamentals documentation guide')}", "type": "doc" }
             ]
           },
           {
             "id": "sub-1-2",
             "title": "Essential Tooling & Environment Setup",
             "description": "Mastering the primary software and toolkits for daily execution.",
-            "keyConcepts": ["Tool configurations", "Workflow automations", "Quality control"],
+            "keyConcepts": ["Tool configurations", "Workflow automations", "Quality control", "Standard operating procedures"],
             "resources": [
-              { "title": "Tooling Reference Guide", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' essential tools')}", "type": "guide" }
+              { "title": "Tooling Setup & Workflow Video", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' tools workflow tutorial')}", "type": "video", "duration": "25 mins" },
+              { "title": "Tooling Reference Playbook", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' essential tools cheat sheet')}", "type": "guide" }
             ]
           }
         ]
       },
       {
         "id": "phase-2",
-        "title": "Phase 2: Intermediate Execution & Practical Applications",
+        "title": "Phase 2: Intermediate Execution & Practical Deliverables",
         "level": "Core Practice",
         "difficulty": "Intermediate",
         "estimatedHours": 30,
@@ -1735,17 +1742,18 @@ Analyze the candidate details and generate a JSON response matching this schema:
           {
             "id": "sub-2-1",
             "title": "Practical Execution & Strategy",
-            "description": "Hands-on implementation of core role responsibilities.",
-            "keyConcepts": ["Execution frameworks", "Data-informed decision making", "Cross-functional collaboration"],
+            "description": "Hands-on implementation of core role responsibilities and deliverables.",
+            "keyConcepts": ["Execution frameworks", "Data-informed decision making", "Cross-functional collaboration", "Case study artifact building"],
             "resources": [
-              { "title": "Practical Case Study Breakdown", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' case study')}", "type": "video", "duration": "45 mins" }
+              { "title": "Practical Project Case Study Breakdown", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' real world case study')}", "type": "video", "duration": "45 mins" },
+              { "title": "Industry Implementation Guide", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' practical implementation case study')}", "type": "doc" }
             ]
           }
         ]
       },
       {
         "id": "phase-3",
-        "title": "Phase 3: Advanced Optimization, Scale & Strategy",
+        "title": "Phase 3: Advanced Optimization & Scaling",
         "level": "Advanced",
         "difficulty": "Advanced",
         "estimatedHours": 25,
@@ -1756,9 +1764,10 @@ Analyze the candidate details and generate a JSON response matching this schema:
             "id": "sub-3-1",
             "title": "Advanced Metrics & Strategic Growth",
             "description": "Optimizing deliverables for maximum measurable ROI.",
-            "keyConcepts": ["Key Performance Indicators", "Systemic bottlenecks", "Scale methodologies"],
+            "keyConcepts": ["Key Performance Indicators", "Systemic bottlenecks", "Scale methodologies", "Leadership principles"],
             "resources": [
-              { "title": "Advanced Strategy Playbook", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' advanced strategy')}", "type": "doc" }
+              { "title": "Advanced Strategy & Scaling Video", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' advanced strategy tutorial')}", "type": "video", "duration": "40 mins" },
+              { "title": "Advanced Strategy Playbook", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' advanced strategic frameworks')}", "type": "doc" }
             ]
           }
         ]
@@ -1776,9 +1785,10 @@ Analyze the candidate details and generate a JSON response matching this schema:
             "id": "sub-4-1",
             "title": "Portfolio Defense & Behavioral Interviews",
             "description": "Structuring impact with the STAR framework and answering high-stakes interview questions.",
-            "keyConcepts": ["STAR storytelling", "Case defense", "Salary negotiation"],
+            "keyConcepts": ["STAR storytelling framework", "Portfolio case defense", "Salary & offer negotiation", "Hiring manager objection handling"],
             "resources": [
-              { "title": "Executive Interview Preparation Guide", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' interview questions')}", "type": "video", "duration": "35 mins" }
+              { "title": "Top Interview Questions & Mock Interview", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' interview questions and answers mock interview')}", "type": "video", "duration": "40 mins" },
+              { "title": "Executive Interview Preparation Guide", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' interview preparation guide star method')}", "type": "doc" }
             ]
           }
         ]
@@ -1795,16 +1805,18 @@ Analyze the candidate details and generate a JSON response matching this schema:
     );
 
     if (res && res.techStack && res.recommendedRoadmap) {
-      log(`[AI Onboarding] Successfully synthesized profile for "${targetRole}" via Gemini/Groq ✓`);
+      log(`[AI Onboarding] Successfully synthesized profile for "${targetRole}" ✓`);
       const roadmapId = res.recommendedRoadmap.id || `roadmap-${Date.now()}`;
       res.recommendedRoadmap.id = roadmapId;
+      res.recommendedRoadmap.targetHorizon = horizon;
+      res.recommendedRoadmap.dailyCommitment = commitment;
       saveCustomRoadmapDb(
         roadmapId,
         res.desiredTitle || targetRole,
         res.recommendedRoadmap.domain || 'Professional Career',
         JSON.stringify(res.recommendedRoadmap),
-        '2 Months',
-        '2 Hours/Day'
+        horizon,
+        commitment
       );
       return { success: true, profile: res, roadmap: res.recommendedRoadmap };
     }

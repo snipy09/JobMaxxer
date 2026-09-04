@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  calculateReadinessScore, RoadmapMilestone,
-  LearnResource, SubModule, Roadmap
+  RoadmapMilestone, LearnResource, SubModule, Roadmap
 } from '../data/roadmaps';
 import { MasterProfile, getApi, CustomRoadmapRecord, ActivityHeatmapDay, ActivityStats } from '../types';
 import {
   Check, CheckSquare, Square, ExternalLink,
-  ChevronRight, Play, BookOpen,
+  ChevronRight, BookOpen,
   Laptop, X, ArrowRight, SlidersHorizontal,
   Clock, ShieldCheck, Layers, CheckCircle2,
   Plus, Loader2, Sparkles, RefreshCw, Award,
-  Youtube, FileText, Compass, ChevronDown, Trash2
+  Youtube, FileText, Compass, ChevronDown, Trash2, Calendar
 } from 'lucide-react';
 
 interface LearnerViewProps {
@@ -19,6 +18,18 @@ interface LearnerViewProps {
   onNavigateToSeeker: () => void;
   onLog: (msg: string) => void;
 }
+
+const TIMELINE_OPTIONS = [
+  { id: '1 Month', label: '1 Month', sub: 'Fast-Track / Sprint' },
+  { id: '3 Months', label: '3 Months', sub: 'Standard (Recommended)' },
+  { id: '6 Months', label: '6 Months', sub: 'Comprehensive Mastery' },
+];
+
+const COMMITMENT_OPTIONS = [
+  { id: '1 Hour/Day', label: '1 Hour / Day', sub: 'Consistent Pacing' },
+  { id: '2 Hours/Day', label: '2 Hours / Day', sub: 'Optimal Growth' },
+  { id: '4+ Hours/Day', label: '4+ Hours / Day', sub: 'Full Immersion' },
+];
 
 export const LearnerView: React.FC<LearnerViewProps> = ({
   profile,
@@ -29,12 +40,22 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   const [customRoadmaps, setCustomRoadmaps] = useState<Roadmap[]>([]);
   const [activeRoadmapId, setActiveRoadmapId] = useState<string>('');
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
+  const [completedConcepts, setCompletedConcepts] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('nomadic_completed_concepts');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [selectedMilestone, setSelectedMilestone] = useState<RoadmapMilestone | null>(null);
 
   // Custom AI Roadmaps modal state
   const [showGenerateModal, setShowGenerateModal] = useState<boolean>(false);
   const [newRoleTitle, setNewRoleTitle] = useState<string>('');
   const [newSkillsInput, setNewSkillsInput] = useState<string>('');
+  const [targetHorizon, setTargetHorizon] = useState<string>('3 Months');
+  const [dailyCommitment, setDailyCommitment] = useState<string>('2 Hours/Day');
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState<boolean>(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -42,11 +63,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   const [heatmapData, setHeatmapData] = useState<ActivityHeatmapDay[]>([]);
   const [activityStats, setActivityStats] = useState<ActivityStats>({ streakCount: 1, totalActions: 0 });
 
-  // Goal Calibration
-  const [targetHorizon, setTargetHorizon] = useState<string>('2 Months');
-  const [dailyCommitment, setDailyCommitment] = useState<string>('2 Hours/Day');
-
-  // Load custom AI roadmaps from SQLite
+  // Load custom roadmaps from SQLite
   const loadCustomRoadmaps = async (forceTitle?: string) => {
     const api = getApi();
     if (!api || !api.getCustomRoadmaps) return;
@@ -64,15 +81,13 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         setCustomRoadmaps(parsed);
 
         if (parsed.length > 0) {
-          // If active ID is already in parsed, keep it, otherwise select latest
           const found = parsed.find(p => p.id === activeRoadmapId);
           if (!found) {
             setActiveRoadmapId(parsed[0].id);
           }
         }
       } else {
-        // If no custom roadmaps exist yet in SQLite, synthesize one for the candidate's target role via Gemini
-        const target = forceTitle || profile.desiredTitle || 'Product & Technology Specialist';
+        const target = forceTitle || profile.desiredTitle || 'Product Management Specialist';
         await autoSynthesizeFirstRoadmap(target);
       }
     } catch {}
@@ -95,10 +110,10 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
       if (res && res.success && res.roadmap) {
         setCustomRoadmaps([res.roadmap]);
         setActiveRoadmapId(res.roadmap.id);
-        onLog(`[AI Roadmap] Auto-synthesized dynamic curriculum for "${roleTitle}"`);
+        onLog(`[Curriculum Engine] Synthesized personalized curriculum for "${roleTitle}"`);
       }
     } catch (err: any) {
-      console.warn('[AI Roadmap] Auto-synthesis note:', err?.message);
+      console.warn('[Curriculum Engine] Synthesis note:', err?.message);
     } finally {
       setIsGeneratingRoadmap(false);
     }
@@ -177,6 +192,24 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     }
   };
 
+  const toggleConceptCheck = (conceptKey: string, conceptName: string) => {
+    const next = new Set(completedConcepts);
+    if (next.has(conceptKey)) {
+      next.delete(conceptKey);
+    } else {
+      next.add(conceptKey);
+      const api = getApi();
+      if (api && api.logUserActivity) {
+        api.logUserActivity('milestone', `Mastered concept: ${conceptName}`);
+        loadActivityData();
+      }
+    }
+    setCompletedConcepts(next);
+    try {
+      localStorage.setItem('nomadic_completed_concepts', JSON.stringify(Array.from(next)));
+    } catch {}
+  };
+
   const handleOpenMilestone = (m: RoadmapMilestone) => {
     setSelectedMilestone(m);
   };
@@ -212,7 +245,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     onNavigateToSeeker();
   };
 
-  // Generate Custom AI Roadmap via Gemini
+  // Generate Custom AI Roadmap
   const handleGenerateCustomRoadmap = async () => {
     if (!newRoleTitle.trim()) return;
     setIsGeneratingRoadmap(true);
@@ -235,7 +268,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         setShowGenerateModal(false);
         setNewRoleTitle('');
         setNewSkillsInput('');
-        onLog(`[AI Roadmap] Generated dynamic curriculum for "${newRoleTitle.trim()}"`);
+        onLog(`[Curriculum Engine] Generated dynamic curriculum for "${newRoleTitle.trim()}"`);
       } else {
         throw new Error(res?.error || 'Failed to synthesize roadmap.');
       }
@@ -298,16 +331,19 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                {currentRoadmap?.title || (isGeneratingRoadmap ? 'Synthesizing with Gemini AI...' : 'AI Career Progression Track')}
+                {currentRoadmap?.title || (isGeneratingRoadmap ? 'Synthesizing Curriculum...' : 'Career Progression Track')}
               </h1>
               {profile.desiredTitle && (
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
                   Target: {profile.desiredTitle}
                 </span>
               )}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 text-slate-600 dark:bg-zinc-800/60 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
+                {targetHorizon} Horizon · {dailyCommitment}
+              </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              {currentRoadmap?.domain || 'Personalized AI Track'} · {completedCount} of {totalCount} completed ({score}%)
+              {currentRoadmap?.domain || 'Personalized Track'} · {completedCount} of {totalCount} completed ({score}%)
             </p>
           </div>
 
@@ -403,8 +439,8 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
       {isGeneratingRoadmap && (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-10 text-center space-y-3">
           <Loader2 className="w-6 h-6 animate-spin text-black dark:text-white mx-auto" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Synthesizing personalized AI curriculum...</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">Gemini is structuring your milestones, sub-modules, and key topics based on your profile.</p>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Synthesizing personalized curriculum...</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">Structuring your milestones, sub-modules, and verified learning resources based on your target timeline.</p>
         </div>
       )}
 
@@ -504,7 +540,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         </div>
       )}
 
-      {/* ── MODAL: GENERATE CUSTOM AI ROADMAP ───────────────────────────────── */}
+      {/* ── MODAL: GENERATE CUSTOM ROADMAP ───────────────────────────────── */}
       {showGenerateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
@@ -519,7 +555,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 dark:text-zinc-400">
-              Enter any profession (Product, Design, Marketing, Finance, Engineering, Operations). Gemini will synthesize a structured curriculum with topics and sub-modules.
+              Enter any profession (Product, Design, Marketing, Finance, Engineering, Operations). The curriculum engine will synthesize a structured progression with concepts checklist and verified video/doc search resources.
             </p>
 
             <div className="space-y-3">
@@ -543,6 +579,57 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                   placeholder="e.g. Figma, SQL, User Research, Excel, SEO, Python"
                   className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
                 />
+              </div>
+
+              {/* Timeline Horizon & Daily Commitment Calibration */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* Target Horizon */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Target Timeline</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {TIMELINE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setTargetHorizon(opt.id)}
+                        className={`text-center p-2 rounded-lg border text-xs transition ${
+                          targetHorizon === opt.id
+                            ? 'border-black dark:border-white bg-slate-100 dark:bg-zinc-800 font-bold text-slate-950 dark:text-white shadow-2xs'
+                            : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 text-slate-600 dark:text-zinc-400'
+                        }`}
+                      >
+                        <div className="text-[11px] font-semibold">{opt.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Daily Commitment */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Daily Time</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {COMMITMENT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setDailyCommitment(opt.id)}
+                        className={`text-center p-2 rounded-lg border text-xs transition ${
+                          dailyCommitment === opt.id
+                            ? 'border-black dark:border-white bg-slate-100 dark:bg-zinc-800 font-bold text-slate-950 dark:text-white shadow-2xs'
+                            : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 text-slate-600 dark:text-zinc-400'
+                        }`}
+                      >
+                        <div className="text-[11px] font-semibold">{opt.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {generateError && (
@@ -583,10 +670,10 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         </div>
       )}
 
-      {/* ── MODAL: PHASE SUB-MODULES & TOPICS ─────────────────────────────────── */}
+      {/* ── MODAL: PHASE SUB-MODULES & 2-COLUMN CHECKLIST + RESOURCES ────────── */}
       {selectedMilestone && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-3xl w-full max-h-[88vh] overflow-y-auto p-6 sm:p-7 space-y-6 shadow-2xl animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-4xl w-full max-h-[88vh] overflow-y-auto p-6 sm:p-7 space-y-6 shadow-2xl animate-in fade-in duration-200">
             
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
@@ -611,85 +698,155 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
               </button>
             </div>
 
-            {/* Sub-Modules Breakdown */}
+            {/* Sub-Modules Breakdown: 2-Column (Checklist on Left, Resources on Right) */}
             <div className="space-y-4">
               <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase font-mono tracking-wider">
-                Curriculum Sub-Modules & Topics
+                Phase Sub-Modules ({selectedMilestone.subModules?.length || 1})
               </h4>
 
               {selectedMilestone.subModules && selectedMilestone.subModules.length > 0 ? (
-                <div className="space-y-3.5">
-                  {selectedMilestone.subModules.map((sub: SubModule, sIdx: number) => (
-                    <div
-                      key={sub.id || sIdx}
-                      className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-[10px] font-mono flex items-center justify-center font-bold">
-                              {sIdx + 1}
-                            </span>
-                            <h5 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                <div className="space-y-4">
+                  {selectedMilestone.subModules.map((sub: SubModule, sIdx: number) => {
+                    const subId = sub.id || `sub-${sIdx}`;
+                    const concepts = sub.keyConcepts || (selectedMilestone.topics || ['Foundational theory', 'Workflow standards', 'Execution methodology']);
+                    const rawResources = sub.resources || [];
+                    
+                    // Construct live working search URLs for video & doc resources
+                    const roleTitle = profile.desiredTitle || 'Professional';
+                    const videoQuery = `${roleTitle} ${sub.title} tutorial masterclass`;
+                    const docQuery = `${roleTitle} ${sub.title} documentation guide`;
+
+                    const defaultResources: LearnResource[] = [
+                      {
+                        title: `${sub.title} Masterclass (Video Search)`,
+                        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(videoQuery)}`,
+                        type: 'video',
+                        duration: '35 mins'
+                      },
+                      {
+                        title: `${sub.title} Documentation & Standards`,
+                        url: `https://google.com/search?q=${encodeURIComponent(docQuery)}`,
+                        type: 'doc'
+                      }
+                    ];
+
+                    const displayResources = rawResources.length > 0 ? rawResources : defaultResources;
+
+                    return (
+                      <div
+                        key={subId}
+                        className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-4"
+                      >
+                        {/* Sub-Module Title Header */}
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-mono flex items-center justify-center font-bold">
+                            {sIdx + 1}
+                          </span>
+                          <div>
+                            <h5 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
                               {sub.title}
                             </h5>
+                            <p className="text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
+                              {sub.description}
+                            </p>
                           </div>
-                          <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1">
-                            {sub.description}
-                          </p>
+                        </div>
+
+                        {/* 2-COLUMN GRID: Concepts Checklist on Left, Resources on Right */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                          
+                          {/* LEFT COLUMN: Concepts to Learn (Checklist) */}
+                          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 space-y-2.5">
+                            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-zinc-800">
+                              <span className="text-[11px] font-mono uppercase font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                                <CheckSquare className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Concepts to Learn ({concepts.length})</span>
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                Click to check
+                              </span>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              {concepts.map((concept: string, cIdx: number) => {
+                                const conceptKey = `${selectedMilestone.id}-${subId}-${cIdx}`;
+                                const isChecked = completedConcepts.has(conceptKey);
+
+                                return (
+                                  <div
+                                    key={cIdx}
+                                    onClick={() => toggleConceptCheck(conceptKey, concept)}
+                                    className={`p-2 rounded-lg border transition cursor-pointer flex items-start gap-2.5 text-xs ${
+                                      isChecked
+                                        ? 'border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-300 font-medium'
+                                        : 'border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/40 text-slate-700 dark:text-zinc-300 hover:border-slate-200 dark:hover:border-zinc-700'
+                                    }`}
+                                  >
+                                    <button type="button" className="mt-0.5 shrink-0">
+                                      {isChecked ? (
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                      ) : (
+                                        <Square className="w-4 h-4 text-slate-300 dark:text-zinc-600" />
+                                      )}
+                                    </button>
+                                    <span className={isChecked ? 'line-through opacity-80' : ''}>
+                                      {concept}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* RIGHT COLUMN: Curated Learning Resources */}
+                          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 space-y-2.5">
+                            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-zinc-800">
+                              <span className="text-[11px] font-mono uppercase font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                                <Youtube className="w-3.5 h-3.5 text-red-500" />
+                                <span>Curated Learning Resources</span>
+                              </span>
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                                Working Search Links
+                              </span>
+                            </div>
+
+                            <div className="space-y-2">
+                              {displayResources.map((res: LearnResource, rIdx: number) => {
+                                // Generate a direct query link if url is missing or placeholder
+                                let targetUrl = res.url;
+                                if (!targetUrl || targetUrl.includes('placeholder') || targetUrl.includes('example.com')) {
+                                  targetUrl = res.type === 'video'
+                                    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(res.title || sub.title)}`
+                                    : `https://google.com/search?q=${encodeURIComponent(res.title || sub.title)}`;
+                                }
+
+                                return (
+                                  <div
+                                    key={rIdx}
+                                    onClick={(e) => handleOpenLink(targetUrl, e)}
+                                    className="p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 hover:border-slate-400 dark:hover:border-zinc-600 bg-slate-50/50 dark:bg-zinc-800/40 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer flex items-start justify-between gap-2 group"
+                                  >
+                                    <div className="space-y-0.5 min-w-0">
+                                      <div className="text-xs font-semibold text-slate-900 dark:text-zinc-100 group-hover:underline truncate">
+                                        {res.title}
+                                      </div>
+                                      <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                                        {res.type === 'video' ? <Youtube className="w-3 h-3 text-red-500" /> : <FileText className="w-3 h-3 text-blue-500" />}
+                                        <span>{res.type ? res.type.toUpperCase() : 'VIDEO / GUIDE'}</span>
+                                        {res.duration && <span>· {res.duration}</span>}
+                                      </div>
+                                    </div>
+                                    <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5 group-hover:text-black dark:group-hover:text-white" />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
                         </div>
                       </div>
-
-                      {/* Key Concepts Chips */}
-                      {sub.keyConcepts && sub.keyConcepts.length > 0 && (
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
-                            Core Concepts:
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {sub.keyConcepts.map((concept, cIdx) => (
-                              <span
-                                key={cIdx}
-                                className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200"
-                              >
-                                {concept}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Sub-module resources if configured */}
-                      {sub.resources && sub.resources.length > 0 && (
-                        <div className="space-y-1.5 pt-1">
-                          <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
-                            Curated Learning Resources:
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {sub.resources.map((res: LearnResource, rIdx: number) => (
-                              <div
-                                key={rIdx}
-                                onClick={(e) => handleOpenLink(res.url, e)}
-                                className="p-2.5 rounded-lg border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer flex items-start justify-between gap-2 group"
-                              >
-                                <div className="space-y-0.5 min-w-0">
-                                  <div className="text-xs font-semibold text-slate-900 dark:text-zinc-100 group-hover:underline truncate">
-                                    {res.title}
-                                  </div>
-                                  <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
-                                    {res.type === 'video' ? <Youtube className="w-3 h-3 text-red-500" /> : <FileText className="w-3 h-3 text-blue-500" />}
-                                    <span>{res.type ? res.type.toUpperCase() : 'DOC'}</span>
-                                    {res.duration && <span>· {res.duration}</span>}
-                                  </div>
-                                </div>
-                                <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5 group-hover:text-black dark:group-hover:text-white" />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 /* Fallback Key Topics */
