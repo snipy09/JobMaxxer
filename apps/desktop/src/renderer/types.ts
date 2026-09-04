@@ -106,7 +106,10 @@ export type TabType =
   | 'applications'
   | 'outreach'
   | 'profile'
+  | 'opportunities'
   | 'learner-roadmaps'
+  | 'learner-resources'
+  | 'learner-interview-prep'
   | 'learner-vault'
   | 'learner-drills'
   | 'admin-overview'
@@ -114,6 +117,8 @@ export type TabType =
   | 'admin-billing'
   | 'admin-metrics'
   | 'admin-curator'
+  | 'logs'
+  | 'settings'
   | 'account';
 
 export type ThemeMode = 'dark' | 'light' | 'system';

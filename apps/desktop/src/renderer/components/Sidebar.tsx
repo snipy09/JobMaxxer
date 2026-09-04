@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   PanelLeftClose, PanelLeft,
   Home, BookOpen, MessageSquare, Settings as SettingsIcon,
-  Briefcase, Mail, LayoutGrid, Terminal, Shield
+  Briefcase, Mail, LayoutGrid, Terminal, Shield, Compass
 } from 'lucide-react';
 import { TabType, HeartbeatStatus, AppUser, PersonaTrack } from '../types';
 
@@ -25,17 +25,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
-  // Learner Edition: Home, Resources, Interview Prep, Settings
+  // Learner Edition: Home, Resources, Interview Prep, Opportunity Board, Settings
   const learnerItems: Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'learner-roadmaps', label: 'Home', icon: Home },
     { id: 'learner-resources', label: 'Resources', icon: BookOpen },
     { id: 'learner-interview-prep', label: 'Interview Prep', icon: MessageSquare },
+    { id: 'opportunities', label: 'Opportunity Board', icon: Compass },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
-  // Seeker Edition: Job Board, Outreach, Tracking, Logs, Settings
+  // Seeker Edition: Job Board, Opportunity Board, Outreach, Tracking, Logs, Settings
   const seekerItems: Array<{ id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: 'feed', label: 'Job Board', icon: Briefcase },
+    { id: 'opportunities', label: 'Opportunity Board', icon: Compass },
     { id: 'outreach', label: 'Outreach', icon: Mail },
     { id: 'applications', label: 'Tracking', icon: LayoutGrid },
     { id: 'logs', label: 'Logs', icon: Terminal },

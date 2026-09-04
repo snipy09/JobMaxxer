@@ -17,6 +17,7 @@ import { AdminView } from './components/AdminView';
 import { LoginView } from './components/LoginView';
 import { ResourceVaultView } from './components/ResourceVaultView';
 import { InterviewPrepView } from './components/InterviewPrepView';
+import { OpportunityBoardView } from './components/OpportunityBoardView';
 import { CommandPalette } from './components/CommandPalette';
 export default function App() {
   const ADMIN_DEV_USER: AppUser = {
@@ -401,6 +402,13 @@ export default function App() {
               />
             )}
 
+            {activeTab === 'opportunities' && (
+              <OpportunityBoardView
+                profile={profile}
+                onLog={addLog}
+              />
+            )}
+
             {activeTab === 'home' && (
               <HomeView
                 profile={profile}
@@ -484,7 +492,7 @@ export default function App() {
             )}
 
             {/* Safe Fallback: if activeTab does not match any known route, render FeedView */}
-            {!['learner-roadmaps', 'learner-resources', 'learner-interview-prep', 'home', 'feed', 'outreach', 'applications', 'logs', 'profile', 'settings'].includes(activeTab) && !Boolean(activeTab && activeTab.startsWith('admin')) && (
+            {!['learner-roadmaps', 'learner-resources', 'learner-interview-prep', 'opportunities', 'home', 'feed', 'outreach', 'applications', 'logs', 'profile', 'settings'].includes(activeTab) && !Boolean(activeTab && activeTab.startsWith('admin')) && (
               <FeedView
                 profile={profile}
                 onLog={addLog}
