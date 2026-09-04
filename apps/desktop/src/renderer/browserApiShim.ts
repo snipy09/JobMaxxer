@@ -350,6 +350,115 @@ export function createBrowserApiShim(): ElectronAPI {
       };
     },
 
+    saveApplication: async (app: any) => {
+      const stored = localStorage.getItem('nomadic_applications') || localStorage.getItem('hirestack_applications');
+      const list = stored ? JSON.parse(stored) : [];
+      const newApp = {
+        id: Date.now(),
+        company: app.company,
+        title: app.title,
+        apply_url: app.apply_url,
+        status: app.status || 'applied',
+        mode: app.mode || 'manual',
+        applied_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      };
+      list.unshift(newApp);
+      localStorage.setItem('nomadic_applications', JSON.stringify(list));
+      return { success: true, id: newApp.id };
+    },
+
+    generateAiOnboardingProfile: async (params: any) => {
+      emitLog(`[AI Onboarding] Analyzing profile for ${params.targetRole}...`);
+      const targetRole = params.targetRole || 'Full Stack Engineer';
+      const skills = params.customSkills && params.customSkills.length > 0
+        ? params.customSkills.join(', ')
+        : 'TypeScript, React, Node.js, PostgreSQL, Docker';
+      return {
+        success: true,
+        profile: {
+          desiredTitle: targetRole,
+          techStack: skills,
+          experienceLevel: params.experienceLevel || 'fresher',
+          onboardingCompleted: true,
+        },
+      };
+    },
+
+    generateCustomRoadmap: async (params: any) => {
+      emitLog(`[AI Roadmap] Synthesizing curriculum for ${params.roleTitle}...`);
+      return {
+        success: true,
+        roadmap: {
+          id: 'custom-' + Date.now(),
+          title: params.roleTitle + ' Acceleration Roadmap',
+          domain: 'Core Engineering',
+          targetRoles: [params.roleTitle],
+          milestones: [
+            {
+              id: 'phase-1',
+              title: 'Phase 1: Foundations & Architecture',
+              level: 'Foundations',
+              difficulty: 'Beginner',
+              estimatedHours: 20,
+              topics: ['Core syntax & typing', 'Data structures', 'Git versioning'],
+              skills: ['TypeScript', 'Git', 'CLI'],
+              description: 'Establish foundational principles and tooling.',
+              resources: [],
+              practice: [],
+              quizzes: []
+            }
+          ]
+        }
+      };
+    },
+
+    getCustomRoadmaps: async () => {
+      const raw = localStorage.getItem('nomadic_custom_roadmaps');
+      return raw ? JSON.parse(raw) : [];
+    },
+
+    saveCustomRoadmap: async (roadmap: any) => {
+      const raw = localStorage.getItem('nomadic_custom_roadmaps');
+      const list = raw ? JSON.parse(raw) : [];
+      const filtered = list.filter((r: any) => r.id !== roadmap.id);
+      filtered.unshift({ ...roadmap, updatedAt: new Date().toISOString() });
+      localStorage.setItem('nomadic_custom_roadmaps', JSON.stringify(filtered));
+      return { success: true };
+    },
+
+    deleteCustomRoadmap: async (id: string) => {
+      const raw = localStorage.getItem('nomadic_custom_roadmaps');
+      const list = raw ? JSON.parse(raw) : [];
+      localStorage.setItem('nomadic_custom_roadmaps', JSON.stringify(list.filter((r: any) => r.id !== id)));
+      return { success: true };
+    },
+
+    getActivityHeatmap: async () => {
+      const raw = localStorage.getItem('nomadic_activity_logs');
+      const logs: any[] = raw ? JSON.parse(raw) : [];
+      const map = new Map<string, number>();
+      logs.forEach(l => {
+        const d = (l.created_at || '').split('T')[0];
+        if (d) map.set(d, (map.get(d) || 0) + 1);
+      });
+      return Array.from(map.entries()).map(([date, count]) => ({ date, count }));
+    },
+
+    logUserActivity: async (activityType: string, details?: string) => {
+      const raw = localStorage.getItem('nomadic_activity_logs');
+      const list = raw ? JSON.parse(raw) : [];
+      list.push({ activityType, details, created_at: new Date().toISOString() });
+      localStorage.setItem('nomadic_activity_logs', JSON.stringify(list));
+      return { success: true };
+    },
+
+    getActivityStats: async () => {
+      const raw = localStorage.getItem('nomadic_activity_logs');
+      const list = raw ? JSON.parse(raw) : [];
+      return { streakCount: list.length > 0 ? 3 : 1, totalActions: list.length };
+    },
+
     getApplications: async (): Promise<Application[]> => {
       try {
         const stored = localStorage.getItem('nomadic_applications') || localStorage.getItem('hirestack_applications');

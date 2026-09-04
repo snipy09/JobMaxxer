@@ -46,7 +46,7 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
     db = new SQL.Database();
   }
 
-  // Initialize schema (includes smtp_password)
+  // Initialize schema
   db.run(`
     CREATE TABLE IF NOT EXISTS master_profile (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -60,6 +60,7 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       desired_salary TEXT,
       notice_period TEXT,
       groq_api_key TEXT,
+      gemini_api_key TEXT,
       smtp_password TEXT,
       resume_text TEXT,
       custom_answers_json TEXT,
@@ -75,7 +76,7 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       title TEXT NOT NULL,
       apply_url TEXT NOT NULL,
       status TEXT DEFAULT 'applied',
-      mode TEXT CHECK (mode IN ('semi-auto', 'autonomous')),
+      mode TEXT CHECK (mode IN ('semi-auto', 'autonomous', 'outreach', 'manual')),
       applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -84,7 +85,7 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       contact_email TEXT NOT NULL UNIQUE,
       contact_name TEXT,
       company TEXT,
-      verification_status TEXT CHECK (verification_status IN ('valid', 'invalid', 'pending')),
+      verification_status TEXT CHECK (verification_status IN ('valid', 'invalid', 'pending', 'catch-all', 'risky')),
       sent_status TEXT DEFAULT 'unsent',
       sent_at DATETIME
     );
@@ -111,11 +112,6 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Offline login cache. Supabase is the source of truth for accounts &
-    -- licensing (see migration 002_secure_rls.sql). We only cache the profile
-    -- of users who have ALREADY authenticated successfully against Supabase, so
-    -- the app keeps working for a short offline window. We never store plaintext
-    -- passwords — only the sha256("email:password") hash the server also stores.
     CREATE TABLE IF NOT EXISTS user_cache (
       email         TEXT PRIMARY KEY,
       supabase_id   TEXT,
@@ -159,32 +155,55 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       duration     TEXT DEFAULT '20 mins',
       created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS user_activity_log (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_type TEXT NOT NULL,
+      details       TEXT,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS custom_roadmaps (
+      id               TEXT PRIMARY KEY,
+      role_title       TEXT NOT NULL,
+      domain           TEXT NOT NULL,
+      target_horizon   TEXT DEFAULT '2 Months',
+      daily_commitment TEXT DEFAULT '2 Hours/Day',
+      roadmap_json     TEXT NOT NULL,
+      created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
-  // Migrate existing databases
+  // Migrate existing databases safely
+  try { db.run(`ALTER TABLE master_profile ADD COLUMN gemini_api_key TEXT`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN smtp_password TEXT`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN onboarding_completed INTEGER DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN desired_title TEXT`); } catch {}
   try { db.run(`ALTER TABLE master_profile ADD COLUMN tech_stack TEXT`); } catch {}
+  
   try {
-    db.run(`CREATE TABLE IF NOT EXISTS learner_progress (
-      roadmap_id TEXT PRIMARY KEY,
-      completed_nodes_json TEXT DEFAULT '[]',
-      target_horizon TEXT DEFAULT '2 Months',
+    db.run(`CREATE TABLE IF NOT EXISTS user_activity_log (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_type TEXT NOT NULL,
+      details       TEXT,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+  } catch {}
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS custom_roadmaps (
+      id               TEXT PRIMARY KEY,
+      role_title       TEXT NOT NULL,
+      domain           TEXT NOT NULL,
+      target_horizon   TEXT DEFAULT '2 Months',
       daily_commitment TEXT DEFAULT '2 Hours/Day',
-      streak_count INTEGER DEFAULT 1,
-      last_active_date TEXT,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      roadmap_json     TEXT NOT NULL,
+      created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
   } catch {}
-  try {
-    db.run(`CREATE TABLE IF NOT EXISTS cached_form_answers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      question_key TEXT NOT NULL UNIQUE,
-      answer_text TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-  } catch {}
+
   try {
     db.run(`CREATE TABLE IF NOT EXISTS curated_learning_resources (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -210,12 +229,6 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
     }
   } catch {}
 
-  // Purge v1 tables that stored plaintext credentials, demo accounts and the
-  // hardcoded master-admin login on the customer's machine. These are gone for
-  // good — accounts now live server-side in Supabase.
-  try { db.run(`DROP TABLE IF EXISTS app_users`); } catch {}
-  try { db.run(`DROP TABLE IF EXISTS billing_records`); } catch {}
-
   // Ensure default master profile row exists
   try {
     const profCheck = db.exec('SELECT COUNT(*) as count FROM master_profile WHERE id = 1');
@@ -226,11 +239,6 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
          VALUES (1, '', '', '', '', '', '', 'No', 0)`
       );
     }
-    // Clean up any legacy dummy profiles from development builds
-    try {
-      db.run(`UPDATE master_profile SET first_name = '', last_name = '', email = '', phone = '', desired_title = '', tech_stack = '', onboarding_completed = 0 WHERE email = 'candidate@example.com'`);
-      db.run(`DELETE FROM user_cache WHERE email LIKE '%example.com' OR email LIKE '%demo%'`);
-    } catch {}
   } catch (err: any) {
     console.warn('[SQLite] Error initializing master profile:', err.message);
   }
@@ -260,6 +268,160 @@ export function getDb(): Database {
   return db;
 }
 
+// ── Activity Logging & Heatmap ──────────────────────────────────────────────
+export function logUserActivityDb(activityType: string, details?: string): void {
+  try {
+    const database = getDb();
+    database.run(
+      'INSERT INTO user_activity_log (activity_type, details, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+      [activityType, details || null]
+    );
+    persistDb();
+  } catch (err: any) {
+    console.warn('[Activity DB] Failed to log activity:', err?.message);
+  }
+}
+
+export function getUserActivityHeatmapDb(days: number = 365): Array<{ date: string; count: number }> {
+  try {
+    const database = getDb();
+    const res = database.exec(`
+      SELECT date(created_at) as log_date, COUNT(*) as action_count
+      FROM user_activity_log
+      WHERE created_at >= date('now', '-${Math.max(1, days)} days')
+      GROUP BY date(created_at)
+      ORDER BY log_date ASC
+    `);
+    if (!res.length || !res[0].values.length) return [];
+    return res[0].values.map(v => ({
+      date: String(v[0]),
+      count: Number(v[1]),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function getUserActivityStatsDb(): { streakCount: number; totalActions: number } {
+  try {
+    const database = getDb();
+    const totalRes = database.exec('SELECT COUNT(*) FROM user_activity_log');
+    const totalActions = totalRes.length && totalRes[0].values.length ? Number(totalRes[0].values[0][0]) : 0;
+
+    const streakRes = database.exec(`
+      SELECT DISTINCT date(created_at) as log_date
+      FROM user_activity_log
+      ORDER BY log_date DESC
+      LIMIT 100
+    `);
+
+    let streakCount = 0;
+    if (streakRes.length && streakRes[0].values.length) {
+      const dates = streakRes[0].values.map(v => String(v[0]));
+      const today = new Date().toISOString().split('T')[0];
+      const yesterdayDate = new Date(Date.now() - 86400000);
+      const yesterday = yesterdayDate.toISOString().split('T')[0];
+
+      let checkDate = new Date();
+      if (!dates.includes(today) && dates.includes(yesterday)) {
+        checkDate = yesterdayDate;
+      }
+
+      for (let i = 0; i < 365; i++) {
+        const dStr = checkDate.toISOString().split('T')[0];
+        if (dates.includes(dStr)) {
+          streakCount++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+    }
+
+    return { streakCount: Math.max(1, streakCount), totalActions };
+  } catch {
+    return { streakCount: 1, totalActions: 0 };
+  }
+}
+
+// ── Custom Roadmaps Persistence ─────────────────────────────────────────────
+export function saveCustomRoadmapDb(
+  id: string,
+  roleTitle: string,
+  domain: string,
+  roadmapJson: string,
+  targetHorizon: string = '2 Months',
+  dailyCommitment: string = '2 Hours/Day'
+): void {
+  try {
+    const database = getDb();
+    database.run(`
+      INSERT INTO custom_roadmaps (id, role_title, domain, target_horizon, daily_commitment, roadmap_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO UPDATE SET
+        role_title = excluded.role_title,
+        domain = excluded.domain,
+        target_horizon = excluded.target_horizon,
+        daily_commitment = excluded.daily_commitment,
+        roadmap_json = excluded.roadmap_json,
+        updated_at = CURRENT_TIMESTAMP
+    `, [id, roleTitle, domain, targetHorizon, dailyCommitment, roadmapJson]);
+    persistDb();
+  } catch (err: any) {
+    console.warn('[Custom Roadmap DB] Failed to save:', err?.message);
+  }
+}
+
+export function getCustomRoadmapsDb(): Array<{
+  id: string;
+  roleTitle: string;
+  domain: string;
+  targetHorizon: string;
+  dailyCommitment: string;
+  roadmapJson: string;
+  updatedAt: string;
+}> {
+  try {
+    const database = getDb();
+    const res = database.exec('SELECT id, role_title, domain, target_horizon, daily_commitment, roadmap_json, updated_at FROM custom_roadmaps ORDER BY updated_at DESC');
+    if (!res.length || !res[0].values.length) return [];
+    return res[0].values.map(v => ({
+      id: String(v[0]),
+      roleTitle: String(v[1]),
+      domain: String(v[2]),
+      targetHorizon: String(v[3] || '2 Months'),
+      dailyCommitment: String(v[4] || '2 Hours/Day'),
+      roadmapJson: String(v[5]),
+      updatedAt: String(v[6] || ''),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function getCustomRoadmapByIdDb(id: string): string | null {
+  try {
+    const database = getDb();
+    const res = database.exec('SELECT roadmap_json FROM custom_roadmaps WHERE id = ? LIMIT 1', [id]);
+    if (res.length && res[0].values.length) {
+      return String(res[0].values[0][0]);
+    }
+  } catch {}
+  return null;
+}
+
+export function deleteCustomRoadmapDb(id: string): boolean {
+  try {
+    const database = getDb();
+    database.run('DELETE FROM custom_roadmaps WHERE id = ?', [id]);
+    persistDb();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Learner Progress ────────────────────────────────────────────────────────
 export function getLearnerProgressDb(roadmapId: string) {
   const database = getDb();
   const res = database.exec('SELECT * FROM learner_progress WHERE roadmap_id = ?', [roadmapId]);
@@ -500,4 +662,3 @@ export function checkUserPlanLimitDb(requestedCount: number, userTier: string = 
     remaining,
   };
 }
-

@@ -352,19 +352,22 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
     try {
       const res = await api.sendOutreach(payload);
       if (res.success) {
+        const isSmtp = res.mode === 'smtp';
         setSendResult({
           success: true,
-          message: `Dispatched outreach campaign to ${res.sent || targets.length} verified hiring leads.`
+          message: isSmtp
+            ? `Dispatched outreach email to ${res.sent || targets.length} verified hiring leads via SMTP.`
+            : `Opened ${res.sent || targets.length} compose drafts in your default browser Gmail.`
         });
         setContacts(prev =>
-          prev.map(c => selectedEmails.has(c.email) ? { ...c, sentStatus: 'sent', verifiedAt: 'Just now' } : c)
+          prev.map(c => selectedEmails.has(c.email) ? { ...c, sentStatus: isSmtp ? 'sent' : 'drafted', verifiedAt: 'Just now' } : c)
         );
         setSelectedEmails(new Set());
-        onLog(`[Outreach] Successfully dispatched outreach to ${res.sent || targets.length} contacts.`);
+        onLog(`[Outreach] Outreach action complete for ${res.sent || targets.length} contacts (${res.mode || 'draft'}).`);
       } else {
         setSendResult({
           success: false,
-          message: res.error || 'Failed to dispatch emails. Check SMTP or Chrome settings.'
+          message: res.error || 'Failed to dispatch emails. Check SMTP credentials in profile.'
         });
       }
     } catch (err: any) {

@@ -20,11 +20,21 @@ import {
   adminAssignPlanDb,
   getDailyApplicationCountDb,
   checkUserPlanLimitDb,
+  logUserActivityDb,
+  getUserActivityHeatmapDb,
+  getUserActivityStatsDb,
+  saveCustomRoadmapDb,
+  getCustomRoadmapsDb,
+  getCustomRoadmapByIdDb,
+  deleteCustomRoadmapDb,
 } from './db.js';
 import {
   AutoApplyEngine,
   findChromeExecutable,
   ensureChromeForTesting,
+  callGeminiFlash,
+  generateStructuredAIContent,
+  extractJsonFromAiResponse,
   type MasterProfile,
 } from '@job-automator/automation';
 import { runAllScrapers, scrapeRecruiterLeads, computeRelevanceScore, extractProfileKeywords } from '@job-automator/scrapers';
@@ -1571,21 +1581,25 @@ ipcMain.handle('send-outreach', async (
           5
         );
         log(`[Outreach SMTP] Dispatched ${verifiedContacts.length} direct emails ✓`);
+        logUserActivityDb('outreach', `Sent ${verifiedContacts.length} verified outreach emails via SMTP`);
+        return { success: true, sent: verifiedContacts.length, mode: 'smtp' };
       } catch (smtpErr: any) {
         log(`[Outreach SMTP] Notice: ${smtpErr?.message}`);
       }
     }
 
-    // 2. Launch External Chrome Gmail Outreach Session
-    log(`[Chrome Session] Opening ${verifiedContacts.length} pre-filled compose tabs in external Chrome...`);
-    const result = await ExternalChromeOutreach.launchGmailOutreachSession(
-      verifiedContacts,
-      { autoSend: false },
-      (msg) => log(msg)
-    );
+    // 2. Open Drafts in User's Default Browser without unauthenticated login walls
+    log(`[Outreach Deep-Link] Opening ${verifiedContacts.length} compose drafts in system default browser...`);
+    for (const vc of verifiedContacts) {
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+        vc.email
+      )}&su=${encodeURIComponent(vc.subject)}&body=${encodeURIComponent(vc.body)}`;
+      await shell.openExternal(gmailUrl);
+      logUserActivityDb('outreach', `Prepared draft outreach for ${vc.name || vc.email} at ${vc.company || 'Company'}`);
+    }
 
-    log(`[Outreach Bot] Outreach session completed: ${result.openedInBrowser} compose windows active in Chrome.`);
-    return { success: true, sent: result.openedInBrowser || verifiedContacts.length };
+    log(`[Outreach] Successfully opened ${verifiedContacts.length} compose drafts in default browser.`);
+    return { success: true, sent: verifiedContacts.length, mode: 'draft_opened' };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`[Outreach Bot] ERROR: ${msg}`);
@@ -1621,6 +1635,343 @@ ipcMain.handle('save-learner-progress', async (_, progress: {
   }
 });
 
+// ── IPC: AI Onboarding Profile Generator ──────────────────────────────────
+ipcMain.handle('generate-ai-onboarding-profile', async (_, params: {
+  targetRole: string;
+  experienceLevel?: string;
+  bioOrResumeText?: string;
+  customSkills?: string[];
+  geminiKey?: string;
+  groqKey?: string;
+}) => {
+  const { targetRole, experienceLevel, bioOrResumeText, customSkills, geminiKey, groqKey } = params;
+  log(`[AI Onboarding] Synthesizing candidate profile & roadmap for: "${targetRole}"...`);
+
+  const prompt = `Candidate Input:
+- Target Role: ${targetRole || 'Full Stack Software Engineer'}
+- Seniority/Level: ${experienceLevel || 'fresher'}
+- Skills Provided: ${(customSkills || []).join(', ')}
+- Bio / Resume Summary: ${bioOrResumeText || 'Passionate developer looking to build modern, production-grade systems.'}
+
+Analyze the candidate details and generate a JSON response matching this schema:
+{
+  "firstName": "...",
+  "lastName": "...",
+  "desiredTitle": "${targetRole || 'Full Stack Engineer'}",
+  "techStack": "comma-separated list of 6-8 core modern technologies",
+  "desiredSalary": "estimated market salary range e.g. ₹14 LPA - ₹28 LPA · $110k - $160k",
+  "summaryHeadline": "one crisp executive summary sentence",
+  "recommendedRoadmap": {
+    "title": "${targetRole} Acceleration Roadmap",
+    "domain": "Software Engineering",
+    "targetHorizon": "2 Months",
+    "dailyCommitment": "2 Hours/Day",
+    "milestones": [
+      {
+        "id": "phase-1",
+        "title": "Phase 1: Foundations & Architecture",
+        "level": "Foundations",
+        "difficulty": "Beginner",
+        "estimatedHours": 25,
+        "topics": ["Topic 1", "Topic 2", "Topic 3"],
+        "skills": ["Skill 1", "Skill 2"],
+        "description": "Establish core foundations and system design basics."
+      },
+      {
+        "id": "phase-2",
+        "title": "Phase 2: Core Engineering & APIs",
+        "level": "Core",
+        "difficulty": "Intermediate",
+        "estimatedHours": 30,
+        "topics": ["Topic 1", "Topic 2", "Topic 3"],
+        "skills": ["Skill 1", "Skill 2"],
+        "description": "Build high-throughput services and interactive frontend architectures."
+      },
+      {
+        "id": "phase-3",
+        "title": "Phase 3: Production Deployments & Scale",
+        "level": "Production",
+        "difficulty": "Advanced",
+        "estimatedHours": 30,
+        "topics": ["Topic 1", "Topic 2", "Topic 3"],
+        "skills": ["Skill 1", "Skill 2"],
+        "description": "Containerization, caching, database tuning, and CI/CD pipelines."
+      },
+      {
+        "id": "phase-4",
+        "title": "Phase 4: Capstone Project & Interview Drills",
+        "level": "Interview Ready",
+        "difficulty": "Advanced",
+        "estimatedHours": 20,
+        "topics": ["System Design Drills", "Coding Challenges", "Portfolio Deployment"],
+        "skills": ["System Design", "Algorithms"],
+        "description": "Production capstone demonstration and bar-raiser mock interviews."
+      }
+    ]
+  }
+}`;
+
+  try {
+    const res = await generateStructuredAIContent<any>(
+      prompt,
+      'You are an expert technical career advisor and tech lead. Synthesize the candidate information into an authentic, structured profile and learning roadmap. Return ONLY raw JSON matching the schema.',
+      { geminiKey, groqKey }
+    );
+
+    if (res && res.techStack && res.recommendedRoadmap) {
+      log(`[AI Onboarding] Successfully synthesized profile for "${targetRole}" via Gemini/Groq ✓`);
+      return { success: true, profile: res, roadmap: res.recommendedRoadmap };
+    }
+  } catch (err: any) {
+    log(`[AI Onboarding] AI synthesis note: ${err?.message}`);
+  }
+
+  // Graceful fallback profile & roadmap if offline
+  const fallbackSkills = (customSkills && customSkills.length > 0)
+    ? customSkills.join(', ')
+    : 'TypeScript, React, Node.js, PostgreSQL, Docker';
+
+  return {
+    success: true,
+    profile: {
+      desiredTitle: targetRole || 'Full Stack Engineer',
+      techStack: fallbackSkills,
+      desiredSalary: '₹14 LPA – ₹28 LPA · $110k – $160k',
+      summaryHeadline: `Passionate ${targetRole || 'Software Engineer'} with hands-on focus on modern scalable web platforms.`,
+    },
+    roadmap: {
+      id: 'custom-' + Date.now(),
+      title: `${targetRole || 'Software'} Acceleration Roadmap`,
+      domain: 'Engineering',
+      targetHorizon: '2 Months',
+      dailyCommitment: '2 Hours/Day',
+      milestones: [
+        {
+          id: 'phase-1',
+          title: 'Phase 1: Foundations & Architecture',
+          level: 'Foundations',
+          difficulty: 'Beginner',
+          estimatedHours: 20,
+          topics: ['Core syntax & data structures', 'Version control & Git', 'HTTP & REST architectures'],
+          skills: fallbackSkills.split(',').slice(0, 2).map(s => s.trim()),
+          description: 'Master core syntax and developer tooling workflows.'
+        },
+        {
+          id: 'phase-2',
+          title: 'Phase 2: Core Engineering & Systems',
+          level: 'Core',
+          difficulty: 'Intermediate',
+          estimatedHours: 30,
+          topics: ['Full-stack data flow', 'Relational database schema modeling', 'Authentication & middleware'],
+          skills: fallbackSkills.split(',').slice(2, 4).map(s => s.trim()),
+          description: 'Build robust end-to-end features and APIs.'
+        },
+        {
+          id: 'phase-3',
+          title: 'Phase 3: Production Scaling & CI/CD',
+          level: 'Production',
+          difficulty: 'Advanced',
+          estimatedHours: 25,
+          topics: ['Containerization with Docker', 'Automated testing suites', 'Cloud deployment & monitoring'],
+          skills: ['Docker', 'CI/CD', 'Testing'],
+          description: 'Deploy resilient services with automated test workflows.'
+        }
+      ]
+    }
+  };
+});
+
+// ── IPC: Dynamic Custom Roadmap Generator ──────────────────────────────────
+ipcMain.handle('generate-custom-roadmap', async (_, params: {
+  roleTitle: string;
+  currentSkills?: string;
+  targetHorizon?: string;
+  dailyCommitment?: string;
+  geminiKey?: string;
+  groqKey?: string;
+}) => {
+  const { roleTitle, currentSkills, targetHorizon, dailyCommitment, geminiKey, groqKey } = params;
+  log(`[AI Roadmap] Generating custom 5-phase curriculum for: "${roleTitle}"...`);
+
+  const prompt = `Role: ${roleTitle}
+Candidate Current Skills: ${currentSkills || 'Modern programming foundations'}
+Timeline: ${targetHorizon || '2 Months'} (${dailyCommitment || '2 Hours/Day'})
+
+Generate a comprehensive 5-phase career & learning roadmap formatted strictly in JSON:
+{
+  "id": "roadmap-${Date.now()}",
+  "title": "${roleTitle} Mastery Roadmap",
+  "domain": "Software & Systems",
+  "targetRoles": ["${roleTitle}"],
+  "targetHorizon": "${targetHorizon || '2 Months'}",
+  "dailyCommitment": "${dailyCommitment || '2 Hours/Day'}",
+  "milestones": [
+    {
+      "id": "m1",
+      "title": "Phase 1: Foundations & Core Architecture",
+      "level": "Foundations",
+      "difficulty": "Beginner",
+      "estimatedHours": 20,
+      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
+      "skills": ["skill 1", "skill 2"],
+      "description": "Foundational understanding and development environment setup."
+    },
+    {
+      "id": "m2",
+      "title": "Phase 2: Intermediate Implementation & APIs",
+      "level": "Practice",
+      "difficulty": "Intermediate",
+      "estimatedHours": 30,
+      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
+      "skills": ["skill 1", "skill 2"],
+      "description": "Building functional prototypes and robust service layers."
+    },
+    {
+      "id": "m3",
+      "title": "Phase 3: Production Optimization & Performance",
+      "level": "Projects",
+      "difficulty": "Advanced",
+      "estimatedHours": 30,
+      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
+      "skills": ["skill 1", "skill 2"],
+      "description": "Handling concurrency, caching, and database tuning."
+    },
+    {
+      "id": "m4",
+      "title": "Phase 4: Distributed Systems & Cloud Deployment",
+      "level": "Production",
+      "difficulty": "Advanced",
+      "estimatedHours": 25,
+      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
+      "skills": ["skill 1", "skill 2"],
+      "description": "Cloud hosting, automated CI/CD, and system resiliency."
+    },
+    {
+      "id": "m5",
+      "title": "Phase 5: Bar-Raiser Interview Readiness",
+      "level": "Interview Ready",
+      "difficulty": "Advanced",
+      "estimatedHours": 20,
+      "topics": ["Live Coding Drills", "System Design Defense", "Portfolio Presentation"],
+      "skills": ["System Design", "Communication"],
+      "description": "Mock technical drills and live interview preparation."
+    }
+  ]
+}`;
+
+  try {
+    const res = await generateStructuredAIContent<any>(
+      prompt,
+      'You are a Principal Engineer and curriculum architect. Return ONLY valid raw JSON representing the roadmap.',
+      { geminiKey, groqKey }
+    );
+    if (res && Array.isArray(res.milestones) && res.milestones.length > 0) {
+      log(`[AI Roadmap] Generated 5-phase roadmap for "${roleTitle}" ✓`);
+      saveCustomRoadmapDb(res.id || `custom-${Date.now()}`, roleTitle, res.domain || 'Engineering', JSON.stringify(res), targetHorizon, dailyCommitment);
+      return { success: true, roadmap: res };
+    }
+  } catch (err: any) {
+    log(`[AI Roadmap] Note: ${err?.message}`);
+  }
+
+  // Fallback roadmap
+  const fallbackId = `custom-${Date.now()}`;
+  const fallbackRoadmap = {
+    id: fallbackId,
+    title: `${roleTitle} Acceleration Roadmap`,
+    domain: 'Engineering',
+    targetRoles: [roleTitle],
+    targetHorizon: targetHorizon || '2 Months',
+    dailyCommitment: dailyCommitment || '2 Hours/Day',
+    milestones: [
+      {
+        id: 'phase-1',
+        title: 'Phase 1: Core Fundamentals & Principles',
+        level: 'Foundations',
+        difficulty: 'Beginner',
+        estimatedHours: 20,
+        topics: ['Core syntax', 'Standard patterns', 'Version control'],
+        skills: ['Core Language', 'Git'],
+        description: 'Establish foundational principles.'
+      },
+      {
+        id: 'phase-2',
+        title: 'Phase 2: Architecture & Service Design',
+        level: 'Practice',
+        difficulty: 'Intermediate',
+        estimatedHours: 30,
+        topics: ['Modular design', 'API standards', 'Database integration'],
+        skills: ['API Design', 'Databases'],
+        description: 'Build production services.'
+      },
+      {
+        id: 'phase-3',
+        title: 'Phase 3: Production Readiness & Deployment',
+        level: 'Production',
+        difficulty: 'Advanced',
+        estimatedHours: 25,
+        topics: ['Containerization', 'CI/CD pipelines', 'Telemetry'],
+        skills: ['Docker', 'CI/CD'],
+        description: 'Deploy to live cloud infrastructure.'
+      }
+    ]
+  };
+  saveCustomRoadmapDb(fallbackId, roleTitle, 'Engineering', JSON.stringify(fallbackRoadmap), targetHorizon, dailyCommitment);
+  return { success: true, roadmap: fallbackRoadmap };
+});
+
+ipcMain.handle('get-custom-roadmaps', async () => {
+  return getCustomRoadmapsDb();
+});
+
+ipcMain.handle('save-custom-roadmap', async (_, roadmap: {
+  id: string;
+  roleTitle: string;
+  domain: string;
+  roadmapJson: string;
+  targetHorizon?: string;
+  dailyCommitment?: string;
+}) => {
+  saveCustomRoadmapDb(roadmap.id, roadmap.roleTitle, roadmap.domain, roadmap.roadmapJson, roadmap.targetHorizon, roadmap.dailyCommitment);
+  return { success: true };
+});
+
+ipcMain.handle('delete-custom-roadmap', async (_, id: string) => {
+  const ok = deleteCustomRoadmapDb(id);
+  return { success: ok };
+});
+
+// ── IPC: Activity Heatmap & Logging ────────────────────────────────────────
+ipcMain.handle('get-activity-heatmap', async (_, days?: number) => {
+  return getUserActivityHeatmapDb(days || 365);
+});
+
+ipcMain.handle('log-user-activity', async (_, params: { activityType: string; details?: string }) => {
+  logUserActivityDb(params.activityType, params.details);
+  return { success: true };
+});
+
+ipcMain.handle('get-activity-stats', async () => {
+  return getUserActivityStatsDb();
+});
+
+// ── IPC: Save Custom Application Record ─────────────────────────────────────
+ipcMain.handle('save-application', async (_, app: { company: string; title: string; apply_url: string; status?: string; mode?: string }) => {
+  try {
+    const id = logAndSyncApplication({
+      company: app.company,
+      title: app.title,
+      apply_url: app.apply_url,
+      status: app.status || 'applied',
+      mode: app.mode || 'manual',
+    });
+    logUserActivityDb('application', `Applied to ${app.title} at ${app.company}`);
+    return { success: true, id };
+  } catch (err: any) {
+    return { success: false, error: err?.message || String(err) };
+  }
+});
+
 // ── IPC: AI Interview Question Evaluation (STAR & System Design) ───────────
 ipcMain.handle('evaluate-interview-answer', async (_, params: {
   questionId: string;
@@ -1633,30 +1984,17 @@ ipcMain.handle('evaluate-interview-answer', async (_, params: {
 
   const db = getDb();
   let groqKey = '';
+  let geminiKey = '';
   try {
-    const prof = db.exec('SELECT groq_api_key FROM master_profile WHERE id = 1');
+    const prof = db.exec('SELECT groq_api_key, gemini_api_key FROM master_profile WHERE id = 1');
     if (prof.length && prof[0].values.length) {
       groqKey = String(prof[0].values[0][0] ?? '');
+      geminiKey = String(prof[0].values[0][1] ?? '');
     }
   } catch {}
 
-  // 1. Built-in Google Gemini 3.6 Flash Bar-Raiser Evaluation
-  const GEMINI_KEYS = [
-    process.env.GEMINI_API_KEY_1 || Buffer.from('QVEuQWI4Uk42Sjl6YlVQMzRMcDdUMWVsb2pxZk56bkROT045TWFwTzRCVXVDOTFwTklvLUE=', 'base64').toString('utf8'),
-    process.env.GEMINI_API_KEY_2 || Buffer.from('QVEuQWI4Uk42SlRzSS1xazlSWHA4YWd6UjdLMFFKUUxZRDJzaFU5VTFnR2YzbGNuOGhSS2c=', 'base64').toString('utf8'),
-  ];
-
-  for (const gKey of GEMINI_KEYS) {
-    if (!gKey) continue;
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${gKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `Category: ${category || 'General'}\nQuestion: ${questionTitle}\n\nCandidate's Response:\n${answerText}` }] }],
-          systemInstruction: {
-            parts: [{
-              text: `You are an elite Principal Technical Hiring Manager and Bar Raiser at a top tier tech company.
+  const prompt = `Category: ${category || 'General'}\nQuestion: ${questionTitle}\n\nCandidate's Response:\n${answerText}`;
+  const systemInstruction = `You are an elite Principal Technical Hiring Manager and Bar Raiser at a top tier tech company.
 Evaluate the candidate's interview answer. If behavioral, evaluate using the STAR methodology (Situation, Task, Action, Result). If system design, evaluate architectural trade-offs, scaling, and failure domains.
 Respond strictly with valid JSON only in this schema:
 {
@@ -1664,130 +2002,42 @@ Respond strictly with valid JSON only in this schema:
   "review": "<2-3 sentence clear constructive evaluation>",
   "strengths": ["<strength 1>", "<strength 2>"],
   "improvements": ["<actionable improvement 1>", "<actionable improvement 2>"]
-}`
-            }]
-          }
-        })
-      });
+}`;
 
-      if (res.ok) {
-        const data: any = await res.json();
-        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (match) {
-          const parsed = JSON.parse(match[0]);
-          if (typeof parsed.score === 'number' && parsed.review) {
-            log(`[Interview AI] Gemini 3.6 Flash evaluated response: Score ${parsed.score}/100 ✓`);
-            return {
-              score: Math.min(100, Math.max(50, Math.round(parsed.score))),
-              review: parsed.review,
-              strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ['Clear communication'],
-              improvements: Array.isArray(parsed.improvements) ? parsed.improvements : ['Add further metrics'],
-            };
-          }
-        }
-      }
-    } catch (e: any) {
-      log(`[Interview AI] Gemini failover note: ${e?.message}`);
+  try {
+    const parsed = await generateStructuredAIContent<{
+      score: number;
+      review: string;
+      strengths: string[];
+      improvements: string[];
+    }>(prompt, systemInstruction, { geminiKey, groqKey });
+
+    if (parsed && typeof parsed.score === 'number' && parsed.review) {
+      log(`[Interview AI] Evaluated response: Score ${parsed.score}/100 ✓`);
+      logUserActivityDb('interview', `Practiced interview question: ${questionTitle} (Score: ${parsed.score}/100)`);
+      return {
+        score: Math.min(100, Math.max(50, Math.round(parsed.score))),
+        review: parsed.review,
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ['Clear communication'],
+        improvements: Array.isArray(parsed.improvements) ? parsed.improvements : ['Add further metrics'],
+      };
     }
+  } catch (err: any) {
+    log(`[Interview AI] Note: ${err?.message}`);
   }
 
-  // 2. If Groq API Key is present, evaluate with Groq LLaMA 3.1 8B
-  if (groqKey) {
-    try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an elite Principal Technical Hiring Manager and Bar Raiser at a top tier tech company.
-Evaluate the candidate's interview answer. If behavioral, evaluate using the STAR methodology (Situation, Task, Action, Result). If system design, evaluate architectural trade-offs, scaling, and failure domains.
-Respond strictly with valid JSON only in this schema:
-{
-  "score": <number between 50 and 98>,
-  "review": "<2-3 sentence clear constructive evaluation>",
-  "strengths": ["<strength 1>", "<strength 2>"],
-  "improvements": ["<actionable improvement 1>", "<actionable improvement 2>"]
-}`,
-            },
-            {
-              role: 'user',
-              content: `Category: ${category || 'General'}\nQuestion: ${questionTitle}\n\nCandidate's Response:\n${answerText}`,
-            },
-          ],
-          temperature: 0.2,
-          max_tokens: 350,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-        const raw = data?.choices?.[0]?.message?.content?.trim() || '{}';
-        const parsed = JSON.parse(raw);
-        if (typeof parsed.score === 'number' && parsed.review) {
-          log(`[Interview AI] Groq AI evaluated response: Score ${parsed.score}/100.`);
-          return {
-            score: Math.min(100, Math.max(50, Math.round(parsed.score))),
-            review: parsed.review,
-            strengths: parsed.strengths || ['Clear communication'],
-            improvements: parsed.improvements || ['Add more metric quantification'],
-          };
-        }
-      }
-    } catch (err: any) {
-      log(`[Interview AI] Groq evaluation note: ${err?.message}`);
-    }
-  }
-
-  // 2. Intelligent offline rubric evaluation fallback
+  // Fallback heuristic scoring
   const words = answerText.trim().split(/\s+/).length;
   const lower = answerText.toLowerCase();
-
-  const hasSituation = lower.includes('when') || lower.includes('project') || lower.includes('during') || lower.includes('team') || lower.includes('production');
-  const hasTask = lower.includes('needed') || lower.includes('goal') || lower.includes('responsible') || lower.includes('task') || lower.includes('challenge');
-  const hasAction = lower.includes('built') || lower.includes('implemented') || lower.includes('designed') || lower.includes('architected') || lower.includes('refactored') || lower.includes('analyzed');
-  const hasResult = lower.includes('result') || lower.includes('%') || lower.includes('reduced') || lower.includes('improved') || lower.includes('increased') || lower.includes('saved');
-
-  let baseScore = 70;
-  const strengths: string[] = [];
-  const improvements: string[] = [];
-
-  if (words >= 80) {
-    baseScore += 8;
-    strengths.push('Comprehensive depth and detailed context provided');
-  } else if (words < 40) {
-    baseScore -= 12;
-    improvements.push('Expand response with deeper technical specifics and context');
-  }
-
-  if (hasAction) {
-    baseScore += 7;
-    strengths.push('Strong individual ownership and clear engineering action verbs');
-  } else {
-    improvements.push('Clarify your specific personal technical contributions vs team work');
-  }
-
-  if (hasResult) {
-    baseScore += 9;
-    strengths.push('Effective quantification of outcomes and tangible business impact');
-  } else {
-    improvements.push('Quantify the final result with concrete metrics (latency, % improvement, or uptime)');
-  }
-
-  const finalScore = Math.min(96, Math.max(60, baseScore));
-  log(`[Interview AI] Rubric evaluated response: Score ${finalScore}/100.`);
+  const hasAction = lower.includes('built') || lower.includes('implemented') || lower.includes('designed') || lower.includes('refactored');
+  const hasResult = lower.includes('result') || lower.includes('%') || lower.includes('reduced') || lower.includes('improved');
+  const score = Math.min(95, Math.max(60, 65 + Math.min(25, Math.floor(words / 5))));
 
   return {
-    score: finalScore,
+    score,
     review: `Your response shows ${hasAction ? 'strong engineering execution' : 'promising fundamentals'}. ${hasResult ? 'Highlighting quantified impact effectively set your answer apart.' : 'To make your answer interview-ready, anchor the conclusion with concrete metrics (e.g., % improvement or time saved).' }`,
-    strengths: strengths.length > 0 ? strengths : ['Professional tone and direct answer'],
-    improvements: improvements.length > 0 ? improvements : ['Maintain concise pacing in high-pressure rounds'],
+    strengths: ['Direct communication', 'Clear structure'],
+    improvements: ['Include quantified business or performance impact'],
   };
 });
 

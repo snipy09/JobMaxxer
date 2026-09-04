@@ -9,120 +9,22 @@ import {
 } from 'lucide-react';
 import { Job, MasterProfile, CuratedResource, getApi } from '../types';
 import { computeJobRelevance } from '../data/relevanceMatcher';
+import { CompleteProfileModal } from './CompleteProfileModal';
 
 interface FeedViewProps {
   profile: MasterProfile;
+  onUpdateProfile?: (p: MasterProfile) => void;
   onLog: (msg: string) => void;
   onNavigateToOutreach?: (company: string, jobTitle: string) => void;
 }
 
-const SAMPLE_DEMO_JOBS: Job[] = [
-  {
-    title: 'Senior Frontend Architect',
-    company: 'Vercel',
-    location: 'Remote (Global)',
-    source: 'Greenhouse API',
-    applyUrl: 'https://boards.greenhouse.io/vercel/jobs/592019',
-    score: 96,
-    employmentType: 'job',
-    workplaceType: 'remote',
-    experienceLevel: 'senior',
-    salary: '₹28 LPA · $160k',
-    description: 'Lead next-generation Next.js and React server component rendering architecture. Collaborate across core platform teams to minimize client bundle footprints.',
-    createdAt: new Date(Date.now() - 10 * 60000).toISOString(),
-  },
-  {
-    title: 'Software Development Intern (Frontend/React)',
-    company: 'Stripe',
-    location: 'Remote / Bengaluru',
-    source: 'Internshala',
-    applyUrl: 'https://internshala.com/internship/detail/stripe-react-intern',
-    score: 94,
-    employmentType: 'internship',
-    workplaceType: 'remote',
-    experienceLevel: 'entry',
-    salary: '₹75,000 / month',
-    description: 'Build developer tooling for global payment processing, checkout SDK components, and interactive developer dashboards.',
-    createdAt: new Date(Date.now() - 25 * 60000).toISOString(),
-  },
-  {
-    title: 'Associate Product Manager',
-    company: 'Linear',
-    location: 'Remote / San Francisco',
-    source: 'Ashby API',
-    applyUrl: 'https://jobs.ashbyhq.com/linear/apm-opportunity',
-    score: 93,
-    employmentType: 'job',
-    workplaceType: 'remote',
-    experienceLevel: 'entry',
-    salary: '₹18 LPA · $120k',
-    description: 'Work directly with engineering leads on product spec documentation, sprint issue tracking workflows, and customer onboarding analytics.',
-    createdAt: new Date(Date.now() - 45 * 60000).toISOString(),
-  },
-  {
-    title: 'Distributed Systems Engineer',
-    company: 'Supabase',
-    location: 'Remote (Worldwide)',
-    source: 'Lever API',
-    applyUrl: 'https://jobs.lever.co/supabase/distributed-systems',
-    score: 89,
-    employmentType: 'job',
-    workplaceType: 'remote',
-    experienceLevel: 'mid',
-    salary: '₹24 LPA · $145k',
-    description: 'Scale PostgreSQL connection pooling, edge runtime orchestration with Deno, and real-time database replication clusters.',
-    createdAt: new Date(Date.now() - 90 * 60000).toISOString(),
-  },
-  {
-    title: 'Frontend UI/UX Intern',
-    company: 'PostHog',
-    location: 'Remote',
-    source: 'Internshala',
-    applyUrl: 'https://internshala.com/internship/detail/posthog-ui-intern',
-    score: 91,
-    employmentType: 'internship',
-    workplaceType: 'remote',
-    experienceLevel: 'entry',
-    salary: '₹50,000 / month',
-    description: 'Design and build intuitive analytics session-replay tools, feature flag dashboards, and client-side web vital monitors.',
-    createdAt: new Date(Date.now() - 120 * 60000).toISOString(),
-  },
-  {
-    title: 'Product Design Lead',
-    company: 'Figma',
-    location: 'Hybrid / New York',
-    source: 'Ashby API',
-    applyUrl: 'https://jobs.ashbyhq.com/figma/product-design-lead',
-    score: 86,
-    employmentType: 'job',
-    workplaceType: 'hybrid',
-    experienceLevel: 'senior',
-    salary: '₹26 LPA · $150k',
-    description: 'Design unified component tokens, variable systems, and cross-platform design-to-development code sync tools.',
-    createdAt: new Date(Date.now() - 180 * 60000).toISOString(),
-  },
-  {
-    title: 'Backend API Specialist',
-    company: 'Postman',
-    location: 'Hybrid / Bengaluru',
-    source: 'Greenhouse API',
-    applyUrl: 'https://boards.greenhouse.io/postman/jobs/381920',
-    score: 84,
-    employmentType: 'job',
-    workplaceType: 'hybrid',
-    experienceLevel: 'mid',
-    salary: '₹22 LPA',
-    description: 'Develop high-throughput API testing protocols, mock servers, and workspace collaboration infrastructure.',
-    createdAt: new Date(Date.now() - 420 * 60000).toISOString(),
-  }
-];
-
 export const FeedView: React.FC<FeedViewProps> = ({
   profile,
+  onUpdateProfile,
   onLog,
   onNavigateToOutreach,
 }) => {
-  const [jobs, setJobs] = useState<Job[]>(SAMPLE_DEMO_JOBS);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
@@ -142,6 +44,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [autoApplyLogs, setAutoApplyLogs] = useState<string[]>([]);
   const [autoApplyProgress, setAutoApplyProgress] = useState<number>(0);
   const [viewingJob, setViewingJob] = useState<Job | null>(null);
+
+  // Profile completion gatekeeper modal state
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [pendingApplyAction, setPendingApplyAction] = useState<{ mode: 'autonomous' | 'semi-auto'; urls: string[] } | null>(null);
 
   // Copy feedback
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
@@ -197,13 +103,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
       if (res.success && res.jobs && res.jobs.length > 0) {
         setJobs(res.jobs);
         onLog(`[Feed] Stream synced ${res.jobs.length} opportunities from live ATS endpoints.`);
-      } else {
-        setJobs(SAMPLE_DEMO_JOBS);
+      } else if (api.runScrapers) {
+        // Auto-run scrapers if cache is completely empty
+        const scraped = await api.runScrapers();
+        if (scraped && scraped.jobs && scraped.jobs.length > 0) {
+          setJobs(scraped.jobs);
+          onLog(`[Feed] Extracted ${scraped.jobs.length} fresh opportunities from ATS endpoints.`);
+        }
       }
       const saved = await api.getSavedJobs();
       setSavedJobs(saved || []);
     } catch {
-      setJobs(SAMPLE_DEMO_JOBS);
+      // Keep empty if network fails
     } finally {
       setLoading(false);
     }
@@ -361,6 +272,51 @@ export const FeedView: React.FC<FeedViewProps> = ({
     fetchMatched();
   }, [viewingJob]);
 
+  // Profile completion gatekeeper: validates candidate credentials & resume before applying
+  const checkProfileAndRun = async (urls: string[], mode: 'autonomous' | 'semi-auto') => {
+    if (!urls || urls.length === 0) return;
+    const api = getApi();
+    let hasResume = Boolean(profile.resumeFilePath);
+    if (!hasResume && api && api.getResumes) {
+      try {
+        const r = await api.getResumes();
+        if (r && r.length > 0) hasResume = true;
+      } catch {}
+    }
+
+    const isComplete = Boolean(
+      profile.firstName &&
+      profile.firstName.trim().length > 0 &&
+      profile.phone &&
+      profile.phone.trim().length > 0 &&
+      hasResume
+    );
+
+    if (!isComplete) {
+      setPendingApplyAction({ mode, urls });
+      setShowProfileModal(true);
+      return;
+    }
+
+    if (mode === 'autonomous') {
+      handleTriggerAutonomousApply(urls);
+    } else {
+      handleTriggerSemiAutoApply(urls);
+    }
+  };
+
+  const handleProfileModalCompleted = () => {
+    if (pendingApplyAction) {
+      const { mode, urls } = pendingApplyAction;
+      setPendingApplyAction(null);
+      if (mode === 'autonomous') {
+        handleTriggerAutonomousApply(urls);
+      } else {
+        handleTriggerSemiAutoApply(urls);
+      }
+    }
+  };
+
   // Launch Real 100% Autonomous Auto-Apply with Sequential 5-Job Batches
   const handleTriggerAutonomousApply = async (targetUrls: string[]) => {
     if (targetUrls.length === 0) return;
@@ -478,7 +434,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </button>
 
             <button
-              onClick={() => handleTriggerSemiAutoApply(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 3).map(j => j.applyUrl))}
+              onClick={() => checkProfileAndRun(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 3).map(j => j.applyUrl), 'semi-auto')}
               disabled={executingAutoApply}
               className="w-full sm:w-auto px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-900 dark:text-zinc-100 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-slate-200 dark:border-zinc-700 disabled:opacity-50"
               title="Pre-fills forms in 3 parallel Chrome tabs and pauses for your 1-click review"
@@ -488,7 +444,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </button>
 
             <button
-              onClick={() => handleTriggerAutonomousApply(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 50).map(j => j.applyUrl))}
+              onClick={() => checkProfileAndRun(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 50).map(j => j.applyUrl), 'autonomous')}
               disabled={executingAutoApply}
               className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
               title="100% autonomous background application submission in 10 sequential batches of 5 jobs with Groq AI question answering"
@@ -814,7 +770,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   </div>
 
                   <button
-                    onClick={() => handleTriggerAutonomousApply([job.applyUrl])}
+                    onClick={() => checkProfileAndRun([job.applyUrl], 'autonomous')}
                     className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
                   >
                     <Zap className="w-3 h-3 text-emerald-400 fill-current" />
@@ -829,19 +785,21 @@ export const FeedView: React.FC<FeedViewProps> = ({
         /* ── NOTION ZERO-FRICTION EMPTY STATE ──────────────────────────────── */
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-12 text-center space-y-3 shadow-xs max-w-md mx-auto animate-fade-up">
           <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 mx-auto flex items-center justify-center">
-            <Search className="w-5 h-5" />
+            <Briefcase className="w-5 h-5" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">No matching positions found</h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-              Try adjusting your search query or reset your workplace and source filters.
+              Fetch real-time verified postings from Greenhouse, Lever, Ashby, and Internshala.
             </p>
           </div>
           <button
-            onClick={handleResetFilters}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold transition-colors shadow-xs"
+            onClick={handleFetchLatestJobs}
+            disabled={isFetchingJobs}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold transition-colors shadow-xs inline-flex items-center gap-1.5"
           >
-            Reset All Filters
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetchingJobs ? 'animate-spin' : ''}`} />
+            <span>{isFetchingJobs ? 'Fetching...' : 'Fetch Live Opportunities'}</span>
           </button>
         </div>
       )}
@@ -856,7 +814,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <div className="h-4 w-px bg-slate-700 dark:bg-zinc-300" />
 
           <button
-            onClick={() => handleTriggerAutonomousApply(Array.from(selectedUrls))}
+            onClick={() => checkProfileAndRun(Array.from(selectedUrls), 'autonomous')}
             className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
           >
             <Zap className="w-3.5 h-3.5 fill-current" />
@@ -1024,7 +982,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 onClick={() => {
                   const url = viewingJob.applyUrl;
                   setViewingJob(null);
-                  handleTriggerAutonomousApply([url]);
+                  checkProfileAndRun([url], 'autonomous');
                 }}
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors"
               >
@@ -1035,6 +993,26 @@ export const FeedView: React.FC<FeedViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Profile Completion Gatekeeper Modal */}
+      <CompleteProfileModal
+        isOpen={showProfileModal}
+        onClose={() => {
+          setShowProfileModal(false);
+          setPendingApplyAction(null);
+        }}
+        profile={profile}
+        onSaveProfile={async (updated) => {
+          const api = getApi();
+          if (api && api.saveMasterProfile) {
+            await api.saveMasterProfile(updated as any);
+          }
+          if (onUpdateProfile) {
+            onUpdateProfile(updated);
+          }
+        }}
+        onProfileCompleted={handleProfileModalCompleted}
+      />
     </div>
   );
 };

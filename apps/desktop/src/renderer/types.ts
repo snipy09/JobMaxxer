@@ -9,12 +9,14 @@ export interface MasterProfile {
   sponsorship: string;
   desiredSalary: string;
   noticePeriod: string;
-  groqApiKey: string;
+  groqApiKey?: string;
+  geminiApiKey?: string;
   claudeApiKey?: string;
   hunterApiKey?: string;
   sendgridApiKey?: string;
-  smtpPassword: string;
+  smtpPassword?: string;
   resumeText: string;
+  resumeFilePath?: string;
   desiredTitle?: string;
   techStack?: string;
   autoApplyDelay?: number;
@@ -64,7 +66,7 @@ export interface OutreachContact {
   role?: string;
   department?: 'Engineering' | 'Talent Acquisition' | 'Product' | 'Executive' | string;
   verificationStatus?: 'valid' | 'invalid' | 'pending' | 'risky' | 'catch-all';
-  sentStatus?: 'unsent' | 'sent' | 'failed';
+  sentStatus?: 'unsent' | 'sent' | 'failed' | 'drafted';
   sentAt?: string;
   verifiedAt?: string;
   isTargetCompany?: boolean;
@@ -99,24 +101,25 @@ export interface HeartbeatStatus {
 export type PersonaTrack = 'learner' | 'seeker';
 
 export type TabType =
-  | 'learner-roadmaps'
-  | 'learner-resources'
-  | 'learner-interview-prep'
   | 'home'
   | 'feed'
-  | 'outreach'
   | 'applications'
-  | 'logs'
-  | 'settings'
+  | 'outreach'
   | 'profile'
+  | 'learner-roadmaps'
+  | 'learner-vault'
+  | 'learner-drills'
   | 'admin-overview'
   | 'admin-users'
-  | 'admin-billing';
+  | 'admin-billing'
+  | 'admin-metrics'
+  | 'admin-curator'
+  | 'account';
 
-export type ThemeMode = 'light';
+export type ThemeMode = 'dark' | 'light' | 'system';
 
 export interface ResumeRecord {
-  id?: number;
+  id: number;
   name: string;
   targetRole: string;
   filePath: string;
@@ -129,21 +132,16 @@ export interface AppUser {
   email: string;
   fullName: string;
   role: 'admin' | 'user';
-  tier: 'trial' | 'free' | 'learner_pro' | 'seeker_pro' | 'seeker_max' | 'pro' | 'max' | 'lifetime';
-  licenseKey: string;
+  tier: 'trial' | 'pro' | 'max' | 'lifetime';
+  licenseKey?: string;
   status: 'active' | 'suspended';
-  appsCount?: number;
+  appsCount: number;
   createdAt: string;
   expiresAt?: string;
-  lastLogin?: string;
-  sessionToken?: string;
-  deviceFingerprint?: string;
-  deviceName?: string;
-  onboardingCompleted?: boolean;
 }
 
 export interface BillingRecord {
-  id: number | string;
+  id: number;
   userEmail: string;
   amount: string;
   plan: string;
@@ -164,6 +162,26 @@ export interface AdminMetrics {
   lifetimeUsers: number;
 }
 
+export interface CustomRoadmapRecord {
+  id: string;
+  roleTitle: string;
+  domain: string;
+  targetHorizon: string;
+  dailyCommitment: string;
+  roadmapJson: string;
+  updatedAt: string;
+}
+
+export interface ActivityHeatmapDay {
+  date: string;
+  count: number;
+}
+
+export interface ActivityStats {
+  streakCount: number;
+  totalActions: number;
+}
+
 export interface ElectronAPI {
   getMasterProfile: () => Promise<Record<string, unknown> | null>;
   saveMasterProfile: (data: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
@@ -175,21 +193,22 @@ export interface ElectronAPI {
   pickResumeFile: () => Promise<{ canceled: boolean; filePath?: string; fileName?: string }>;
   runScrapers: () => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
   getCloudFeed: (userId: string) => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
-  launchSemiAuto: (jobUrls: string[]) => Promise<{ success: boolean; error?: string }>;
+  launchSemiAuto: (jobUrls: string[]) => Promise<{ success: boolean; error?: string; incompleteProfile?: boolean }>;
   launchAutonomous: (jobUrls: string[]) => Promise<{
     success: boolean;
     applied?: number;
     skipped?: number;
     totalBatches?: number;
     limitReached?: boolean;
+    incompleteProfile?: boolean;
     currentUsage?: number;
     maxAllowed?: number;
     error?: string;
   }>;
   verifyEmail: (email: string) => Promise<{ isValid: boolean; stageFailed?: number; reason?: string }>;
   getHrContacts: (targetRole?: string) => Promise<{ success: boolean; contacts: OutreachContact[]; error?: string }>;
-  sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string }>) =>
-    Promise<{ success: boolean; sent?: number; error?: string }>;
+  sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>) =>
+    Promise<{ success: boolean; sent?: number; mode?: string; error?: string }>;
   startHeartbeat: (userId: string, sessionToken: string, deviceFingerprint: string) =>
     Promise<{ success: boolean }>;
   stopHeartbeat: () => Promise<{ success: boolean }>;
@@ -201,12 +220,56 @@ export interface ElectronAPI {
   testGroqKey: (key: string) => Promise<{ success: boolean; error?: string }>;
   onLog: (callback: (msg: string) => void) => () => void;
   getApplications: () => Promise<Application[]>;
+  saveApplication: (app: { company: string; title: string; apply_url: string; status?: string; mode?: string }) =>
+    Promise<{ success: boolean; id?: number; error?: string }>;
   updateApplicationStatus: (id: number | string, status: string) => Promise<{ success: boolean; error?: string }>;
   deleteApplication: (id: number | string) => Promise<{ success: boolean; error?: string }>;
   getSavedJobs: () => Promise<Job[]>;
   saveJob: (job: Job) => Promise<{ success: boolean; error?: string }>;
   removeSavedJob: (applyUrl: string) => Promise<{ success: boolean; error?: string }>;
   openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
+
+  // AI Generation Handlers
+  generateAiOnboardingProfile: (params: {
+    targetRole: string;
+    experienceLevel?: string;
+    bioOrResumeText?: string;
+    customSkills?: string[];
+    geminiKey?: string;
+    groqKey?: string;
+  }) => Promise<{
+    success: boolean;
+    profile?: Partial<MasterProfile>;
+    roadmap?: any;
+    error?: string;
+  }>;
+  generateCustomRoadmap: (params: {
+    roleTitle: string;
+    currentSkills?: string;
+    targetHorizon?: string;
+    dailyCommitment?: string;
+    geminiKey?: string;
+    groqKey?: string;
+  }) => Promise<{
+    success: boolean;
+    roadmap?: any;
+    error?: string;
+  }>;
+  getCustomRoadmaps: () => Promise<CustomRoadmapRecord[]>;
+  saveCustomRoadmap: (roadmap: {
+    id: string;
+    roleTitle: string;
+    domain: string;
+    roadmapJson: string;
+    targetHorizon?: string;
+    dailyCommitment?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  deleteCustomRoadmap: (id: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Activity Heatmap & Logging
+  getActivityHeatmap: (days?: number) => Promise<ActivityHeatmapDay[]>;
+  logUserActivity: (activityType: string, details?: string) => Promise<{ success: boolean }>;
+  getActivityStats: () => Promise<ActivityStats>;
 
   // Learner Progress & Roadmap State
   getLearnerProgress: (roadmapId: string) => Promise<{

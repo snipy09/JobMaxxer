@@ -3,18 +3,21 @@ import {
   Briefcase, Send, CheckCircle2, ArrowRight,
   Building, MapPin, DollarSign, Layers, Zap, Clock,
   ChevronRight, Search, Check, Bookmark, RefreshCw,
-  Loader2, ExternalLink, Sparkles, CheckSquare, ShieldCheck
+  Loader2, ExternalLink, Sparkles, CheckSquare, ShieldCheck, Laptop
 } from 'lucide-react';
 import { Job, Application, MasterProfile, TabType, getApi } from '../types';
+import { CompleteProfileModal } from './CompleteProfileModal';
 
 interface HomeViewProps {
   profile: MasterProfile;
+  onUpdateProfile?: (p: MasterProfile) => void;
   onNavigate: (tab: TabType) => void;
   onLog: (msg: string) => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   profile,
+  onUpdateProfile,
   onNavigate,
   onLog,
 }) => {
@@ -27,6 +30,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [batchActionRunning, setBatchActionRunning] = useState<'apply' | 'review' | null>(null);
   const [actionToast, setActionToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'matched' | 'internship' | 'remote'>('matched');
+
+  // Profile gatekeeper modal
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [pendingApplyAction, setPendingApplyAction] = useState<{ mode: 'autonomous' | 'semi-auto'; urls: string[] } | null>(null);
 
   const loadHomeData = async (showRefreshSpinner = false) => {
     const api = getApi();
@@ -129,6 +136,53 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const totalReferralsSent = applications.filter(a => a.mode === 'outreach').length;
   const totalAvailableCount = jobs.length;
   const hasGroqKey = Boolean(profile.groqApiKey && profile.groqApiKey.trim().length > 0);
+
+  // Profile gatekeeper check before applying
+  const checkProfileAndRun = async (urls: string[], mode: 'autonomous' | 'semi-auto') => {
+    if (!urls || urls.length === 0) return;
+    const api = getApi();
+    let hasResume = Boolean(profile.resumeFilePath);
+    if (!hasResume && api && api.getResumes) {
+      try {
+        const r = await api.getResumes();
+        if (r && r.length > 0) hasResume = true;
+      } catch {}
+    }
+
+    const isComplete = Boolean(
+      profile.firstName &&
+      profile.firstName.trim().length > 0 &&
+      profile.phone &&
+      profile.phone.trim().length > 0 &&
+      hasResume
+    );
+
+    if (!isComplete) {
+      setPendingApplyAction({ mode, urls });
+      setShowProfileModal(true);
+      return;
+    }
+
+    if (mode === 'autonomous') {
+      if (urls.length === 1) handleQuickApply(urls[0]);
+      else handleBatchTopApply();
+    } else {
+      if (urls.length === 1) handleQuickReview(urls[0]);
+    }
+  };
+
+  const handleProfileModalCompleted = () => {
+    if (pendingApplyAction) {
+      const { mode, urls } = pendingApplyAction;
+      setPendingApplyAction(null);
+      if (mode === 'autonomous') {
+        if (urls.length === 1) handleQuickApply(urls[0]);
+        else handleBatchTopApply();
+      } else {
+        if (urls.length === 1) handleQuickReview(urls[0]);
+      }
+    }
+  };
 
   const handleQuickApply = async (url: string) => {
     const api = getApi();
@@ -255,7 +309,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
           <button
             type="button"
-            onClick={handleBatchTopApply}
+            onClick={() => checkProfileAndRun(recentTopJobs.slice(0, 5).map(j => j.applyUrl), 'autonomous')}
             disabled={batchActionRunning !== null || recentTopJobs.length === 0}
             className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-xs"
           >
@@ -484,7 +538,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={() => handleQuickReview(job.applyUrl)}
+                      onClick={() => checkProfileAndRun([job.applyUrl], 'semi-auto')}
                       disabled={isReviewing || isApplying}
                       className="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       title="Opens Chrome, auto-attaches matching resume, and pre-fills form for 1-click candidate review"
@@ -501,7 +555,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => handleQuickApply(job.applyUrl)}
+                      onClick={() => checkProfileAndRun([job.applyUrl], 'autonomous')}
                       disabled={isApplying || isReviewing}
                       className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
                       title="Spawns maximized Chrome, fills all fields with anti-bot stealth, attaches resume, and submits"
@@ -534,11 +588,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
               onClick={() => onNavigate('feed')}
               className="text-xs text-slate-950 hover:underline font-bold"
             >
-              View all available opportunities in Opportunity Stream →
+              Open Full Job Board →
             </button>
           </div>
         )}
       </div>
+
+      {/* Profile Completion Gatekeeper Modal */}
+      <CompleteProfileModal
+        isOpen={showProfileModal}
+        onClose={() => {
+          setShowProfileModal(false);
+          setPendingApplyAction(null);
+        }}
+        profile={profile}
+        onSaveProfile={async (updated) => {
+          const api = getApi();
+          if (api && api.saveMasterProfile) {
+            await api.saveMasterProfile(updated as any);
+          }
+          if (onUpdateProfile) {
+            onUpdateProfile(updated);
+          }
+        }}
+        onProfileCompleted={handleProfileModalCompleted}
+      />
     </div>
   );
 };

@@ -1,18 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  ArrowRight, ArrowLeft, Check, Sparkles, User,
-  Briefcase, Target, Clock, ShieldCheck, Search,
-  Compass, BookOpen, MessageSquare, Zap, Star,
-  Terminal, Layers, CheckCircle2, ChevronRight,
-  GraduationCap, Award, Rocket, Code2, MapPin, Phone, Mail, Loader2
+  ArrowRight, ArrowLeft, Check, User,
+  Briefcase, Target, Clock, Search,
+  Compass, BookOpen, Layers, CheckCircle2,
+  Code2, Phone, Mail, Loader2, Key, Upload, FileText,
+  Shield, Cpu, Zap
 } from 'lucide-react';
-import {
-  JobRole,
-  suggestRolesFromUserInput,
-  searchRoleTitles,
-  generateTailoredRoadmapForRole,
-  TailoredRoadmapSummary
-} from '../data/jobRolesDataset';
+import { searchRoleTitles } from '../data/jobRolesDataset';
 import { MasterProfile, AppUser, getApi } from '../types';
 
 interface OnboardingWizardProps {
@@ -22,46 +16,18 @@ interface OnboardingWizardProps {
   onSwitchToLogin?: () => void;
 }
 
-// ── MCQ OPTIONS ─────────────────────────────────────────────────────────────
 const EXPERIENCE_LEVELS = [
-  { id: 'fresher', label: 'Student / Recent Graduate', sub: '0 – 1 years experience · Looking for internships or entry-level roles' },
-  { id: 'junior', label: 'Junior Developer', sub: '1 – 2 years experience · Solid core foundations, looking to level up' },
-  { id: 'mid', label: 'Mid-Level Engineer', sub: '2 – 5 years experience · Production experience, building scalable systems' },
-  { id: 'senior', label: 'Senior / Staff Specialist', sub: '5+ years experience · System architecture, technical leadership' },
-  { id: 'switcher', label: 'Career Switcher', sub: 'Transitioning from another field into software and modern tech' },
+  { id: 'fresher', label: 'Fresher / Student', desc: '0 – 1 years · Looking for internships or entry-level positions' },
+  { id: 'junior', label: 'Junior Developer', desc: '1 – 2 years · Solid fundamentals, looking to level up' },
+  { id: 'mid', label: 'Mid-Level Engineer', desc: '2 – 5 years · Experience building scalable production systems' },
+  { id: 'senior', label: 'Senior / Specialist', desc: '5+ years · Architecture, system design, and technical leadership' },
+  { id: 'switcher', label: 'Career Switcher', desc: 'Transitioning from another discipline into modern software' },
 ];
 
-const EDUCATION_OPTIONS = [
-  { id: 'cs_degree', label: 'B.Tech / B.E. in Computer Science', sub: 'Engineering degree in CS, IT, or related technical disciplines' },
-  { id: 'masters', label: "Master's / MCA / MS", sub: 'Advanced graduate degree in Computer Science or Data Science' },
-  { id: 'other_degree', label: 'Non-CS University Degree', sub: 'Degree in mechanical, commerce, sciences, or arts' },
-  { id: 'bootcamp', label: 'Bootcamp / Self-Taught', sub: 'Practical project-based learning and self-directed study' },
-];
-
-const POPULAR_SKILLS = [
-  'React', 'TypeScript', 'Node.js', 'Next.js', 'PostgreSQL',
+const DEFAULT_POPULAR_SKILLS = [
+  'TypeScript', 'React', 'Node.js', 'Next.js', 'PostgreSQL',
   'Python', 'Tailwind CSS', 'Docker', 'REST APIs', 'Git',
-  'Kubernetes', 'AWS', 'PyTorch', 'LangChain', 'Redis',
-  'FastAPI', 'GraphQL', 'Kafka', 'MongoDB', 'Go (Golang)'
-];
-
-const TIMELINE_HORIZONS = [
-  { id: '1m', label: '1 Month', badge: 'Intensive', desc: 'Bootcamp speed · 4–6 hours daily sprint for immediate placement' },
-  { id: '2m', label: '2 – 3 Months', badge: 'Recommended', desc: 'Balanced fast track · Master core architecture and complete drills' },
-  { id: '6m', label: '6 Months', badge: 'Deep Mastery', desc: 'Thorough foundations · Comprehensive portfolio and system design depth' },
-];
-
-const DAILY_COMMITMENTS = [
-  { id: '1h', label: '1 Hour / Day', desc: 'Consistent daily micro-learning while working or studying' },
-  { id: '2h', label: '2 – 3 Hours / Day', desc: 'Optimal pace for rapid skill acquisition and weekly project builds' },
-  { id: '4h', label: '4+ Hours / Day', desc: 'Full-time immersion for rapid career transition' },
-];
-
-const PRIMARY_GOALS = [
-  { id: 'internship', label: 'Land an Internship / Fresher Role', icon: GraduationCap },
-  { id: 'switch', label: 'Switch to High-Paying Tech Job', icon: Rocket },
-  { id: 'senior', label: 'Level Up for Senior / Staff Placement', icon: Award },
-  { id: 'ai', label: 'Master AI Engineering & Modern Systems', icon: Sparkles },
+  'GraphQL', 'AWS', 'Redis', 'FastAPI', 'Go', 'Kubernetes'
 ];
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
@@ -70,1017 +36,569 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   onComplete,
   onSwitchToLogin,
 }) => {
-  const [step, setStep] = useState<number>(1);
-  const totalSteps = 5;
+  const [step, setStep] = useState<1 | 2>(1);
 
-  // ── Authenticated User Info ────────────────────────────────────────────────
-  const userEmail = currentUser?.email || initialProfile.email || 'user@nomadic.app';
+  // Authenticated user initials
+  const userEmail = currentUser?.email || initialProfile.email || '';
   const initialFirst = initialProfile.firstName || (currentUser?.fullName ? currentUser.fullName.split(' ')[0] : '');
   const initialLast = initialProfile.lastName || (currentUser?.fullName ? currentUser.fullName.split(' ').slice(1).join(' ') : '');
 
-  // ── SCREEN 1: Candidate Basics ────────────────────────────────────────────
+  // Step 1 State: Core Inputs
   const [firstName, setFirstName] = useState<string>(initialFirst);
   const [lastName, setLastName] = useState<string>(initialLast);
   const [phone, setPhone] = useState<string>(initialProfile.phone || '');
-  const [targetRoleTitle, setTargetRoleTitle] = useState<string>(
-    initialProfile.desiredTitle || 'Full Stack Engineer'
-  );
-
-  // Real-time suggestions from 10,000 dataset as user types target role
-  const targetTitleSuggestions = useMemo(() => {
-    return searchRoleTitles(targetRoleTitle || 'developer', 6);
-  }, [targetRoleTitle]);
-
-  // ── SCREEN 2: Experience & Background ─────────────────────────────────────
-  const [selectedExp, setSelectedExp] = useState<string>('fresher');
-  const [selectedEdu, setSelectedEdu] = useState<string>('cs_degree');
-
-  // ── SCREEN 3: Technical Skills ────────────────────────────────────────────
-  const [skillsText, setSkillsText] = useState<string>(
-    initialProfile.techStack || 'React, TypeScript, Node.js, Python, PostgreSQL'
-  );
-  const [customSkillInput, setCustomSkillInput] = useState<string>('');
+  const [targetRoleTitle, setTargetRoleTitle] = useState<string>(initialProfile.desiredTitle || 'Full Stack Engineer');
+  const [experienceLevel, setExperienceLevel] = useState<string>(initialProfile.experienceLevel || 'fresher');
+  const [bioOrResumeText, setBioOrResumeText] = useState<string>(initialProfile.resumeText || '');
+  const [customGeminiKey, setCustomGeminiKey] = useState<string>(initialProfile.geminiApiKey || '');
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(() => {
-    const s = new Set<string>(['React', 'TypeScript', 'Node.js', 'Python', 'PostgreSQL']);
+    const s = new Set<string>(['TypeScript', 'React', 'Node.js', 'PostgreSQL']);
     if (initialProfile.techStack) {
       initialProfile.techStack.split(',').map(x => x.trim()).filter(Boolean).forEach(x => s.add(x));
     }
     return s;
   });
+  const [newSkillInput, setNewSkillInput] = useState<string>('');
 
-  const toggleSkillChip = (skill: string) => {
+  // Step 2 State: AI Synthesis Results
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [synthesizedProfile, setSynthesizedProfile] = useState<Partial<MasterProfile>>({});
+  const [synthesizedRoadmap, setSynthesizedRoadmap] = useState<any>(null);
+
+  // Role suggestions autocomplete
+  const roleSuggestions = useMemo(() => {
+    return searchRoleTitles(targetRoleTitle || 'software', 5);
+  }, [targetRoleTitle]);
+
+  const toggleSkill = (skill: string) => {
     const next = new Set(selectedSkills);
     if (next.has(skill)) next.delete(skill);
     else next.add(skill);
     setSelectedSkills(next);
   };
 
-  const handleAddCustomSkill = (e?: React.FormEvent) => {
+  const handleAddSkill = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const trimmed = customSkillInput.trim();
-    if (!trimmed) return;
+    const clean = newSkillInput.trim();
+    if (!clean) return;
     const next = new Set(selectedSkills);
-    next.add(trimmed);
+    next.add(clean);
     setSelectedSkills(next);
-    setCustomSkillInput('');
+    setNewSkillInput('');
   };
 
-  // ── SCREEN 4: Goals & Bandwidth ───────────────────────────────────────────
-  const [selectedHorizon, setSelectedHorizon] = useState<string>('2m');
-  const [selectedHours, setSelectedHours] = useState<string>('2h');
-  const [selectedGoal, setSelectedGoal] = useState<string>('switch');
+  // ── Step 1 → 2: Trigger Real AI Profile & Roadmap Generation ──────────────
+  const handleGenerateAIProfile = async () => {
+    setIsGenerating(true);
+    setAiError(null);
 
-  // ── SCREEN 5: Dynamic AI Role Suggestions & Live Roadmap ──────────────────
-  const [roleSearchFilter, setRoleSearchFilter] = useState<string>('');
+    const api = getApi();
+    try {
+      const res = await api.generateAiOnboardingProfile({
+        targetRole: targetRoleTitle.trim() || 'Software Engineer',
+        experienceLevel,
+        bioOrResumeText: bioOrResumeText.trim(),
+        customSkills: Array.from(selectedSkills),
+        geminiKey: customGeminiKey.trim() || undefined,
+        groqKey: initialProfile.groqApiKey || undefined,
+      });
 
-  const combinedUserQuery = useMemo(() => {
-    const skillsArr = Array.from(selectedSkills).join(', ');
-    return `${roleSearchFilter || targetRoleTitle} ${skillsText} ${skillsArr}`.trim();
-  }, [roleSearchFilter, targetRoleTitle, skillsText, selectedSkills]);
-
-  const aiRoleSuggestions = useMemo(() => {
-    const suggestions = suggestRolesFromUserInput(combinedUserQuery, 4);
-    if (targetRoleTitle && !roleSearchFilter) {
-      const exists = suggestions.some(r => r.title.toLowerCase().includes(targetRoleTitle.toLowerCase()));
-      if (!exists && suggestions.length > 0) {
-        const customRole: JobRole = {
-          ...suggestions[0],
-          id: 99999,
-          title: targetRoleTitle,
-          matchScore: 99,
-        };
-        return [customRole, ...suggestions.slice(0, 3)];
-      }
-    }
-    return suggestions;
-  }, [combinedUserQuery, targetRoleTitle, roleSearchFilter]);
-
-  const [selectedRole, setSelectedRole] = useState<JobRole>(() => {
-    return aiRoleSuggestions[0] || {
-      id: 1,
-      title: initialProfile.desiredTitle || targetRoleTitle || 'Full Stack Engineer',
-      domain: 'Full Stack Development',
-      seniority: 'Mid-Level',
-      industry: 'Enterprise SaaS',
-      coreSkills: ['TypeScript', 'React', 'Node.js', 'PostgreSQL'],
-      salaryIndia: '₹14 LPA – ₹30 LPA',
-      salaryGlobal: '$95k – $165k',
-      roadmapId: 'fullstack',
-      keyTopics: ['Architecture', 'APIs', 'Database Modeling'],
-      interviewQuestions: ['How do you architect an end-to-end type-safe API?'],
-      matchScore: 99,
-    };
-  });
-
-  useEffect(() => {
-    if (aiRoleSuggestions.length > 0) {
-      setSelectedRole(aiRoleSuggestions[0]);
-    }
-  }, [aiRoleSuggestions]);
-
-  // Generate dynamic 5-phase roadmap for selected role
-  const roadmapPlan: TailoredRoadmapSummary = useMemo(() => {
-    return generateTailoredRoadmapForRole(selectedRole);
-  }, [selectedRole]);
-
-  // Dynamic domain recommended skills for Step 3 based on target role
-  const dynamicDomainSkills = useMemo(() => {
-    return selectedRole.coreSkills.length > 0 ? selectedRole.coreSkills : POPULAR_SKILLS;
-  }, [selectedRole]);
-
-  // ── Processing & Synthesis Progress ────────────────────────────────────────
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [synthesisProgress, setSynthesisProgress] = useState<number>(0);
-  const [synthesisStep, setSynthesisStep] = useState<number>(1);
-
-  const handleFinishOnboarding = async () => {
-    setIsSubmitting(true);
-    setSynthesisProgress(15);
-    setSynthesisStep(1);
-
-    setTimeout(() => {
-      setSynthesisProgress(45);
-      setSynthesisStep(2);
-    }, 350);
-
-    setTimeout(() => {
-      setSynthesisProgress(75);
-      setSynthesisStep(3);
-    }, 750);
-
-    setTimeout(() => {
-      setSynthesisProgress(100);
-      setSynthesisStep(4);
-    }, 1150);
-
-    setTimeout(async () => {
-      try {
-        const finalProfile: MasterProfile = {
+      if (res && res.success && res.profile) {
+        setSynthesizedProfile({
           ...initialProfile,
-          firstName: firstName.trim() || 'Nomadic',
-          lastName: lastName.trim(),
-          email: userEmail,
+          firstName: firstName.trim() || res.profile.firstName || 'Candidate',
+          lastName: lastName.trim() || res.profile.lastName || '',
+          email: userEmail || initialProfile.email || 'user@nomadic.app',
           phone: phone.trim(),
-          desiredTitle: selectedRole?.title || initialProfile.desiredTitle || 'Software Engineer',
-          techStack: Array.from(selectedSkills).join(', '),
-          onboardingCompleted: true,
-        };
-
-        const api = getApi();
-        if (api && api.saveMasterProfile) {
-          try {
-            await api.saveMasterProfile(finalProfile as any);
-          } catch (saveErr) {
-            console.warn('[Onboarding] Error saving profile to local database:', saveErr);
-          }
-        }
-
-        setIsSubmitting(false);
-        onComplete(finalProfile);
-      } catch (err) {
-        console.error('[Onboarding] Error finishing onboarding:', err);
-        setIsSubmitting(false);
-        onComplete({
-          ...initialProfile,
+          desiredTitle: res.profile.desiredTitle || targetRoleTitle,
+          techStack: res.profile.techStack || Array.from(selectedSkills).join(', '),
+          desiredSalary: res.profile.desiredSalary || '₹14 LPA – ₹28 LPA',
+          resumeText: bioOrResumeText.trim() || res.profile.resumeText || '',
+          experienceLevel: experienceLevel as any,
+          geminiApiKey: customGeminiKey.trim() || undefined,
           onboardingCompleted: true,
         });
+        setSynthesizedRoadmap(res.roadmap);
+        setStep(2);
+      } else {
+        throw new Error(res?.error || 'AI synthesis failed.');
       }
-    }, 1550);
+    } catch (err: any) {
+      console.warn('[Onboarding AI] Fallback triggered:', err?.message);
+      // Graceful fallback
+      const fallbackStack = Array.from(selectedSkills).join(', ');
+      setSynthesizedProfile({
+        ...initialProfile,
+        firstName: firstName.trim() || 'Candidate',
+        lastName: lastName.trim() || '',
+        email: userEmail || initialProfile.email || 'user@nomadic.app',
+        phone: phone.trim(),
+        desiredTitle: targetRoleTitle.trim() || 'Software Engineer',
+        techStack: fallbackStack || 'TypeScript, React, Node.js, PostgreSQL',
+        desiredSalary: '₹14 LPA – ₹28 LPA · $110k – $150k',
+        resumeText: bioOrResumeText.trim(),
+        experienceLevel: experienceLevel as any,
+        geminiApiKey: customGeminiKey.trim() || undefined,
+        onboardingCompleted: true,
+      });
+      setStep(2);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const stepsLabels = ['Basics', 'Background', 'Skills', 'Goals', 'Curriculum'];
+  // ── Step 2: Finalize & Persist Onboarding ──────────────────────────────────
+  const handleFinalSubmit = async () => {
+    setIsGenerating(true);
+    const api = getApi();
+
+    const finalProf: MasterProfile = {
+      ...initialProfile,
+      ...synthesizedProfile,
+      firstName: firstName.trim() || synthesizedProfile.firstName || 'Candidate',
+      lastName: lastName.trim() || synthesizedProfile.lastName || '',
+      email: userEmail || initialProfile.email || 'user@nomadic.app',
+      phone: phone.trim() || synthesizedProfile.phone || '',
+      desiredTitle: synthesizedProfile.desiredTitle || targetRoleTitle,
+      techStack: synthesizedProfile.techStack || Array.from(selectedSkills).join(', '),
+      geminiApiKey: customGeminiKey.trim() || undefined,
+      onboardingCompleted: true,
+    };
+
+    try {
+      await api.saveMasterProfile(finalProf as any);
+      if (synthesizedRoadmap && api.saveCustomRoadmap) {
+        await api.saveCustomRoadmap({
+          id: synthesizedRoadmap.id || `roadmap-${Date.now()}`,
+          roleTitle: finalProf.desiredTitle || targetRoleTitle,
+          domain: synthesizedRoadmap.domain || 'Engineering',
+          roadmapJson: JSON.stringify(synthesizedRoadmap),
+          targetHorizon: '2 Months',
+          dailyCommitment: '2 Hours/Day',
+        });
+      }
+      if (api.logUserActivity) {
+        await api.logUserActivity('milestone', `Completed AI Onboarding for ${finalProf.desiredTitle}`);
+      }
+    } catch (err: any) {
+      console.error('[Onboarding Save Error]:', err);
+    } finally {
+      setIsGenerating(false);
+      onComplete(finalProf);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#FBFBFD] dark:bg-[#0A0A0C] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans select-none">
+    <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-zinc-100 flex flex-col justify-between p-4 sm:p-8 font-sans selection:bg-zinc-200 dark:selection:bg-zinc-800">
       
-      <div className="w-full max-w-2xl space-y-6">
-        
-        {/* ── APPLE-STYLE MINIMALIST PROGRESS INDICATOR ──────────────────────── */}
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950 flex items-center justify-center font-black text-xs shadow-xs">
-              NM
-            </div>
-            <div>
-              <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">Nomadic Setup</span>
-              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
-                {stepsLabels[step - 1]} · Step {step} of {totalSteps}
-              </p>
-            </div>
+      {/* Top Header */}
+      <div className="max-w-3xl w-full mx-auto flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-black dark:bg-white text-white dark:text-black font-bold flex items-center justify-center text-sm tracking-tight">
+            N
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <div
-                  key={s}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    step === s
-                      ? 'w-7 bg-slate-900 dark:bg-white'
-                      : step > s
-                      ? 'w-3.5 bg-emerald-500'
-                      : 'w-3.5 bg-slate-200 dark:bg-zinc-800'
-                  }`}
-                />
-              ))}
-            </div>
-            {onSwitchToLogin && (
-              <button
-                type="button"
-                onClick={onSwitchToLogin}
-                className="text-[11px] text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white font-medium transition-colors ml-1"
-              >
-                Sign In →
-              </button>
-            )}
+          <div>
+            <span className="font-semibold tracking-tight text-sm text-slate-900 dark:text-white">Nomadic</span>
+            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-mono">Setup Assistant</span>
           </div>
         </div>
 
-        {/* ── CARD CONTAINER (APPLE CLEAN MINIMALISM) ─────────────────────────── */}
-        <div className="bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${step >= 1 ? 'bg-black dark:bg-white' : 'bg-slate-300 dark:bg-zinc-800'}`} />
+          <div className={`w-2 h-2 rounded-full ${step >= 2 ? 'bg-black dark:bg-white' : 'bg-slate-300 dark:bg-zinc-800'}`} />
+          <span className="text-xs font-mono text-slate-500 dark:text-zinc-400 ml-2">Step {step} of 2</span>
+        </div>
+      </div>
 
-          {/* ═══════════════════════════════════════════════════════════════════
-              SCREEN 1: CANDIDATE BASICS (TEXT INPUTS)
-          ═══════════════════════════════════════════════════════════════════ */}
-          {step === 1 && (
-            <div className="space-y-6 animate-fade-up">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">Step 1</span>
-                <h2 className="text-2xl font-bold text-slate-950 dark:text-white tracking-tight">
-                  Welcome to Nomadic. Let's begin.
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Your identity is stored locally on your device and used to pre-fill applications.
-                </p>
+      {/* Main Container */}
+      <div className="max-w-3xl w-full mx-auto my-auto py-8">
+        
+        {step === 1 ? (
+          /* ── STEP 1: CANDIDATE INFO & TARGET GOAL ────────────────────────── */
+          <div className="space-y-8 animate-in fade-in duration-200">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+                Initialize your career profile
+              </h1>
+              <p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">
+                Provide your target position and background. Gemini AI will analyze your profile, calibrate your tech stack, and structure your roadmap.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Jane"
+                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-4">
-                {/* Verified Account Card - Don't ask for Gmail */}
-                <div className="p-3 bg-slate-50 dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between shadow-2xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-xs font-bold text-slate-900 dark:text-white shadow-2xs">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[200px]">{userEmail}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
-                          <Check className="w-2.5 h-2.5" /> Verified Account
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-mono">Linked authentication identity</p>
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe"
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                />
+              </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">First Name</label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="Alex"
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Last Name</label>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Vance"
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Phone Number (Optional)</label>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Phone Number <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+1 (555) 019-2834"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors"
+                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
                   />
                 </div>
+              </div>
 
-                {/* Dynamic Target Role / Career Goal Search & Suggestions */}
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                      Target Job Role / Career Goal
-                    </label>
-                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                      10,000+ dynamic roles index
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={targetRoleTitle}
-                      onChange={(e) => setTargetRoleTitle(e.target.value)}
-                      placeholder="E.g. Full Stack Engineer, AI Engineer, Frontend Developer..."
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors pl-9"
-                    />
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  </div>
-
-                  {/* Dynamic Suggestions from 10k dataset */}
-                  <div className="space-y-1.5 pt-0.5">
-                    <span className="text-[10px] text-slate-400 font-mono">Dynamic suggestions from dataset:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {targetTitleSuggestions.map((title) => {
-                        const isMatch = targetRoleTitle.toLowerCase().trim() === title.toLowerCase().trim();
-                        return (
-                          <button
-                            key={title}
-                            type="button"
-                            onClick={() => setTargetRoleTitle(title)}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                              isMatch
-                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs font-semibold'
-                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300'
-                            }`}
-                          >
-                            {title}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
+                  Account Email
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
+                  <input
+                    type="email"
+                    disabled
+                    value={userEmail || 'user@nomadic.app'}
+                    className="w-full bg-slate-100 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-500 dark:text-zinc-400 cursor-not-allowed"
+                  />
                 </div>
               </div>
+            </div>
+
+            {/* Target Role with Real-time autocomplete */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                Target Role / Career Goal <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Briefcase className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={targetRoleTitle}
+                  onChange={(e) => setTargetRoleTitle(e.target.value)}
+                  placeholder="e.g. Full Stack Engineer, Backend Developer, DevOps, Product Manager"
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                />
+              </div>
+
+              {/* Suggestions */}
+              {roleSuggestions.length > 0 && targetRoleTitle.length >= 2 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[11px] text-slate-400 dark:text-zinc-500">Suggestions:</span>
+                  {roleSuggestions.map((title) => (
+                    <button
+                      key={title}
+                      type="button"
+                      onClick={() => setTargetRoleTitle(title)}
+                      className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition"
+                    >
+                      {title}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Seniority Level */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                Current Experience Level
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {EXPERIENCE_LEVELS.slice(0, 3).map((lvl) => (
+                  <button
+                    key={lvl.id}
+                    type="button"
+                    onClick={() => setExperienceLevel(lvl.id)}
+                    className={`text-left p-3 rounded-xl border text-xs transition ${
+                      experienceLevel === lvl.id
+                        ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-900 font-semibold text-slate-950 dark:text-white'
+                        : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <div className="font-medium text-slate-900 dark:text-zinc-200">{lvl.label}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-zinc-500 mt-0.5">{lvl.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Skills selection */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                Key Technologies & Competencies
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {DEFAULT_POPULAR_SKILLS.map((skill) => {
+                  const active = selectedSkills.has(skill);
+                  return (
+                    <button
+                      key={skill}
+                      type="button"
+                      onClick={() => toggleSkill(skill)}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition ${
+                        active
+                          ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black font-medium'
+                          : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
+                      }`}
+                    >
+                      {skill}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <input
+                  type="text"
+                  value={newSkillInput}
+                  onChange={(e) => setNewSkillInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddSkill(); }}
+                  placeholder="Add custom skill (e.g. Supabase, LangChain, Kafka)..."
+                  className="flex-1 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddSkill()}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 text-xs font-medium hover:bg-slate-50 dark:hover:bg-zinc-900 text-slate-700 dark:text-zinc-300 transition"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Resume / Background Text */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                Resume Summary or Bio (Optional)
+              </label>
+              <textarea
+                value={bioOrResumeText}
+                onChange={(e) => setBioOrResumeText(e.target.value)}
+                rows={3}
+                placeholder="Paste your resume summary, bio, or notable projects here. Gemini will use this to fine-tune your application answers."
+                className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-3 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition resize-none font-mono"
+              />
+            </div>
+
+            {/* Optional Custom Gemini Key */}
+            <div className="border border-slate-200 dark:border-zinc-800 rounded-xl p-3 bg-slate-50/50 dark:bg-zinc-900/40 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-slate-500" /> Google Gemini API Key (Optional)
+                </span>
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                  Built-in Free AI Active
+                </span>
+              </div>
+              <input
+                type="password"
+                value={customGeminiKey}
+                onChange={(e) => setCustomGeminiKey(e.target.value)}
+                placeholder="Paste your personal Gemini API key or leave blank for built-in engine"
+                className="w-full bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 transition font-mono"
+              />
+            </div>
+
+            {aiError && (
+              <div className="p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 text-xs text-red-600 dark:text-red-400">
+                {aiError}
+              </div>
+            )}
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-zinc-800">
+              {onSwitchToLogin ? (
+                <button
+                  type="button"
+                  onClick={onSwitchToLogin}
+                  className="text-xs text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition"
+                >
+                  Already have an account? Sign In
+                </button>
+              ) : <div />}
 
               <button
                 type="button"
-                onClick={() => {
-                  if (firstName.trim()) {
-                    setStep(2);
-                  }
-                }}
-                disabled={!firstName.trim()}
-                className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isGenerating || !firstName.trim() || !phone.trim() || !targetRoleTitle.trim()}
+                onClick={handleGenerateAIProfile}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
               >
-                <span>Continue</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Analyzing with Gemini...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Generate AI Profile & Roadmap</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
               </button>
             </div>
-          )}
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SCREEN 2: EDUCATION & EXPERIENCE (MCQ CARDS)
-          ═══════════════════════════════════════════════════════════════════ */}
-          {step === 2 && (
-            <div className="space-y-6 animate-fade-up">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">Step 2</span>
-                <h2 className="text-2xl font-bold text-slate-950 dark:text-white tracking-tight">
-                  Experience &amp; Background
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Select your current career stage so we calibrate your difficulty curve and roadmap depth.
-                </p>
-              </div>
-
-              {/* Experience Level MCQ */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Current Experience Level
-                </label>
-                <div className="space-y-2">
-                  {EXPERIENCE_LEVELS.map((opt) => {
-                    const isSelected = selectedExp === opt.id;
-                    return (
-                      <div
-                        key={opt.id}
-                        onClick={() => setSelectedExp(opt.id)}
-                        className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-50 dark:bg-zinc-800/60 shadow-xs'
-                            : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-slate-300 dark:hover:border-zinc-700'
-                        }`}
-                      >
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-bold text-slate-950 dark:text-white">{opt.label}</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">{opt.sub}</p>
-                        </div>
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-950 dark:bg-white text-white dark:text-slate-950'
-                            : 'border-slate-300 dark:border-zinc-700'
-                        }`}>
-                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Education Background MCQ */}
-              <div className="space-y-2 pt-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Educational Background
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {EDUCATION_OPTIONS.map((opt) => {
-                    const isSelected = selectedEdu === opt.id;
-                    return (
-                      <div
-                        key={opt.id}
-                        onClick={() => setSelectedEdu(opt.id)}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-50 dark:bg-zinc-800/60 shadow-xs'
-                            : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-slate-300 dark:hover:border-zinc-700'
-                        }`}
-                      >
-                        <div>
-                          <h5 className="text-xs font-bold text-slate-950 dark:text-white">{opt.label}</h5>
-                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">{opt.sub}</p>
-                        </div>
-                        <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-950 dark:bg-white text-white dark:text-slate-950'
-                            : 'border-slate-300 dark:border-zinc-700'
-                        }`}>
-                          {isSelected && <Check className="w-2 h-2 stroke-[3]" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="px-4 py-2.5 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50"
-                >
-                  Back
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  className="flex-1 py-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <span>Continue to Skills</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SCREEN 3: TECHNICAL STACK & TOOLS (TEXT + MCQ CHIPS)
-          ═══════════════════════════════════════════════════════════════════ */}
-          {step === 3 && (
-            <div className="space-y-6 animate-fade-up">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">Step 3</span>
-                <h2 className="text-2xl font-bold text-slate-950 dark:text-white tracking-tight">
-                  Technical Stack &amp; Tools
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Select the technologies you know or want to specialize in.
-                </p>
-              </div>
-
-              {/* Text Description */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Technical background &amp; frameworks
-                </label>
-                <input
-                  type="text"
-                  value={skillsText}
-                  onChange={(e) => setSkillsText(e.target.value)}
-                  placeholder="E.g. React, Next.js, Node.js, Python, PostgreSQL, Docker, AWS..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors"
-                />
-              </div>
-
-              {/* Dynamic Domain Skills */}
-              {dynamicDomainSkills.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                      Recommended for {selectedRole.title}
-                    </label>
-                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                      Dynamically calibrated
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {dynamicDomainSkills.map((skill) => {
-                      const isSelected = selectedSkills.has(skill);
-                      return (
-                        <button
-                          key={skill}
-                          type="button"
-                          onClick={() => toggleSkillChip(skill)}
-                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                            isSelected
-                              ? 'border-emerald-600 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 shadow-2xs'
-                              : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[3]" />}
-                          <span>{skill}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Add Custom Skill Dynamically */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Add Any Custom Skill or Framework
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customSkillInput}
-                    onChange={(e) => setCustomSkillInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddCustomSkill();
-                      }
-                    }}
-                    placeholder="Type custom skill (e.g. Rust, PyTorch, GraphQL) and press Enter"
-                    className="flex-1 px-3.5 py-2 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddCustomSkill}
-                    disabled={!customSkillInput.trim()}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-xl text-xs font-bold text-slate-700 dark:text-zinc-200 transition-colors disabled:opacity-50"
-                  >
-                    + Add
-                  </button>
-                </div>
-              </div>
-
-              {/* General Core Technologies */}
-              <div className="space-y-2 pt-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Popular Core Technologies ({selectedSkills.size} selected)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {POPULAR_SKILLS.map((skill) => {
-                    const isSelected = selectedSkills.has(skill);
-                    return (
-                      <button
-                        key={skill}
-                        type="button"
-                        onClick={() => toggleSkillChip(skill)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs'
-                            : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        <span>{skill}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  className="px-4 py-2.5 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50"
-                >
-                  Back
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setStep(4)}
-                  className="flex-1 py-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <span>Continue to Goals</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SCREEN 4: GOALS & COMMITMENT (MCQ GRIDS)
-          ═══════════════════════════════════════════════════════════════════ */}
-          {step === 4 && (
-            <div className="space-y-6 animate-fade-up">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">Step 4</span>
-                <h2 className="text-2xl font-bold text-slate-950 dark:text-white tracking-tight">
-                  Timeline &amp; Primary Objective
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Calibrate your target horizon and daily study bandwidth.
-                </p>
-              </div>
-
-              {/* Primary Objective MCQ */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Primary Career Objective
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {PRIMARY_GOALS.map((g) => {
-                    const isSelected = selectedGoal === g.id;
-                    const IconComponent = g.icon;
-                    return (
-                      <div
-                        key={g.id}
-                        onClick={() => setSelectedGoal(g.id)}
-                        className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all flex items-center gap-3 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-50 dark:bg-zinc-800/60 shadow-xs'
-                            : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className={`p-2 rounded-xl ${isSelected ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
-                          <IconComponent className="w-4 h-4" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">{g.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Timeline Horizon MCQ */}
-              <div className="space-y-2 pt-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Target Timeline Horizon
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {TIMELINE_HORIZONS.map((h) => {
-                    const isSelected = selectedHorizon === h.id;
-                    return (
-                      <div
-                        key={h.id}
-                        onClick={() => setSelectedHorizon(h.id)}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all space-y-1 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-50 dark:bg-zinc-800/60 shadow-xs'
-                            : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-950 dark:text-white">{h.label}</span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-semibold">{h.badge}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-tight">{h.desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Daily Bandwidth MCQ */}
-              <div className="space-y-2 pt-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Daily Study Bandwidth
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {DAILY_COMMITMENTS.map((c) => {
-                    const isSelected = selectedHours === c.id;
-                    return (
-                      <div
-                        key={c.id}
-                        onClick={() => setSelectedHours(c.id)}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all space-y-1 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-50 dark:bg-zinc-800/60 shadow-xs'
-                            : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-slate-300'
-                        }`}
-                      >
-                        <span className="text-xs font-bold text-slate-950 dark:text-white">{c.label}</span>
-                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-tight">{c.desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  className="px-4 py-2.5 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50"
-                >
-                  Back
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setStep(5)}
-                  className="flex-1 py-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <span>Synthesize Career Role &amp; Roadmap</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SCREEN 5: AI JOB TITLE SUGGESTIONS & LIVE ROADMAP LOADER
-          ═══════════════════════════════════════════════════════════════════ */}
-          {step === 5 && (
-            <div className="space-y-6 animate-fade-up">
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold mb-1">
-                  <Sparkles className="w-3 h-3" />
-                  <span>10,000+ Job Roles AI Index</span>
-                </div>
-                <h2 className="text-2xl font-bold text-slate-950 dark:text-white tracking-tight">
-                  Suggested Job Roles &amp; Live Curriculum
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Based on your skills and goals, select your target role below to load your personalized roadmap.
-                </p>
-              </div>
-
-              {/* Dynamic Live Role Search & Filter */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                    Live Search or Select Target Role
-                  </label>
-                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                    Dynamic Matching
-                  </span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={roleSearchFilter}
-                    onChange={(e) => setRoleSearchFilter(e.target.value)}
-                    placeholder="Type to test any other title (e.g. AI Systems Architect, SRE, Rust Engineer)..."
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs text-slate-900 dark:text-white focus:border-slate-400 dark:focus:border-zinc-600 transition-colors pl-9"
-                  />
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
-              </div>
-
-              {/* Top AI Job Title Suggestions from 10,000 Dataset */}
-              <div className="space-y-2.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  AI-Synthesized Target Roles (Click to select)
-                </label>
-
-                <div className="space-y-2">
-                  {aiRoleSuggestions.map((role) => {
-                    const isSelected = selectedRole.title === role.title;
-                    return (
-                      <div
-                        key={role.id}
-                        onClick={() => setSelectedRole(role)}
-                        className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          isSelected
-                            ? 'border-slate-950 dark:border-white bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-md ring-1 ring-slate-950'
-                            : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-900 dark:text-white'
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                              isSelected
-                                ? 'bg-white/20 text-white dark:bg-slate-950/20 dark:text-slate-950'
-                                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                            }`}>
-                              ✨ {role.matchScore}% Match
-                            </span>
-                            <span className="text-[10px] font-mono opacity-70">
-                              {role.domain} · {role.industry}
-                            </span>
-                          </div>
-                          <h4 className="text-sm font-bold tracking-tight">
-                            {role.title}
-                          </h4>
-                          <div className="flex items-center gap-2 text-[10px] font-mono opacity-80 pt-0.5">
-                            <span>🇮🇳 {role.salaryIndia}</span>
-                            <span>·</span>
-                            <span>🌐 {role.salaryGlobal}</span>
-                          </div>
-                        </div>
-
-                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected
-                            ? 'border-white bg-white text-slate-950 dark:border-slate-950 dark:bg-slate-950 dark:text-white'
-                            : 'border-slate-300 dark:border-zinc-700'
-                        }`}>
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* ── ACTUALLY LOADED TAILORED ROADMAP PREVIEW ─────────────────── */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200 dark:border-zinc-800 space-y-3.5">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-blue-500" />
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                        Loaded Roadmap: {selectedRole.title}
-                      </h4>
-                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                        5-Stage milestone progression calibrated for {selectedHorizon === '1m' ? '1 Month' : selectedHorizon === '2m' ? '2-3 Months' : '6 Months'}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                    Live Loaded ✓
-                  </span>
-                </div>
-
-                {/* 5 Milestone Cards */}
-                <div className="space-y-2">
-                  {roadmapPlan.milestones.map((m, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-xl bg-white dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60 flex items-start justify-between gap-3"
-                    >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300">
-                            Phase {idx + 1}
-                          </span>
-                          <h5 className="text-xs font-bold text-slate-900 dark:text-white">{m.title}</h5>
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">
-                          {m.description}
-                        </p>
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {m.skills.map((sk, j) => (
-                            <span key={j} className="text-[9px] font-mono px-1.5 py-0.2 bg-slate-50 dark:bg-zinc-900 rounded border border-slate-200/60 dark:border-zinc-700 text-slate-600 dark:text-zinc-400">
-                              {sk}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-400 shrink-0 mt-0.5">{m.hours}h</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Interview Drills Preview */}
-                <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-zinc-200">
-                    <MessageSquare className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Loaded Technical Drills:</span>
-                  </div>
-                  {roadmapPlan.interviewQuestions.map((q, idx) => (
-                    <p key={idx} className="text-[11px] text-slate-600 dark:text-zinc-300 italic pl-5">
-                      • "{q}"
-                    </p>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(4)}
-                  className="px-4 py-2.5 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50"
-                >
-                  Back
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFinishOnboarding}
-                  disabled={isSubmitting}
-                  className="flex-1 py-3.5 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-98 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Synthesizing Workspace ({synthesisProgress}%)...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span>Launch My Personalized Nomadic Dashboard</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════════
-          FULL ANIMATED SYNTHESIS & LAUNCH PROCESSING OVERLAY
-      ═══════════════════════════════════════════════════════════════════════ */}
-      {isSubmitting && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none">
-          <div className="w-full max-w-md bg-white dark:bg-[#121215] border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 animate-scale-in">
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/80 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
-                <Loader2 className="w-7 h-7 animate-spin" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-950 dark:text-white">
-                Synthesizing Your Career Workspace
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Tailoring learning milestones &amp; radar engines for {selectedRole.title}
+          </div>
+        ) : (
+          /* ── STEP 2: AI SYNTHESIS REVIEW & CONFIRMATION ──────────────────── */
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+                Review Your AI Profile
+              </h1>
+              <p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">
+                Gemini synthesized your baseline parameters. You can edit any details or launch directly into your workspace.
               </p>
             </div>
 
-            {/* Progress Bar */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-[11px] font-mono font-semibold text-slate-500 dark:text-zinc-400">
-                <span>Synthesis Status</span>
-                <span>{synthesisProgress}%</span>
+            {/* Profile Overview Card */}
+            <div className="bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-zinc-800 pb-4">
+                <div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">
+                    {firstName} {lastName}
+                  </div>
+                  <div className="text-xs font-mono text-slate-500 dark:text-zinc-400 mt-0.5">
+                    {userEmail || 'user@nomadic.app'} · {phone}
+                  </div>
+                </div>
+                <div className="px-2.5 py-1 rounded-md bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 text-xs font-medium text-slate-800 dark:text-zinc-200">
+                  {synthesizedProfile.desiredTitle || targetRoleTitle}
+                </div>
               </div>
-              <div className="w-full h-2.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300 rounded-full"
-                  style={{ width: `${synthesisProgress}%` }}
-                />
+
+              {/* Skills */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-mono uppercase text-slate-400 dark:text-zinc-500">
+                  Extracted Tech Stack
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {(synthesizedProfile.techStack || '').split(',').map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-md bg-white dark:bg-black border border-slate-200 dark:border-zinc-800 text-xs text-slate-800 dark:text-zinc-200"
+                    >
+                      {skill.trim()}
+                    </span>
+                  ))}
+                </div>
               </div>
+
+              {/* Estimated Compensation */}
+              {synthesizedProfile.desiredSalary && (
+                <div className="text-xs text-slate-600 dark:text-zinc-400 flex items-center gap-2">
+                  <span className="text-slate-400 dark:text-zinc-500">Target Range:</span>
+                  <span className="font-mono font-medium text-slate-900 dark:text-zinc-100">
+                    {synthesizedProfile.desiredSalary}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Step Checklist */}
-            <div className="space-y-2.5 pt-1 text-xs">
-              <div className="flex items-center gap-2.5">
-                {synthesisStep > 1 ? (
-                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>
-                ) : (
-                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
-                )}
-                <span className={synthesisStep >= 1 ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}>
-                  Compiling 5-stage personalized roadmap for {selectedRole.title}
-                </span>
-              </div>
+            {/* Generated Dynamic Roadmap Preview */}
+            {synthesizedRoadmap && synthesizedRoadmap.milestones && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                    Generated Curriculum: {synthesizedRoadmap.title}
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                    {synthesizedRoadmap.milestones.length} Phases
+                  </span>
+                </div>
 
-              <div className="flex items-center gap-2.5">
-                {synthesisStep > 2 ? (
-                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>
-                ) : synthesisStep === 2 ? (
-                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
-                ) : (
-                  <span className="w-5 h-5 rounded-full border border-slate-200 dark:border-zinc-800 shrink-0" />
-                )}
-                <span className={synthesisStep >= 2 ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}>
-                  Calibrating technical interview drills &amp; evaluation models
-                </span>
+                <div className="space-y-2">
+                  {synthesizedRoadmap.milestones.map((m: any, i: number) => (
+                    <div
+                      key={m.id || i}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-start gap-3"
+                    >
+                      <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5">
+                        {i + 1}
+                      </div>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 truncate">
+                            {m.title}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 shrink-0">
+                            {m.level || 'Foundations'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1">
+                          {m.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
 
-              <div className="flex items-center gap-2.5">
-                {synthesisStep > 3 ? (
-                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold shrink-0">✓</span>
-                ) : synthesisStep === 3 ? (
-                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
-                ) : (
-                  <span className="w-5 h-5 rounded-full border border-slate-200 dark:border-zinc-800 shrink-0" />
-                )}
-                <span className={synthesisStep >= 3 ? 'font-medium text-slate-900 dark:text-white' : 'text-slate-400'}>
-                  Initializing encrypted local SQLite workspace &amp; profiles
-                </span>
-              </div>
+            {/* Bottom Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Edit</span>
+              </button>
 
-              <div className="flex items-center gap-2.5">
-                {synthesisStep >= 4 ? (
-                  <Loader2 className="w-5 h-5 text-emerald-500 animate-spin shrink-0" />
+              <button
+                type="button"
+                disabled={isGenerating}
+                onClick={handleFinalSubmit}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-xs"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving Profile...</span>
+                  </>
                 ) : (
-                  <span className="w-5 h-5 rounded-full border border-slate-200 dark:border-zinc-800 shrink-0" />
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Confirm & Launch Workspace</span>
+                  </>
                 )}
-                <span className={synthesisStep >= 4 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}>
-                  Launching your Nomadic dashboard...
-                </span>
-              </div>
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
+
+      {/* Footer */}
+      <div className="max-w-3xl w-full mx-auto text-center border-t border-slate-100 dark:border-zinc-900 pt-4">
+        <p className="text-[11px] text-slate-400 dark:text-zinc-600">
+          Nomadic Offline-First Storage · Candidate data stored locally in encrypted SQLite
+        </p>
+      </div>
+
     </div>
   );
 };

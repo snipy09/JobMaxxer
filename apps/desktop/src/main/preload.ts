@@ -14,9 +14,10 @@ const apiObj = {
   launchAutonomous: (jobUrls: string[]) => ipcRenderer.invoke('launch-autonomous', jobUrls),
   verifyEmail: (email: string) => ipcRenderer.invoke('verify-email', email),
   getHrContacts: (targetRole?: string) => ipcRenderer.invoke('get-hr-contacts', targetRole),
-  sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string }>) =>
+  sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>) =>
     ipcRenderer.invoke('send-outreach', contacts),
   getApplications: () => ipcRenderer.invoke('get-applications'),
+  saveApplication: (app: Record<string, unknown>) => ipcRenderer.invoke('save-application', app),
   getSavedJobs: () => ipcRenderer.invoke('get-saved-jobs'),
   saveJob: (job: Record<string, unknown>) => ipcRenderer.invoke('save-job', job),
   removeSavedJob: (applyUrl: string) => ipcRenderer.invoke('remove-saved-job', applyUrl),
@@ -39,6 +40,22 @@ const apiObj = {
     return () => ipcRenderer.removeListener('heartbeat-status', handler);
   },
   openExternalUrl: (url: string) => ipcRenderer.invoke('open-external-url', url),
+
+  // AI Generation Handlers
+  generateAiOnboardingProfile: (params: Record<string, unknown>) =>
+    ipcRenderer.invoke('generate-ai-onboarding-profile', params),
+  generateCustomRoadmap: (params: Record<string, unknown>) =>
+    ipcRenderer.invoke('generate-custom-roadmap', params),
+  getCustomRoadmaps: () => ipcRenderer.invoke('get-custom-roadmaps'),
+  saveCustomRoadmap: (roadmap: Record<string, unknown>) =>
+    ipcRenderer.invoke('save-custom-roadmap', roadmap),
+  deleteCustomRoadmap: (id: string) => ipcRenderer.invoke('delete-custom-roadmap', id),
+
+  // Activity Heatmap & Logging
+  getActivityHeatmap: (days?: number) => ipcRenderer.invoke('get-activity-heatmap', days),
+  logUserActivity: (activityType: string, details?: string) =>
+    ipcRenderer.invoke('log-user-activity', { activityType, details }),
+  getActivityStats: () => ipcRenderer.invoke('get-activity-stats'),
 
   // Learner Progress & Roadmap State
   getLearnerProgress: (roadmapId: string) => ipcRenderer.invoke('get-learner-progress', roadmapId),
