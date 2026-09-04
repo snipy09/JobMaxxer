@@ -11,6 +11,8 @@ interface OutreachViewProps {
   profile: MasterProfile;
   onLog: (msg: string) => void;
   initialSearchQuery?: string;
+  currentUser?: any;
+  onOpenUpgrade?: (feature?: string) => void;
 }
 
 const DEFAULT_TEMPLATES = [
@@ -44,6 +46,8 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
   profile,
   onLog,
   initialSearchQuery = '',
+  currentUser,
+  onOpenUpgrade,
 }) => {
   const [contacts, setContacts] = useState<OutreachContact[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
@@ -201,6 +205,12 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
 
   const handleDispatchDrip = async () => {
     if (selectedEmails.size === 0) return;
+    const isFreeOrLearner = !currentUser?.tier || currentUser?.tier === 'free' || currentUser?.tier === 'learner_pro';
+    if (isFreeOrLearner) {
+      onOpenUpgrade?.('Verified Cold Outreach & SMTP Drip Engine (Seeker Pro / Max)');
+      return;
+    }
+
     const api = getApi();
     if (!api) return;
 

@@ -15,6 +15,8 @@ interface FeedViewProps {
   onUpdateProfile?: (p: MasterProfile) => void;
   onLog: (msg: string) => void;
   onNavigateToOutreach?: (company: string, jobTitle: string) => void;
+  currentUser?: any;
+  onOpenUpgrade?: (feature?: string) => void;
 }
 
 const DEMO_TEST_JOB: Job = {
@@ -37,6 +39,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
   onUpdateProfile,
   onLog,
   onNavigateToOutreach,
+  currentUser,
+  onOpenUpgrade,
 }) => {
   // 1. Synchronously initialize jobs from LocalStorage so page transitions NEVER wipe the feed
   const [jobs, setJobs] = useState<Job[]>(() => {
@@ -230,6 +234,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
     });
   }, [scoredJobPool, filterTab, searchQuery]);
 
+  const isFreeUser = !currentUser?.tier || currentUser?.tier === 'free';
+  const displayedJobs = useMemo(() => {
+    if (isFreeUser && filterTab !== 'saved') {
+      return filteredJobs.slice(0, 10);
+    }
+    return filteredJobs;
+  }, [filteredJobs, isFreeUser, filterTab]);
+
   const toggleSelect = (url: string) => {
     const next = new Set(selectedUrls);
     if (next.has(url)) next.delete(url);
@@ -269,6 +281,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
   // Pre-Apply Gatekeeper Check
   const checkProfileAndRun = async (urls: string[]) => {
+    const isFreeOrLearner = !currentUser?.tier || currentUser?.tier === 'free' || currentUser?.tier === 'learner_pro';
+    if (isFreeOrLearner) {
+      onOpenUpgrade?.('100% Autonomous Auto-Apply Engine (Seeker Pro / Max)');
+      return;
+    }
+
     const api = getApi();
     const hasFirstName = Boolean(profile.firstName && profile.firstName.trim().length > 0);
     const hasPhone = Boolean(profile.phone && profile.phone.trim().length > 0);
@@ -458,148 +476,171 @@ export const FeedView: React.FC<FeedViewProps> = ({
       </div>
 
       {/* ── JOB CARDS GRID ──────────────────────────────────────────────────── */}
-      {filteredJobs.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
-          {filteredJobs.map((job) => {
-            const isSelected = selectedUrls.has(job.applyUrl);
-            const isSaved = savedJobs.some(sj => sj.applyUrl === job.applyUrl);
-            const score = job.score ?? 85;
+      {displayedJobs.length > 0 ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+            {displayedJobs.map((job) => {
+              const isSelected = selectedUrls.has(job.applyUrl);
+              const isSaved = savedJobs.some(sj => sj.applyUrl === job.applyUrl);
+              const score = job.score ?? 85;
 
-            return (
-              <div
-                key={job.applyUrl}
-                className={`p-5 rounded-2xl border transition-all duration-300 bg-white dark:bg-zinc-900 shadow-xs flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-md ${
-                  isSelected
-                    ? 'border-slate-900 dark:border-zinc-100 ring-1 ring-slate-900 dark:ring-zinc-100'
-                    : 'border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
-                }`}
-              >
-                {/* Card Header: Monogram Avatar + Company + Source + Match Badge */}
-                <div className="space-y-3.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 flex items-center justify-center font-bold text-xs shrink-0">
-                        {job.company ? job.company.slice(0, 2).toUpperCase() : 'CO'}
+              return (
+                <div
+                  key={job.applyUrl}
+                  className={`p-5 rounded-2xl border transition-all duration-300 bg-white dark:bg-zinc-900 shadow-xs flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-md ${
+                    isSelected
+                      ? 'border-slate-900 dark:border-zinc-100 ring-1 ring-slate-900 dark:ring-zinc-100'
+                      : 'border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                  }`}
+                >
+                  {/* Card Header: Monogram Avatar + Company + Source + Match Badge */}
+                  <div className="space-y-3.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 flex items-center justify-center font-bold text-xs shrink-0">
+                          {job.company ? job.company.slice(0, 2).toUpperCase() : 'CO'}
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate max-w-[120px]">
+                            {job.company}
+                          </h4>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {job.source}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate max-w-[120px]">
-                          {job.company}
-                        </h4>
-                        <span className="text-[10px] font-mono text-slate-400">
-                          {job.source}
+
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                          score >= 90
+                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            : 'bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-300'
+                        }`}>
+                          {score}% Match
                         </span>
+                        <button
+                          onClick={() => toggleSelect(job.applyUrl)}
+                          className="text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-slate-900 dark:text-zinc-100" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                        score >= 90
-                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          : 'bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-300'
-                      }`}>
-                        {score}% Match
-                      </span>
-                      <button
-                        onClick={() => toggleSelect(job.applyUrl)}
-                        className="text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
+                    {/* Title & Metadata */}
+                    <div className="space-y-1">
+                      <h3
+                        onClick={() => setViewingJob(job)}
+                        className="text-sm font-bold text-slate-900 dark:text-zinc-100 hover:underline cursor-pointer line-clamp-1 leading-snug"
                       >
-                        {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-slate-900 dark:text-zinc-100" />
+                        {job.title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-slate-400" />
+                          <span>{job.location || 'Remote'}</span>
+                        </span>
+                        {job.salary && (
+                          <>
+                            <span>·</span>
+                            <span className="font-semibold text-slate-700 dark:text-zinc-300">{job.salary}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Matched Skill Tags */}
+                    {job.matchedSkills && job.matchedSkills.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {job.matchedSkills.slice(0, 3).map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-semibold"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Description snippet */}
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
+                      {job.description || 'Full position details available via direct ATS endpoint.'}
+                    </p>
+                  </div>
+
+                  {/* Card Action Footer */}
+                  <div className="pt-4 mt-4 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleToggleSaveJob(job)}
+                        className={`p-1.5 rounded-lg border transition-colors ${
+                          isSaved
+                            ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
+                            : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-700'
+                        }`}
+                        title={isSaved ? 'Remove from Saved' : 'Save Job'}
+                      >
+                        <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current text-amber-400' : ''}`} />
+                      </button>
+
+                      <button
+                        onClick={(e) => handleCopyLink(job.applyUrl, e)}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-700 transition-colors"
+                        title="Copy Job Link"
+                      >
+                        {copiedUrl === job.applyUrl ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
                         ) : (
-                          <Square className="w-4 h-4" />
+                          <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
-                    </div>
-                  </div>
 
-                  {/* Title & Metadata */}
-                  <div className="space-y-1">
-                    <h3
-                      onClick={() => setViewingJob(job)}
-                      className="text-sm font-bold text-slate-900 dark:text-zinc-100 hover:underline cursor-pointer line-clamp-1 leading-snug"
+                      <button
+                        onClick={() => onNavigateToOutreach?.(job.company, job.title)}
+                        className="px-2.5 py-1.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-800 dark:text-zinc-200 rounded-lg text-[11px] font-semibold transition-colors"
+                      >
+                        Find HR
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => checkProfileAndRun([job.applyUrl])}
+                      className="px-3.5 py-1.5 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
                     >
-                      {job.title}
-                    </h3>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-slate-400" />
-                        <span>{job.location || 'Remote'}</span>
-                      </span>
-                      {job.salary && (
-                        <>
-                          <span>·</span>
-                          <span className="font-semibold text-slate-700 dark:text-zinc-300">{job.salary}</span>
-                        </>
-                      )}
-                    </div>
+                      <Zap className="w-3 h-3 text-emerald-400 fill-current" />
+                      <span>Apply</span>
+                    </button>
                   </div>
-
-                  {/* Matched Skill Tags */}
-                  {job.matchedSkills && job.matchedSkills.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {job.matchedSkills.slice(0, 3).map((skill, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-semibold"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Description snippet */}
-                  <p className="text-xs text-slate-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
-                    {job.description || 'Full position details available via direct ATS endpoint.'}
-                  </p>
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Card Action Footer */}
-                <div className="pt-4 mt-4 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleToggleSaveJob(job)}
-                      className={`p-1.5 rounded-lg border transition-colors ${
-                        isSaved
-                          ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent'
-                          : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-700'
-                      }`}
-                      title={isSaved ? 'Remove Bookmark' : 'Bookmark Job'}
-                    >
-                      <Bookmark className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      onClick={(e) => handleCopyLink(job.applyUrl, e)}
-                      className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-slate-700 transition-colors"
-                      title="Copy Job Link"
-                    >
-                      {copiedUrl === job.applyUrl ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => onNavigateToOutreach?.(job.company, job.title)}
-                      className="px-2.5 py-1.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-800 dark:text-zinc-200 rounded-lg text-[11px] font-semibold transition-colors"
-                    >
-                      Find HR
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => checkProfileAndRun([job.applyUrl])}
-                    className="px-3.5 py-1.5 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
-                  >
-                    <Zap className="w-3 h-3 text-emerald-400 fill-current" />
-                    <span>Apply</span>
-                  </button>
+          {/* Free User Locked Jobs Banner */}
+          {isFreeUser && filteredJobs.length > 10 && (
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white dark:from-zinc-900 dark:to-zinc-950 border border-slate-800 dark:border-zinc-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-1 text-center sm:text-left">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold">
+                  <span>+{filteredJobs.length - 10} More Verified Positions</span>
                 </div>
+                <h3 className="text-sm font-bold text-white">Unlock Complete 1,000+ Real-Time ATS Feed</h3>
+                <p className="text-xs text-slate-400">Upgrade to Learner Pro or Seeker Pro to access all opportunities, filter tabs, and direct pipelines.</p>
               </div>
-            );
-          })}
+
+              <button
+                type="button"
+                onClick={() => onOpenUpgrade?.('Full 1,000+ Job Feed Access')}
+                className="px-5 py-2.5 rounded-xl bg-white text-slate-950 hover:bg-slate-100 text-xs font-bold transition shadow-md whitespace-nowrap active:scale-95"
+              >
+                Unlock Complete Feed
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         /* Empty State */

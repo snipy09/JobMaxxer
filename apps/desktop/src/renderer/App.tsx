@@ -402,6 +402,8 @@ export default function App() {
                   setActiveTab('feed');
                 }}
                 onLog={addLog}
+                currentUser={currentUser}
+                onOpenUpgrade={handleOpenUpgrade}
               />
             )}
 
@@ -443,6 +445,8 @@ export default function App() {
                   setOutreachTargetCompany(company);
                   setActiveTab('outreach');
                 }}
+                currentUser={currentUser}
+                onOpenUpgrade={handleOpenUpgrade}
               />
             )}
 
@@ -451,6 +455,8 @@ export default function App() {
                 profile={profile}
                 onLog={addLog}
                 initialSearchQuery={outreachTargetCompany}
+                currentUser={currentUser}
+                onOpenUpgrade={handleOpenUpgrade}
               />
             )}
 

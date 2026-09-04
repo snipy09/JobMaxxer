@@ -17,6 +17,8 @@ interface LearnerViewProps {
   onUpdateProfile: (updated: Partial<MasterProfile>) => void;
   onNavigateToSeeker: () => void;
   onLog: (msg: string) => void;
+  currentUser?: AppUser | null;
+  onOpenUpgrade?: (feature?: string) => void;
 }
 
 const TIMELINE_OPTIONS = [
@@ -41,7 +43,9 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   profile,
   onUpdateProfile,
   onNavigateToSeeker,
-  onLog
+  onLog,
+  currentUser,
+  onOpenUpgrade,
 }) => {
   const [customRoadmaps, setCustomRoadmaps] = useState<Roadmap[]>(() => {
     try {
@@ -400,7 +404,14 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
             )}
 
             <button
-              onClick={() => setShowGenerateModal(true)}
+              onClick={() => {
+                const isFreeUser = !currentUser?.tier || currentUser?.tier === 'free';
+                if (isFreeUser && customRoadmaps.length >= 1) {
+                  onOpenUpgrade?.('Unlimited Custom Roadmaps (Learner Pro)');
+                } else {
+                  setShowGenerateModal(true);
+                }
+              }}
               className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" />
