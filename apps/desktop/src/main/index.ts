@@ -82,23 +82,15 @@ app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 // ── Deep Linking & OAuth ──────────────────────────────────────────────
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('nomadic', process.execPath, [path.resolve(process.argv[1])]);
-    app.setAsDefaultProtocolClient('hirestack', process.execPath, [path.resolve(process.argv[1])]);
-    app.setAsDefaultProtocolClient('jobmaxxer', process.execPath, [path.resolve(process.argv[1])]);
-  }
-} else {
+// Resilient deep linking protocol registration
+try {
   app.setAsDefaultProtocolClient('nomadic');
   app.setAsDefaultProtocolClient('hirestack');
   app.setAsDefaultProtocolClient('jobmaxxer');
-}
+} catch {}
 
-// Resilient single-instance lock handling
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.exit(0);
-} else {
+// Second-instance focus handler (never exit prematurely)
+try {
   app.on('second-instance', (event, commandLine) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -110,7 +102,7 @@ if (!gotTheLock) {
       createWindow();
     }
   });
-}
+} catch {}
 
 app.on('open-url', (event, url) => {
   event.preventDefault();
@@ -647,15 +639,12 @@ ipcMain.handle('open-external-url', async (_, url: string) => {
   return { success: false, error: 'Blocked: Disallowed or invalid URL' };
 });
 
-app.whenReady().then(async () => {
-  try {
-    await initLocalDatabase(app.getPath('userData'));
-    log('[Database] Local SQLite initialized successfully ✓');
-  } catch (err: any) {
-    console.error('[Database] Init note:', err?.message);
-  }
-
+app.whenReady().then(() => {
   createWindow();
+
+  initLocalDatabase(app.getPath('userData'))
+    .then(() => log('[Database] Local SQLite initialized successfully ✓'))
+    .catch((err) => console.error('[Database] Init note:', err?.message));
 
   // Background verification: check if local Chrome / Edge is present
   setTimeout(() => {
