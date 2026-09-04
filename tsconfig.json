@@ -1,12 +1,27 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": true,
-    "resolveJsonModule": true
-  }
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@job-automator/automation": ["./packages/automation/src/index.ts"],
+      "@job-automator/scrapers": ["./packages/scrapers/src/index.ts"],
+      "@job-automator/supabase": ["./packages/supabase/src/index.ts"],
+      "@job-automator/email-verifier": ["./packages/email-verifier/src/index.ts"]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "apps/desktop/dist-electron",
+    "apps/desktop/out",
+    "apps/web/dist",
+    "packages/supabase/functions"
+  ]
 }

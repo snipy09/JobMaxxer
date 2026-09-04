@@ -23,9 +23,11 @@
     },
     "files": [
       "out/**/*",
+      "assets/**/*",
       "node_modules/**/*"
     ],
     "win": {
+      "icon": "assets/icon.ico",
       "target": [
         "nsis",
         "portable"

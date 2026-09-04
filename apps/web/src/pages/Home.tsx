@@ -109,8 +109,19 @@ const JOB_DISCOVERY_LISTINGS = [
   }
 ];
 
+interface KanbanCard {
+  company: string;
+  role: string;
+  location: string;
+  salary?: string;
+  status?: string;
+  deadline?: string;
+  scheduled?: string;
+  note?: string;
+}
+
 // Kanban columns for application tracking
-const KANBAN_STAGES = [
+const KANBAN_STAGES: Array<{ title: string; count: number; cards: KanbanCard[] }> = [
   {
     title: 'Saved',
     count: 12,

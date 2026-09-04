@@ -4,7 +4,7 @@ import {
   Briefcase, Target, Clock, ShieldCheck, Search,
   Compass, BookOpen, MessageSquare, Zap, Star,
   Terminal, Layers, CheckCircle2, ChevronRight,
-  GraduationCap, Award, Rocket, Code2, MapPin, Phone, Mail
+  GraduationCap, Award, Rocket, Code2, MapPin, Phone, Mail, Loader2
 } from 'lucide-react';
 import {
   JobRole,

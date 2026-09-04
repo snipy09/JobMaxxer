@@ -528,12 +528,22 @@ function createWindow(): void {
     preloadPath = path.join(mainDir, 'preload.js');
   }
 
+  const possibleIcons = [
+    path.join(mainDir, '../renderer/assets/logo-icon.png'),
+    path.join(mainDir, '../../assets/icon.ico'),
+    path.join(mainDir, '../../assets/logo.png'),
+    path.join(process.resourcesPath || '', 'assets/icon.ico'),
+    path.join(process.resourcesPath || '', 'assets/logo.png'),
+  ];
+  const appIcon = possibleIcons.find(p => p && fs.existsSync(p));
+
   mainWindow = new BrowserWindow({
     width: 1320,
     height: 860,
     minWidth: 980,
     minHeight: 680,
     title: 'Nomadic — Job Search & Application Automation Platform',
+    icon: appIcon,
     backgroundColor: '#0f172a',
     autoHideMenuBar: true,
     show: true,

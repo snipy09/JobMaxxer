@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
 import {
   TabType, ThemeMode, MasterProfile, HeartbeatStatus, AppUser, getApi, PersonaTrack
 } from './types';
