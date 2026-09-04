@@ -51,6 +51,15 @@ async function build() {
     console.warn('[Build Warning] sql-wasm.wasm not found in node_modules/sql.js/dist');
   }
 
+  // Copy logo assets into out/renderer/assets
+  const rendererAssetsDir = path.join(__dirname, 'out/renderer/assets');
+  fs.mkdirSync(rendererAssetsDir, { recursive: true });
+  const logoSrc = path.join(__dirname, 'assets/logo-icon.png');
+  if (fs.existsSync(logoSrc)) {
+    fs.copyFileSync(logoSrc, path.join(rendererAssetsDir, 'logo-icon.png'));
+    fs.copyFileSync(logoSrc, path.join(rendererAssetsDir, 'logo.png'));
+  }
+
   const mainConfig = {
     entryPoints: [path.join(__dirname, 'src/main/index.ts')],
     outfile: path.join(__dirname, 'out/main/index.cjs'),
