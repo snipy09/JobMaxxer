@@ -482,6 +482,39 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* ── 3-STEP INTUITIVE OS WORKFLOW EXPLAINER ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-700/60 space-y-1">
+            <div className="font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-mono">1</span>
+              <span>Learn &amp; Check Off</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+              Check off core concepts on the left and open live YouTube search links on the right to master each milestone.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-700/60 space-y-1">
+            <div className="font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-mono">2</span>
+              <span>Sync Skills &amp; Vault</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+              Click <strong>Sync Skills</strong> to transfer learned competencies into your profile, and solve 428+ company question sets.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-700/60 space-y-1">
+            <div className="font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center text-[10px] font-mono">3</span>
+              <span>Seeker Autopilot</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+              Switch to <strong>Seeker Track</strong> in top bar to auto-apply to 1,000+ ATS jobs &amp; email hiring managers with 0% bounce.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ── SECTION 2: MILESTONES & TOPICS LIST ──────────────────────────────── */}
