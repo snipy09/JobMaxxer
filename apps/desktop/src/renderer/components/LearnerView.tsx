@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  ROADMAPS, calculateReadinessScore, RoadmapMilestone,
-  LearnResource, SubModule
+  calculateReadinessScore, RoadmapMilestone,
+  LearnResource, SubModule, Roadmap
 } from '../data/roadmaps';
 import { MasterProfile, getApi, CustomRoadmapRecord, ActivityHeatmapDay, ActivityStats } from '../types';
 import {
@@ -10,7 +10,7 @@ import {
   Laptop, X, ArrowRight, SlidersHorizontal,
   Clock, ShieldCheck, Layers, CheckCircle2,
   Plus, Loader2, Sparkles, RefreshCw, Award,
-  Youtube, FileText, Compass, ChevronDown
+  Youtube, FileText, Compass, ChevronDown, Trash2
 } from 'lucide-react';
 
 interface LearnerViewProps {
@@ -26,8 +26,8 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   onNavigateToSeeker,
   onLog
 }) => {
-  const [customRoadmaps, setCustomRoadmaps] = useState<any[]>([]);
-  const [activeRoadmapId, setActiveRoadmapId] = useState<string>('product-management');
+  const [customRoadmaps, setCustomRoadmaps] = useState<Roadmap[]>([]);
+  const [activeRoadmapId, setActiveRoadmapId] = useState<string>('');
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
   const [selectedMilestone, setSelectedMilestone] = useState<RoadmapMilestone | null>(null);
 
@@ -43,32 +43,65 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   const [activityStats, setActivityStats] = useState<ActivityStats>({ streakCount: 1, totalActions: 0 });
 
   // Goal Calibration
-  const [showGoalModal, setShowGoalModal] = useState<boolean>(false);
   const [targetHorizon, setTargetHorizon] = useState<string>('2 Months');
   const [dailyCommitment, setDailyCommitment] = useState<string>('2 Hours/Day');
 
-  // Load custom roadmaps from SQLite
-  const loadCustomRoadmaps = async () => {
+  // Load custom AI roadmaps from SQLite
+  const loadCustomRoadmaps = async (forceTitle?: string) => {
     const api = getApi();
     if (!api || !api.getCustomRoadmaps) return;
     try {
       const records = await api.getCustomRoadmaps();
       if (records && Array.isArray(records) && records.length > 0) {
-        const parsed = records.map((r: CustomRoadmapRecord) => {
+        const parsed: Roadmap[] = records.map((r: CustomRoadmapRecord) => {
           try {
             return JSON.parse(r.roadmapJson);
           } catch {
             return null;
           }
         }).filter(Boolean);
+
         setCustomRoadmaps(parsed);
 
-        // If candidate has a custom roadmap, set it as active immediately
         if (parsed.length > 0) {
-          setActiveRoadmapId(parsed[0].id);
+          // If active ID is already in parsed, keep it, otherwise select latest
+          const found = parsed.find(p => p.id === activeRoadmapId);
+          if (!found) {
+            setActiveRoadmapId(parsed[0].id);
+          }
         }
+      } else {
+        // If no custom roadmaps exist yet in SQLite, synthesize one for the candidate's target role via Gemini
+        const target = forceTitle || profile.desiredTitle || 'Product & Technology Specialist';
+        await autoSynthesizeFirstRoadmap(target);
       }
     } catch {}
+  };
+
+  const autoSynthesizeFirstRoadmap = async (roleTitle: string) => {
+    const api = getApi();
+    if (!api || !api.generateCustomRoadmap) return;
+    setIsGeneratingRoadmap(true);
+    try {
+      const res = await api.generateCustomRoadmap({
+        roleTitle,
+        currentSkills: profile.techStack,
+        targetHorizon,
+        dailyCommitment,
+        geminiKey: profile.geminiApiKey,
+        groqKey: profile.groqApiKey,
+      });
+
+      if (res && res.success && res.roadmap) {
+        setCustomRoadmaps([res.roadmap]);
+        setActiveRoadmapId(res.roadmap.id);
+        onLog(`[AI Roadmap] Auto-synthesized dynamic curriculum for "${roleTitle}"`);
+      }
+    } catch (err: any) {
+      console.warn('[AI Roadmap] Auto-synthesis note:', err?.message);
+    } finally {
+      setIsGeneratingRoadmap(false);
+    }
   };
 
   // Load authentic activity logs and heatmap
@@ -90,29 +123,12 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   useEffect(() => {
     loadCustomRoadmaps();
     loadActivityData();
-  }, []);
-
-  // Combined standard + custom roadmap list
-  const allRoadmaps = useMemo(() => {
-    return [...customRoadmaps, ...ROADMAPS];
-  }, [customRoadmaps]);
-
-  useEffect(() => {
-    if (profile.desiredTitle && customRoadmaps.length === 0) {
-      const lower = profile.desiredTitle.toLowerCase();
-      if (lower.includes('product') || lower.includes('manager') || lower.includes('tpm') || lower.includes('apm') || lower.includes('scrum')) {
-        setActiveRoadmapId('product-management');
-      } else if (lower.includes('design') || lower.includes('ui') || lower.includes('ux') || lower.includes('figma')) {
-        setActiveRoadmapId('ui-ux-design');
-      } else {
-        setActiveRoadmapId('frontend');
-      }
-    }
-  }, [profile.desiredTitle, customRoadmaps]);
+  }, [profile.desiredTitle]);
 
   // Load saved progress from SQLite on mount / roadmap change
   useEffect(() => {
     const loadProgress = async () => {
+      if (!activeRoadmapId) return;
       const api = getApi();
       if (!api || !api.getLearnerProgress) return;
       try {
@@ -129,12 +145,12 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     loadProgress();
   }, [activeRoadmapId]);
 
-  const roadmap = useMemo(() => {
-    return allRoadmaps.find(r => r.id === activeRoadmapId) || allRoadmaps[0] || ROADMAPS[0];
-  }, [allRoadmaps, activeRoadmapId]);
+  const currentRoadmap = useMemo(() => {
+    return customRoadmaps.find(r => r.id === activeRoadmapId) || customRoadmaps[0] || null;
+  }, [customRoadmaps, activeRoadmapId]);
 
-  const totalCount = roadmap?.milestones?.length || 0;
-  const completedCount = completedNodes.filter(id => (roadmap?.milestones || []).some((m: any) => m.id === id)).length;
+  const totalCount = currentRoadmap?.milestones?.length || 0;
+  const completedCount = completedNodes.filter(id => (currentRoadmap?.milestones || []).some((m: any) => m.id === id)).length;
   const score = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const toggleComplete = async (id: string, e?: React.MouseEvent) => {
@@ -154,7 +170,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         });
       }
       if (isNowComplete && api.logUserActivity) {
-        const nodeObj = (roadmap.milestones || []).find((m: any) => m.id === id);
+        const nodeObj = (currentRoadmap?.milestones || []).find((m: any) => m.id === id);
         await api.logUserActivity('milestone', `Completed milestone: ${nodeObj?.title || id}`);
         loadActivityData();
       }
@@ -176,8 +192,9 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   };
 
   const handleSyncSkills = async () => {
+    if (!currentRoadmap) return;
     const gained = new Set<string>();
-    (roadmap.milestones || []).forEach((m: any) => {
+    (currentRoadmap.milestones || []).forEach((m: any) => {
       if (completedNodes.includes(m.id)) {
         (m.skills || m.skillsGained || []).forEach((s: string) => gained.add(s));
       }
@@ -187,7 +204,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     gained.forEach(s => current.add(s));
 
     const newStack = Array.from(current).join(', ');
-    const newTitle = profile.desiredTitle ? profile.desiredTitle : (roadmap.targetRoles || [])[0] || roadmap.title;
+    const newTitle = profile.desiredTitle ? profile.desiredTitle : (currentRoadmap.targetRoles || [])[0] || currentRoadmap.title;
 
     await getApi().saveMasterProfile({ ...profile, techStack: newStack, desiredTitle: newTitle });
     onUpdateProfile({ techStack: newStack, desiredTitle: newTitle });
@@ -218,7 +235,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         setShowGenerateModal(false);
         setNewRoleTitle('');
         setNewSkillsInput('');
-        onLog(`[AI Roadmap] Generated custom roadmap for "${newRoleTitle.trim()}"`);
+        onLog(`[AI Roadmap] Generated dynamic curriculum for "${newRoleTitle.trim()}"`);
       } else {
         throw new Error(res?.error || 'Failed to synthesize roadmap.');
       }
@@ -281,7 +298,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                {roadmap?.title || 'Career Progression Track'}
+                {currentRoadmap?.title || (isGeneratingRoadmap ? 'Synthesizing with Gemini AI...' : 'AI Career Progression Track')}
               </h1>
               {profile.desiredTitle && (
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
@@ -290,30 +307,23 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              {roadmap?.domain || 'Universal Career Track'} · {completedCount} of {totalCount} completed ({score}%)
+              {currentRoadmap?.domain || 'Personalized AI Track'} · {completedCount} of {totalCount} completed ({score}%)
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Roadmap Switcher Dropdown */}
-            <select
-              value={activeRoadmapId}
-              onChange={(e) => setActiveRoadmapId(e.target.value)}
-              className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 font-medium focus:outline-none"
-            >
-              {customRoadmaps.length > 0 && (
-                <optgroup label="AI Generated Tracks">
-                  {customRoadmaps.map(r => (
-                    <option key={r.id} value={r.id}>{r.title}</option>
-                  ))}
-                </optgroup>
-              )}
-              <optgroup label="Standard Curricula">
-                {ROADMAPS.map(r => (
+            {/* Dynamic AI Roadmap Switcher */}
+            {customRoadmaps.length > 1 && (
+              <select
+                value={activeRoadmapId}
+                onChange={(e) => setActiveRoadmapId(e.target.value)}
+                className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 font-medium focus:outline-none"
+              >
+                {customRoadmaps.map(r => (
                   <option key={r.id} value={r.id}>{r.title}</option>
                 ))}
-              </optgroup>
-            </select>
+              </select>
+            )}
 
             <button
               onClick={() => setShowGenerateModal(true)}
@@ -325,7 +335,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
 
             <button
               onClick={handleSyncSkills}
-              disabled={completedCount === 0}
+              disabled={completedCount === 0 || !currentRoadmap}
               className="px-3.5 py-1.5 rounded-lg bg-black text-white dark:bg-white dark:text-black text-xs font-semibold hover:opacity-90 transition flex items-center gap-1.5 disabled:opacity-40"
             >
               <span>Sync Skills</span>
@@ -390,99 +400,109 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
       </div>
 
       {/* ── SECTION 2: MILESTONES & TOPICS LIST ──────────────────────────────── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100 uppercase font-mono tracking-wider">
-            Curriculum Milestones ({completedCount}/{totalCount})
-          </h2>
+      {isGeneratingRoadmap && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-10 text-center space-y-3">
+          <Loader2 className="w-6 h-6 animate-spin text-black dark:text-white mx-auto" />
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Synthesizing personalized AI curriculum...</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">Gemini is structuring your milestones, sub-modules, and key topics based on your profile.</p>
         </div>
+      )}
 
+      {currentRoadmap && !isGeneratingRoadmap && (
         <div className="space-y-3">
-          {(roadmap?.milestones || []).map((milestone: any, index: number) => {
-            const isCompleted = completedNodes.includes(milestone.id);
-            const subModulesList: SubModule[] = milestone.subModules || [];
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100 uppercase font-mono tracking-wider">
+              Curriculum Milestones ({completedCount}/{totalCount})
+            </h2>
+          </div>
 
-            return (
-              <div
-                key={milestone.id || index}
-                className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
-                  isCompleted
-                    ? 'bg-slate-50/50 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800'
-                    : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
-                }`}
-              >
-                {/* Milestone Top Bar */}
+          <div className="space-y-3">
+            {(currentRoadmap.milestones || []).map((milestone: any, index: number) => {
+              const isCompleted = completedNodes.includes(milestone.id);
+              const subModulesList: SubModule[] = milestone.subModules || [];
+
+              return (
                 <div
-                  onClick={() => handleOpenMilestone(milestone)}
-                  className="p-5 flex items-start justify-between gap-4 cursor-pointer"
+                  key={milestone.id || index}
+                  className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                    isCompleted
+                      ? 'bg-slate-50/50 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800'
+                      : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
+                  }`}
                 >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <button
-                      type="button"
-                      onClick={(e) => toggleComplete(milestone.id, e)}
-                      className="mt-0.5 text-slate-400 hover:text-black dark:hover:text-white transition"
-                    >
-                      {isCompleted ? (
-                        <CheckCircle2 className="w-5 h-5 text-black dark:text-white" />
-                      ) : (
-                        <Square className="w-5 h-5 text-slate-300 dark:text-zinc-700" />
-                      )}
-                    </button>
-
-                    <div className="space-y-1.5 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-mono font-semibold text-slate-400 dark:text-zinc-500">
-                          Phase {index + 1}
-                        </span>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
-                          {milestone.title}
-                        </h3>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                          {milestone.level || 'Practice'}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                        {milestone.description}
-                      </p>
-
-                      {/* Sub-modules & topics quick summary */}
-                      <div className="flex items-center gap-2 flex-wrap pt-1">
-                        {subModulesList.length > 0 && (
-                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
-                            {subModulesList.length} Sub-Modules
-                          </span>
+                  {/* Milestone Top Bar */}
+                  <div
+                    onClick={() => handleOpenMilestone(milestone)}
+                    className="p-5 flex items-start justify-between gap-4 cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <button
+                        type="button"
+                        onClick={(e) => toggleComplete(milestone.id, e)}
+                        className="mt-0.5 text-slate-400 hover:text-black dark:hover:text-white transition"
+                      >
+                        {isCompleted ? (
+                          <CheckCircle2 className="w-5 h-5 text-black dark:text-white" />
+                        ) : (
+                          <Square className="w-5 h-5 text-slate-300 dark:text-zinc-700" />
                         )}
-                        {(milestone.skills || milestone.skillsGained || []).map((skill: string, sIdx: number) => (
-                          <span
-                            key={sIdx}
-                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
-                          >
-                            {skill}
+                      </button>
+
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-semibold text-slate-400 dark:text-zinc-500">
+                            Phase {index + 1}
                           </span>
-                        ))}
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                            {milestone.title}
+                          </h3>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                            {milestone.level || 'Core'}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                          {milestone.description}
+                        </p>
+
+                        {/* Sub-modules & topics quick summary */}
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                          {subModulesList.length > 0 && (
+                            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                              {subModulesList.length} Sub-Modules
+                            </span>
+                          )}
+                          {(milestone.skills || milestone.skillsGained || []).map((skill: string, sIdx: number) => (
+                            <span
+                              key={sIdx}
+                              className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-center">
-                    <span className="text-xs text-slate-400 dark:text-zinc-500 font-mono hidden sm:inline">
-                      {milestone.estimatedHours || 20}h
-                    </span>
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1"
-                    >
-                      <span>Explore</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0 self-center">
+                      <span className="text-xs text-slate-400 dark:text-zinc-500 font-mono hidden sm:inline">
+                        {milestone.estimatedHours || 20}h
+                      </span>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1"
+                      >
+                        <span>Explore</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── MODAL: GENERATE CUSTOM AI ROADMAP ───────────────────────────────── */}
       {showGenerateModal && (
@@ -499,7 +519,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 dark:text-zinc-400">
-              Enter any profession (Product, Design, Marketing, Finance, Engineering, Operations). Gemini will synthesize a structured curriculum with topics and curated resources.
+              Enter any profession (Product, Design, Marketing, Finance, Engineering, Operations). Gemini will synthesize a structured curriculum with topics and sub-modules.
             </p>
 
             <div className="space-y-3">
@@ -563,7 +583,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         </div>
       )}
 
-      {/* ── MODAL: PHASE SUB-MODULES & CURATED RESOURCES ─────────────────────── */}
+      {/* ── MODAL: PHASE SUB-MODULES & TOPICS ─────────────────────────────────── */}
       {selectedMilestone && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-3xl w-full max-h-[88vh] overflow-y-auto p-6 sm:p-7 space-y-6 shadow-2xl animate-in fade-in duration-200">
@@ -639,7 +659,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                         </div>
                       )}
 
-                      {/* Sub-module resources */}
+                      {/* Sub-module resources if configured */}
                       {sub.resources && sub.resources.length > 0 && (
                         <div className="space-y-1.5 pt-1">
                           <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
@@ -672,7 +692,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                   ))}
                 </div>
               ) : (
-                /* Fallback Topics & Learn resources if subModules array is empty */
+                /* Fallback Key Topics */
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-2">
                     <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Key Concepts Covered:</span>
@@ -685,27 +705,6 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                       ))}
                     </ul>
                   </div>
-
-                  {selectedMilestone.learn && selectedMilestone.learn.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Recommended Resources:</span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {selectedMilestone.learn.map((res: LearnResource, idx: number) => (
-                          <div
-                            key={idx}
-                            onClick={(e) => handleOpenLink(res.url, e)}
-                            className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition cursor-pointer flex items-center justify-between gap-2"
-                          >
-                            <div>
-                              <div className="text-xs font-semibold text-slate-900 dark:text-zinc-100">{res.title}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">{res.provider || 'Guide'} {res.duration && `· ${res.duration}`}</div>
-                            </div>
-                            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
