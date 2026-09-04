@@ -1208,6 +1208,10 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span><strong>428+ Company LeetCode Question Bank</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
                     <span>Unlimited AI custom roadmaps</span>
                   </li>
                   <li className="flex items-center gap-2">
