@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Search, RefreshCw, SlidersHorizontal, Briefcase, Zap,
+  Search, RefreshCw, Briefcase, Zap,
   CheckCircle2, X, Building, MapPin, DollarSign,
   CheckSquare, Square, Bookmark, Globe, Clock,
-  Sparkles, UserCheck, ExternalLink, ChevronDown,
-  ChevronUp, Layers, AlertCircle, Filter, ArrowRight,
-  Laptop, ShieldCheck, Check, Play, Loader2, Copy, Youtube
+  Sparkles, ExternalLink, ChevronDown, ChevronUp,
+  AlertCircle, Filter, ArrowRight, Check, Loader2, Copy
 } from 'lucide-react';
-import { Job, MasterProfile, CuratedResource, getApi } from '../types';
+import { Job, MasterProfile, getApi } from '../types';
 import { computeJobRelevance } from '../data/relevanceMatcher';
 import { CompleteProfileModal } from './CompleteProfileModal';
 
@@ -19,7 +18,7 @@ interface FeedViewProps {
 }
 
 const DEMO_TEST_JOB: Job = {
-  title: 'Senior Software Engineer (1-Click Test Job)',
+  title: 'Senior Product / Software Specialist (1-Click Test Job)',
   company: 'Nomadic Labs',
   location: 'Remote · Global',
   source: 'Verified Demo ATS',
@@ -29,7 +28,7 @@ const DEMO_TEST_JOB: Job = {
   workplaceType: 'remote',
   experienceLevel: 'mid',
   salary: '₹22 LPA · $140k',
-  description: 'A pre-configured live test position to immediately test 1-click autonomous auto-apply, Playwright stealth form pre-filling, and resume attachment.',
+  description: 'A verified live test opportunity to immediately test 1-click autonomous auto-apply, stealth form pre-filling, and resume attachment.',
   createdAt: new Date().toISOString(),
 };
 
@@ -39,20 +38,25 @@ export const FeedView: React.FC<FeedViewProps> = ({
   onLog,
   onNavigateToOutreach,
 }) => {
-  const [jobs, setJobs] = useState<Job[]>([DEMO_TEST_JOB]);
+  // 1. Synchronously initialize jobs from LocalStorage so page transitions NEVER wipe the feed
+  const [jobs, setJobs] = useState<Job[]>(() => {
+    try {
+      const cached = localStorage.getItem('nomadic_saved_jobs_feed');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [DEMO_TEST_JOB];
+  });
+
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'stream' | 'saved'>('stream');
 
-  // Multi-Dimensional Filter States
-  const [sourceFilter, setSourceFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'score' | 'salary'>('recent');
-  const [workplaceFilter, setWorkplaceFilter] = useState<string>('all');
-  const [employmentFilter, setEmploymentFilter] = useState<string>('all');
-  const [matchTierFilter, setMatchTierFilter] = useState<string>('all');
-  const [relevanceMode, setRelevanceMode] = useState<'matched' | 'all'>('matched');
+  // Clean Filter Tabs: all, internshala, latest, high_match, remote, saved
+  const [filterTab, setFilterTab] = useState<'all' | 'internshala' | 'latest' | 'high_match' | 'remote' | 'saved'>('all');
 
   // Action execution modal state
   const [executingAutoApply, setExecutingAutoApply] = useState<boolean>(false);
@@ -62,19 +66,27 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
   // Profile completion gatekeeper modal state
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
-  const [pendingApplyAction, setPendingApplyAction] = useState<{ mode: 'autonomous' | 'semi-auto'; urls: string[] } | null>(null);
+  const [pendingApplyAction, setPendingApplyAction] = useState<{ urls: string[] } | null>(null);
 
   // Copy feedback
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [isFetchingJobs, setIsFetchingJobs] = useState<boolean>(false);
   const [feedNotification, setFeedNotification] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
 
+  // Helper to persist jobs in localStorage
+  const saveJobsToLocalStorage = (jobList: Job[]) => {
+    try {
+      localStorage.setItem('nomadic_saved_jobs_feed', JSON.stringify(jobList));
+    } catch {}
+  };
+
+  // 2. Fetch Latest Jobs (Manual Refresh & Cloud Sync)
   const handleFetchLatestJobs = async () => {
     const api = getApi();
     if (!api) return;
     setIsFetchingJobs(true);
     setFeedNotification(null);
-    onLog('[Job Board] Fetching latest live ATS opportunities & syncing feed...');
+    onLog('[Job Board] Refreshing live opportunities from cloud and ATS endpoints...');
 
     try {
       if (api.runScrapers) {
@@ -84,12 +96,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
       }
       const res = await api.getCloudFeed('candidate');
       if (res && res.success && res.jobs && res.jobs.length > 0) {
-        setJobs(res.jobs);
+        const combined = [DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)];
+        setJobs(combined);
+        saveJobsToLocalStorage(combined);
         setFeedNotification({
           type: 'success',
-          message: `Successfully fetched ${res.jobs.length} latest opportunities from Greenhouse, Lever, Ashby & live feeds!`
+          message: `Refreshed ${res.jobs.length} opportunities from live feeds.`
         });
-        onLog(`[Job Board] Feed updated with ${res.jobs.length} latest positions.`);
+        onLog(`[Job Board] Feed updated with ${res.jobs.length} positions.`);
       } else {
         await fetchCloudJobs();
         setFeedNotification({
@@ -97,7 +111,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
           message: 'Job board refreshed with current verified opportunities.'
         });
       }
-    } catch (err: any) {
+    } catch {
       await fetchCloudJobs();
       setFeedNotification({
         type: 'info',
@@ -105,7 +119,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
       });
     } finally {
       setIsFetchingJobs(false);
-      setTimeout(() => setFeedNotification(null), 5000);
+      setTimeout(() => setFeedNotification(null), 4000);
     }
   };
 
@@ -116,34 +130,47 @@ export const FeedView: React.FC<FeedViewProps> = ({
     try {
       const res = await api.getCloudFeed('candidate');
       if (res.success && res.jobs && res.jobs.length > 0) {
-        setJobs([DEMO_TEST_JOB, ...res.jobs.filter(j => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
-        onLog(`[Feed] Stream synced ${res.jobs.length} opportunities from live ATS endpoints.`);
+        const combined = [DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)];
+        setJobs(combined);
+        saveJobsToLocalStorage(combined);
+        onLog(`[Feed] Stream synced ${res.jobs.length} opportunities.`);
       } else if (api.runScrapers) {
-        // Auto-run scrapers if cache is completely empty
         const scraped = await api.runScrapers();
         if (scraped && scraped.jobs && scraped.jobs.length > 0) {
-          setJobs([DEMO_TEST_JOB, ...scraped.jobs.filter(j => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
-          onLog(`[Feed] Extracted ${scraped.jobs.length} fresh opportunities from ATS endpoints.`);
-        } else {
-          setJobs([DEMO_TEST_JOB]);
+          const combined = [DEMO_TEST_JOB, ...scraped.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)];
+          setJobs(combined);
+          saveJobsToLocalStorage(combined);
+          onLog(`[Feed] Extracted ${scraped.jobs.length} fresh opportunities.`);
         }
-      } else {
-        setJobs([DEMO_TEST_JOB]);
       }
       const saved = await api.getSavedJobs();
       setSavedJobs(saved || []);
     } catch {
-      // Keep empty if network fails
     } finally {
       setLoading(false);
     }
   };
 
+  // 3. Refresh and save from cloud every time app is started in a new session
   useEffect(() => {
-    fetchCloudJobs();
+    const sessionKey = 'nomadic_jobs_session_synced';
+    const hasSyncedThisSession = sessionStorage.getItem(sessionKey) === 'true';
+    
+    // If not yet synced this session, trigger cloud sync in background
+    if (!hasSyncedThisSession) {
+      fetchCloudJobs().then(() => {
+        sessionStorage.setItem(sessionKey, 'true');
+      });
+    } else {
+      // Just load saved jobs from SQLite
+      const api = getApi();
+      if (api && api.getSavedJobs) {
+        api.getSavedJobs().then(saved => setSavedJobs(saved || [])).catch(() => {});
+      }
+    }
   }, []);
 
-  const activeJobPool = activeTab === 'saved' ? savedJobs : jobs;
+  const activeJobPool = filterTab === 'saved' ? savedJobs : jobs;
 
   // Dynamic Personalized Relevance Scoring against Candidate Profile
   const scoredJobPool = useMemo(() => {
@@ -158,21 +185,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
     });
   }, [activeJobPool, profile.desiredTitle, profile.techStack]);
 
-  const matchedCount = useMemo(() => {
-    return scoredJobPool.filter(j => (j as any).isStrongMatch || (j.score && j.score >= 65)).length;
-  }, [scoredJobPool]);
-
-  // Filter & Sort Pipeline
+  // Filter & Sort Pipeline based on active Filter Tab
   const filteredJobs = useMemo(() => {
     let pool = scoredJobPool;
-    if (activeTab === 'stream' && relevanceMode === 'matched' && (profile.desiredTitle || profile.techStack)) {
-      const matched = pool.filter(j => (j as any).isStrongMatch || (j.score && j.score >= 65));
-      if (matched.length > 0) {
-        pool = matched;
-      }
-    }
 
-    let result = pool.filter(job => {
+    return pool.filter(job => {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         q === '' ||
@@ -182,46 +199,33 @@ export const FeedView: React.FC<FeedViewProps> = ({
         (job.source || '').toLowerCase().includes(q) ||
         (job.matchedSkills || []).some(s => s.toLowerCase().includes(q));
 
-      const matchesType = employmentFilter === 'all' || job.employmentType === employmentFilter;
-      const matchesWorkplace = workplaceFilter === 'all' || job.workplaceType === workplaceFilter;
-      
-      const score = job.score ?? 50;
-      const matchesMatch =
-        matchTierFilter === 'all' ||
-        (matchTierFilter === 'high' && score >= 80) ||
-        (matchTierFilter === 'good' && score >= 60);
+      if (!matchesSearch) return false;
 
-      const srcLower = (job.source || '').toLowerCase();
-      let matchesSource = true;
-      if (sourceFilter === 'internshala') matchesSource = srcLower.includes('internshala');
-      else if (sourceFilter === 'greenhouse') matchesSource = srcLower.includes('greenhouse');
-      else if (sourceFilter === 'lever') matchesSource = srcLower.includes('lever');
-      else if (sourceFilter === 'ashby') matchesSource = srcLower.includes('ashby');
-      else if (sourceFilter === 'ats') matchesSource = srcLower.includes('api') || srcLower.includes('greenhouse') || srcLower.includes('lever') || srcLower.includes('ashby');
-
-      return matchesSearch && matchesType && matchesWorkplace && matchesMatch && matchesSource;
-    });
-
-    // Sorting
-    return result.sort((a, b) => {
-      if (sortBy === 'score' || (relevanceMode === 'matched' && sortBy === 'recent')) {
-        const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
-        if (scoreDiff !== 0) return scoreDiff;
+      // Tab Filtering
+      if (filterTab === 'internshala') {
+        return (job.source || '').toLowerCase().includes('internshala');
       }
-      if (sortBy === 'salary') {
-        const parseSalary = (s?: string) => {
-          if (!s) return 0;
-          const match = s.match(/₹?(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        };
-        return parseSalary(b.salary) - parseSalary(a.salary);
+      if (filterTab === 'high_match') {
+        return (job.score ?? 0) >= 80;
       }
-      // Default: Most Recent
+      if (filterTab === 'remote') {
+        return job.workplaceType === 'remote' || (job.location || '').toLowerCase().includes('remote');
+      }
+      return true;
+    }).sort((a, b) => {
+      if (filterTab === 'latest') {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      }
+      // Default: Highest Match Score then Recent
+      const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
+      if (scoreDiff !== 0) return scoreDiff;
       const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
-  }, [scoredJobPool, activeTab, relevanceMode, profile.desiredTitle, profile.techStack, searchQuery, sourceFilter, sortBy, workplaceFilter, employmentFilter, matchTierFilter]);
+  }, [scoredJobPool, filterTab, searchQuery]);
 
   const toggleSelect = (url: string) => {
     const next = new Set(selectedUrls);
@@ -238,15 +242,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }
   };
 
-  const handleResetFilters = () => {
-    setSearchQuery('');
-    setSourceFilter('all');
-    setWorkplaceFilter('all');
-    setEmploymentFilter('all');
-    setMatchTierFilter('all');
-    setSortBy('recent');
-  };
-
   const handleToggleSaveJob = async (job: Job) => {
     const api = getApi();
     if (!api) return;
@@ -254,11 +249,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
     if (isSaved) {
       await api.removeSavedJob(job.applyUrl);
       setSavedJobs(prev => prev.filter(sj => sj.applyUrl !== job.applyUrl));
-      onLog(`[Feed] Removed bookmark: ${job.title} at ${job.company}`);
+      onLog(`[Saved] Removed ${job.title} at ${job.company}`);
     } else {
       await api.saveJob(job);
       setSavedJobs(prev => [...prev, job]);
-      onLog(`[Feed] Bookmarked position: ${job.title} at ${job.company}`);
+      onLog(`[Saved] Saved ${job.title} at ${job.company}`);
     }
   };
 
@@ -266,114 +261,79 @@ export const FeedView: React.FC<FeedViewProps> = ({
     e.stopPropagation();
     navigator.clipboard.writeText(url);
     setCopiedUrl(url);
-    setTimeout(() => setCopiedUrl(null), 1500);
+    setTimeout(() => setCopiedUrl(null), 2000);
   };
 
-  const [matchedResources, setMatchedResources] = useState<CuratedResource[]>([]);
-
-  // Automatically fetch AI matched video resources whenever user selects/inspects a job
-  useEffect(() => {
-    if (!viewingJob) {
-      setMatchedResources([]);
-      return;
-    }
-    const fetchMatched = async () => {
-      const api = getApi();
-      if (!api || !api.getRecommendedResourcesForJob) return;
-      try {
-        const list = await api.getRecommendedResourcesForJob({
-          title: viewingJob.title,
-          description: viewingJob.description,
-        });
-        setMatchedResources(list || []);
-      } catch {}
-    };
-    fetchMatched();
-  }, [viewingJob]);
-
-  // Profile completion gatekeeper: validates candidate credentials & resume before applying
-  const checkProfileAndRun = async (urls: string[], mode: 'autonomous' | 'semi-auto') => {
-    if (!urls || urls.length === 0) return;
+  // Pre-Apply Gatekeeper Check
+  const checkProfileAndRun = async (urls: string[]) => {
     const api = getApi();
-    let hasResume = Boolean(profile.resumeFilePath);
+    const hasFirstName = Boolean(profile.firstName && profile.firstName.trim().length > 0);
+    const hasPhone = Boolean(profile.phone && profile.phone.trim().length > 0);
+    
+    let hasResume = Boolean(profile.resumeFilePath && profile.resumeFilePath.trim().length > 0);
     if (!hasResume && api && api.getResumes) {
       try {
-        const r = await api.getResumes();
-        if (r && r.length > 0) hasResume = true;
+        const resumes = await api.getResumes();
+        if (resumes && resumes.length > 0) {
+          hasResume = true;
+        }
       } catch {}
     }
 
-    const isComplete = Boolean(
-      profile.firstName &&
-      profile.firstName.trim().length > 0 &&
-      profile.phone &&
-      profile.phone.trim().length > 0 &&
-      hasResume
-    );
-
-    if (!isComplete) {
-      setPendingApplyAction({ mode, urls });
+    if (!hasFirstName || !hasPhone || !hasResume) {
+      setPendingApplyAction({ urls });
       setShowProfileModal(true);
       return;
     }
 
-    if (mode === 'autonomous') {
-      handleTriggerAutonomousApply(urls);
-    } else {
-      handleTriggerSemiAutoApply(urls);
-    }
+    handleTriggerAutonomousApply(urls);
   };
 
   const handleProfileModalCompleted = () => {
     if (pendingApplyAction) {
-      const { mode, urls } = pendingApplyAction;
+      const { urls } = pendingApplyAction;
       setPendingApplyAction(null);
-      if (mode === 'autonomous') {
-        handleTriggerAutonomousApply(urls);
-      } else {
-        handleTriggerSemiAutoApply(urls);
-      }
+      handleTriggerAutonomousApply(urls);
     }
   };
 
-  // Launch Real 100% Autonomous Auto-Apply with Sequential 5-Job Batches
+  // 100% Autonomous Background Auto-Apply Engine
   const handleTriggerAutonomousApply = async (targetUrls: string[]) => {
-    if (targetUrls.length === 0) return;
-    const api = getApi();
-    if (!api) return;
-
-    const BATCH_SIZE = 5;
-    const totalBatches = Math.ceil(targetUrls.length / BATCH_SIZE);
-
+    if (!targetUrls || targetUrls.length === 0) return;
     setExecutingAutoApply(true);
     setAutoApplyLogs([
-      `[Sequential Batch Engine] Allocating ${targetUrls.length} positions across ${totalBatches} sequential batches (${BATCH_SIZE} jobs per batch, 3-tab RAM safety pool)...`,
-      `[Target Queue] Beginning Batch 1/${totalBatches}...`
+      `[Init] Starting autonomous submission for ${targetUrls.length} positions...`,
+      `[Config] Processing in sequential batches with automated form filling...`
     ]);
-    setAutoApplyProgress(10);
+    setAutoApplyProgress(5);
 
-    const unsub = api.onLog ? api.onLog((msg) => {
-      setAutoApplyLogs(prev => [...prev.slice(-30), msg]);
+    const api = getApi();
+    if (!api || !api.launchAutonomous) {
+      setAutoApplyLogs(prev => [...prev, '[Error] Local desktop engine not detected.']);
+      setTimeout(() => setExecutingAutoApply(false), 3000);
+      return;
+    }
+
+    const unsub = api.onAutoApplyProgress ? api.onAutoApplyProgress((data: any) => {
+      if (data.log) {
+        setAutoApplyLogs(prev => [...prev.slice(-100), data.log]);
+      }
+      if (typeof data.progress === 'number') {
+        setAutoApplyProgress(Math.min(100, Math.max(5, data.progress)));
+      }
     }) : () => {};
 
     try {
       const res = await api.launchAutonomous(targetUrls);
       setAutoApplyProgress(100);
-      if (res.success) {
+      if (res && res.success) {
         setAutoApplyLogs(prev => [
           ...prev,
-          `[Complete] ✓ Successfully processed ${res.applied || targetUrls.length} positions across ${totalBatches} batches!`
+          `[Complete] ✓ Finished processing: ${res.applied || 0} applied successfully, ${res.skipped || 0} skipped.`
         ]);
-        onLog(`[Auto-Apply] Successfully processed ${res.applied || targetUrls.length} positions across ${totalBatches} batches.`);
-      } else if (res.limitReached) {
-        setAutoApplyLogs(prev => [
-          ...prev,
-          `[Plan Limit Warning] ⚠️ ${res.error}`,
-          `[Action Required] Upgrade your plan in Settings to apply to all ${targetUrls.length} positions.`
-        ]);
-        onLog(`[Plan Limit] ${res.error}`);
+        onLog(`[Autonomous] Completed ${targetUrls.length} applications (${res.applied || 0} submitted).`);
       } else {
-        setAutoApplyLogs(prev => [...prev, `[Notice] ${res.error || 'Completed with notes'}`]);
+        setAutoApplyLogs(prev => [...prev, `[Notice] ${res.error || 'Autonomous apply finished with status notes.'}`]);
       }
     } catch (err: any) {
       setAutoApplyLogs(prev => [...prev, `[Error] ${err?.message || String(err)}`]);
@@ -381,95 +341,42 @@ export const FeedView: React.FC<FeedViewProps> = ({
       unsub();
       setTimeout(() => {
         setExecutingAutoApply(false);
-      }, 3500);
-    }
-  };
-
-  // Launch Real Semi-Autonomous Review Mode (RAM-Safe 3-Tab FIFO)
-  const handleTriggerSemiAutoApply = async (targetUrls: string[]) => {
-    if (targetUrls.length === 0) return;
-    const api = getApi();
-    if (!api) return;
-
-    setExecutingAutoApply(true);
-    setAutoApplyLogs([
-      `[Review Mode] Launching external Chrome with 3-tab RAM-safe concurrency limiter...`,
-      `[Pre-fill Engine] Auto-filling credentials & attaching resumes for ${targetUrls.length} positions...`
-    ]);
-    setAutoApplyProgress(25);
-
-    const unsub = api.onLog ? api.onLog((msg) => {
-      setAutoApplyLogs(prev => [...prev.slice(-25), msg]);
-    }) : () => {};
-
-    try {
-      const res = await api.launchSemiAuto(targetUrls);
-      setAutoApplyProgress(100);
-      if (res.success) {
-        setAutoApplyLogs(prev => [
-          ...prev,
-          `[Complete] ✓ All ${targetUrls.length} tabs pre-filled in external Chrome! Ready for 1-click review.`
-        ]);
-        onLog(`[Review Mode] Opened ${targetUrls.length} pre-filled tabs in external Chrome for review.`);
-      } else {
-        setAutoApplyLogs(prev => [...prev, `[Notice] ${res.error || 'Check browser'}`]);
-      }
-    } catch (err: any) {
-      setAutoApplyLogs(prev => [...prev, `[Error] ${err?.message || String(err)}`]);
-    } finally {
-      unsub();
-      setTimeout(() => {
-        setExecutingAutoApply(false);
-      }, 2500);
+      }, 3000);
     }
   };
 
   return (
     <div className="space-y-6 font-sans select-none max-w-6xl mx-auto pb-28 relative">
       
-      {/* ── CLEAN TOP HEADER & TOOLBAR ────────────────────────────────────── */}
+      {/* ── TOP HEADER & ACTION CONTROLS ───────────────────────────────────── */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 shadow-xs space-y-4">
         
-        {/* Top Title & Batch Action */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800/80 pb-3.5">
+        {/* Title Bar with Refresh and Autonomous Apply Buttons */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800/80 pb-4">
           <div>
             <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
               Job Board
             </h1>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Verified opportunities across Greenhouse, Lever, Ashby, and Internshala.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={handleFetchLatestJobs}
               disabled={loading || isFetchingJobs || executingAutoApply}
-              className="w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs hover:shadow active:scale-98 disabled:opacity-50"
-              title="Fetch latest live postings across Greenhouse, Lever, Ashby, and Internshala"
+              className="w-full sm:w-auto px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+              title="Refresh job board with latest postings"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isFetchingJobs || loading ? 'animate-spin' : ''}`} />
-              <span>{isFetchingJobs ? 'Fetching Latest Jobs...' : 'Fetch Latest Jobs'}</span>
+              <span>Refresh</span>
             </button>
 
             <button
-              onClick={() => checkProfileAndRun(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 3).map(j => j.applyUrl), 'semi-auto')}
+              onClick={() => checkProfileAndRun(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 50).map(j => j.applyUrl))}
               disabled={executingAutoApply}
-              className="w-full sm:w-auto px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-900 dark:text-zinc-100 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-slate-200 dark:border-zinc-700 disabled:opacity-50"
-              title="Pre-fills forms in 3 parallel Chrome tabs and pauses for your 1-click review"
-            >
-              <Laptop className="w-3.5 h-3.5 text-blue-500" />
-              <span>Review Mode ({selectedUrls.size > 0 ? selectedUrls.size : 'Top 3'})</span>
-            </button>
-
-            <button
-              onClick={() => checkProfileAndRun(selectedUrls.size > 0 ? Array.from(selectedUrls) : filteredJobs.slice(0, 50).map(j => j.applyUrl), 'autonomous')}
-              disabled={executingAutoApply}
-              className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
-              title="100% autonomous background application submission in sequential batches with automated question answering"
+              className="w-full sm:w-auto px-4 py-2 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
             >
               <Zap className="w-3.5 h-3.5 text-emerald-400 fill-current" />
-              <span>Autonomous Apply ({selectedUrls.size > 0 ? `${selectedUrls.size} Selected` : '50 Jobs / 10 Batches'})</span>
+              <span>Autonomous Apply</span>
             </button>
           </div>
         </div>
@@ -485,150 +392,41 @@ export const FeedView: React.FC<FeedViewProps> = ({
           </div>
         )}
 
-        {/* Search Bar + Tab Switcher */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto flex-1 max-w-md">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search by title, company, skills, location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-              />
-            </div>
-            <button
-              onClick={handleFetchLatestJobs}
-              disabled={loading || isFetchingJobs}
-              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
-              title="Refresh job board"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading || isFetchingJobs ? 'animate-spin text-emerald-500' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
+        {/* Search Bar & Clean Filter Tabs: All, Internshala, Latest, High Match, Remote, Saved */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by title, company, skills, location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
+            />
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg w-full sm:w-auto justify-between sm:justify-start">
-            <button
-              onClick={() => {
-                setActiveTab('stream');
-                setRelevanceMode('matched');
-              }}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                activeTab === 'stream' && relevanceMode === 'matched'
-                  ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Matched ({matchedCount})</span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('stream');
-                setRelevanceMode('all');
-              }}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                activeTab === 'stream' && relevanceMode === 'all'
-                  ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              All Jobs ({jobs.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                activeTab === 'saved'
-                  ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              <Bookmark className="w-3 h-3" />
-              <span>Saved ({savedJobs.length})</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Personalized Candidate Relevance Banner */}
-        {activeTab === 'stream' && relevanceMode === 'matched' && (profile.desiredTitle || profile.techStack) && (
-          <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>
-                Personalized Stream: Showing <strong>{filteredJobs.length}</strong> opportunities matching your role{' '}
-                <strong className="font-bold text-emerald-950 dark:text-emerald-100">"{profile.desiredTitle || 'Software Engineer'}"</strong>
-                {profile.techStack ? ` and stack (${profile.techStack})` : ''}.
-              </span>
-            </div>
-            <button
-              onClick={() => setRelevanceMode('all')}
-              className="text-[11px] font-semibold underline hover:opacity-80 shrink-0 ml-2 text-emerald-700 dark:text-emerald-300"
-            >
-              Show all ({jobs.length})
-            </button>
-          </div>
-        )}
-
-        {/* Filter Pills Grid */}
-        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/80 flex flex-wrap items-center gap-2 text-xs">
-          
-          {/* Source Filter */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-mono font-bold uppercase text-slate-400 mr-1">Source:</span>
+          {/* Clean Segmented Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1">
             {[
               { id: 'all', label: 'All' },
               { id: 'internshala', label: 'Internshala' },
-              { id: 'ats', label: 'Direct ATS' },
-              { id: 'greenhouse', label: 'Greenhouse' },
-              { id: 'ashby', label: 'Ashby' },
-              { id: 'lever', label: 'Lever' }
-            ].map(src => (
+              { id: 'latest', label: 'Latest' },
+              { id: 'high_match', label: 'High Match' },
+              { id: 'remote', label: 'Remote' },
+              { id: 'saved', label: `Saved (${savedJobs.length})` },
+            ].map(tab => (
               <button
-                key={src.id}
-                onClick={() => setSourceFilter(src.id)}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
-                  sourceFilter === src.id
-                    ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                    : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100'
+                key={tab.id}
+                onClick={() => setFilterTab(tab.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                  filterTab === tab.id
+                    ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
+                    : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 border border-slate-200/60 dark:border-zinc-700/60'
                 }`}
               >
-                {src.label}
+                {tab.label}
               </button>
             ))}
-          </div>
-
-          {/* Workplace Filter */}
-          <div className="flex items-center gap-1 border-l border-slate-200 dark:border-zinc-700 pl-2">
-            <span className="text-[10px] font-mono font-bold uppercase text-slate-400 mr-1">Workplace:</span>
-            {['all', 'remote', 'hybrid', 'onsite'].map(wp => (
-              <button
-                key={wp}
-                onClick={() => setWorkplaceFilter(wp)}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold capitalize transition-colors ${
-                  workplaceFilter === wp
-                    ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                    : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100'
-                }`}
-              >
-                {wp}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort By */}
-          <div className="flex items-center gap-1 border-l border-slate-200 dark:border-zinc-700 pl-2 ml-auto">
-            <span className="text-[10px] font-mono font-bold uppercase text-slate-400 mr-1">Sort:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-2 py-1 bg-slate-50 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-md text-xs font-semibold outline-none border border-slate-200 dark:border-zinc-700"
-            >
-              <option value="recent">Most Recent</option>
-              <option value="score">Highest Match</option>
-              <option value="salary">Salary: High to Low</option>
-            </select>
           </div>
         </div>
       </div>
@@ -650,11 +448,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
 
         <div className="text-[11px] font-mono text-slate-400">
-          Showing {filteredJobs.length} opportunities · Cryptographically verified
+          Showing {filteredJobs.length} opportunities
         </div>
       </div>
 
-      {/* ── PINTEREST-STYLE MASONRY JOB BOARD ──────────────────────────────── */}
+      {/* ── JOB CARDS GRID ──────────────────────────────────────────────────── */}
       {filteredJobs.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
           {filteredJobs.map((job) => {
@@ -665,7 +463,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             return (
               <div
                 key={job.applyUrl}
-                className={`p-5 rounded-2xl border transition-all duration-300 bg-white dark:bg-zinc-900 shadow-xs flex flex-col justify-between hover:-translate-y-1 hover:shadow-md ${
+                className={`p-5 rounded-2xl border transition-all duration-300 bg-white dark:bg-zinc-900 shadow-xs flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-md ${
                   isSelected
                     ? 'border-slate-900 dark:border-zinc-100 ring-1 ring-slate-900 dark:ring-zinc-100'
                     : 'border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
@@ -697,9 +495,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         {score}% Match
                       </span>
                       <button
-                        type="button"
                         onClick={() => toggleSelect(job.applyUrl)}
-                        className="text-slate-400 hover:text-slate-900 dark:hover:text-zinc-100"
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
                       >
                         {isSelected ? (
                           <CheckSquare className="w-4 h-4 text-slate-900 dark:text-zinc-100" />
@@ -710,43 +507,43 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Job Title */}
-                  <div>
+                  {/* Title & Metadata */}
+                  <div className="space-y-1">
                     <h3
                       onClick={() => setViewingJob(job)}
-                      className="text-sm font-bold text-slate-900 dark:text-zinc-100 cursor-pointer hover:underline leading-snug"
+                      className="text-sm font-bold text-slate-900 dark:text-zinc-100 hover:underline cursor-pointer line-clamp-1 leading-snug"
                     >
                       {job.title}
                     </h3>
-                  </div>
-
-                  {/* Location & Compensation Chips */}
-                  <div className="flex flex-wrap gap-1.5 text-[11px] font-mono text-slate-500 dark:text-zinc-400">
-                    <span className="px-2 py-0.5 rounded-md bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/60 dark:border-zinc-700/60 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {job.location}
-                    </span>
-                    {job.salary && (
-                      <span className="px-2 py-0.5 rounded-md bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/60 dark:border-zinc-700/60 font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" /> {job.salary}
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-slate-400" />
+                        <span>{job.location || 'Remote'}</span>
                       </span>
-                    )}
+                      {job.salary && (
+                        <>
+                          <span>·</span>
+                          <span className="font-semibold text-slate-700 dark:text-zinc-300">{job.salary}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Matched Skills Chips */}
+                  {/* Matched Skill Tags */}
                   {job.matchedSkills && job.matchedSkills.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5">
-                        <Sparkles className="w-2.5 h-2.5" /> Matches:
-                      </span>
-                      {job.matchedSkills.map(skill => (
-                        <span key={skill} className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-mono border border-emerald-200/60 dark:border-emerald-800/60">
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {job.matchedSkills.slice(0, 3).map((skill, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-semibold"
+                        >
                           {skill}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  {/* Role Description Snippet (Pinterest card content) */}
+                  {/* Description snippet */}
                   <p className="text-xs text-slate-600 dark:text-zinc-400 line-clamp-3 leading-relaxed">
                     {job.description || 'Full position details available via direct ATS endpoint.'}
                   </p>
@@ -782,18 +579,17 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     <button
                       onClick={() => onNavigateToOutreach?.(job.company, job.title)}
                       className="px-2.5 py-1.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-800 dark:text-zinc-200 rounded-lg text-[11px] font-semibold transition-colors"
-                      title="Find verified HR & Engineering Manager emails and LinkedIn (Coming Soon)"
                     >
                       Find HR
                     </button>
                   </div>
 
                   <button
-                    onClick={() => checkProfileAndRun([job.applyUrl], 'autonomous')}
-                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                    onClick={() => checkProfileAndRun([job.applyUrl])}
+                    className="px-3.5 py-1.5 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
                   >
                     <Zap className="w-3 h-3 text-emerald-400 fill-current" />
-                    <span>1-Click Apply</span>
+                    <span>Apply</span>
                   </button>
                 </div>
               </div>
@@ -801,24 +597,24 @@ export const FeedView: React.FC<FeedViewProps> = ({
           })}
         </div>
       ) : (
-        /* ── NOTION ZERO-FRICTION EMPTY STATE ──────────────────────────────── */
+        /* Empty State */
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-12 text-center space-y-3 shadow-xs max-w-md mx-auto animate-fade-up">
           <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 mx-auto flex items-center justify-center">
             <Briefcase className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">No matching positions found</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">No matching positions</h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-              Fetch real-time verified postings from Greenhouse, Lever, Ashby, and Internshala.
+              Click Refresh to sync live opportunities from Greenhouse, Lever, Ashby, and Internshala.
             </p>
           </div>
           <button
             onClick={handleFetchLatestJobs}
             disabled={isFetchingJobs}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold transition-colors shadow-xs inline-flex items-center gap-1.5"
+            className="px-4 py-2 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-xl text-xs font-semibold transition-colors shadow-xs inline-flex items-center gap-1.5"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isFetchingJobs ? 'animate-spin' : ''}`} />
-            <span>{isFetchingJobs ? 'Fetching...' : 'Fetch Live Opportunities'}</span>
+            <span>Refresh</span>
           </button>
         </div>
       )}
@@ -833,11 +629,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <div className="h-4 w-px bg-slate-700 dark:bg-zinc-300" />
 
           <button
-            onClick={() => checkProfileAndRun(Array.from(selectedUrls), 'autonomous')}
+            onClick={() => checkProfileAndRun(Array.from(selectedUrls))}
             className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
           >
             <Zap className="w-3.5 h-3.5 fill-current" />
-            <span>Apply to All ({selectedUrls.size})</span>
+            <span>Autonomous Apply</span>
           </button>
 
           <button
@@ -847,6 +643,61 @@ export const FeedView: React.FC<FeedViewProps> = ({
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* ── JOB DETAIL INSPECTION MODAL ────────────────────────────────────── */}
+      {viewingJob && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-6 shadow-2xl animate-in fade-in duration-200 font-sans">
+            
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
+              <div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                  {viewingJob.source} · {viewingJob.workplaceType || 'Remote'}
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
+                  {viewingJob.title}
+                </h3>
+                <div className="text-xs text-slate-500 font-medium">{viewingJob.company} · {viewingJob.location}</div>
+              </div>
+              <button onClick={() => setViewingJob(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <span className="font-bold text-slate-900 dark:text-zinc-100">Job Description:</span>
+              <p className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 leading-relaxed font-sans whitespace-pre-wrap max-h-60 overflow-y-auto">
+                {viewingJob.description}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-zinc-800">
+              <a
+                href={viewingJob.applyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-200 transition-colors"
+              >
+                <span>Open Original Portal</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
+              <button
+                onClick={() => {
+                  const url = viewingJob.applyUrl;
+                  setViewingJob(null);
+                  checkProfileAndRun([url]);
+                }}
+                className="px-5 py-2 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-xl text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors"
+              >
+                <Zap className="w-3.5 h-3.5 text-emerald-400 fill-current" />
+                <span>Autonomous Apply</span>
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
 
@@ -877,136 +728,33 @@ export const FeedView: React.FC<FeedViewProps> = ({
             {/* Progress Bar */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs font-mono font-bold">
-                <span className="text-slate-500">Progress</span>
-                <span className="text-slate-900 dark:text-zinc-100">{autoApplyProgress}%</span>
+                <span className="text-slate-500">Execution Progress</span>
+                <span className="text-emerald-500">{autoApplyProgress}%</span>
               </div>
               <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 transition-all duration-500 rounded-full"
+                  className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
                   style={{ width: `${autoApplyProgress}%` }}
                 />
               </div>
             </div>
 
-            {/* Terminal Log Stream */}
-            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 space-y-1 max-h-52 overflow-y-auto">
-              {autoApplyLogs.map((lg, i) => (
-                <div key={i} className="leading-relaxed border-b border-slate-900/80 pb-0.5">
-                  {lg}
-                </div>
+            {/* Log Stream */}
+            <div className="p-3.5 rounded-xl bg-slate-950 text-slate-200 text-xs font-mono h-48 overflow-y-auto space-y-1 border border-slate-800">
+              {autoApplyLogs.map((l, idx) => (
+                <div key={idx} className="leading-relaxed opacity-90">{l}</div>
               ))}
             </div>
 
-            {autoApplyProgress === 100 && (
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[10px] font-mono text-slate-400">
+                Autonomous background worker
+              </span>
               <button
                 onClick={() => setExecutingAutoApply(false)}
-                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-lg text-xs font-semibold transition-colors"
+                className="px-4 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50"
               >
-                Close &amp; View Pipeline Board
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Job Details Modal */}
-      {viewingJob && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl space-y-4 animate-fade-up max-h-[85vh] overflow-y-auto">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <span className="text-xs font-mono font-bold uppercase text-slate-400">{viewingJob.company}</span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 mt-0.5">{viewingJob.title}</h3>
-                <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mt-1">
-                  <span>{viewingJob.location}</span>
-                  {viewingJob.salary && <span>· {viewingJob.salary}</span>}
-                  <span>· {viewingJob.source}</span>
-                </div>
-              </div>
-              <button onClick={() => setViewingJob(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs text-slate-700 dark:text-zinc-300 leading-relaxed">
-              <h4 className="font-bold text-slate-900 dark:text-zinc-100">Position Scope:</h4>
-              <p>{viewingJob.description || 'Full job specifications available via direct ATS endpoint.'}</p>
-            </div>
-
-            {/* AI-Matched Learning Tutorials (Admin Curated) */}
-            <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <h4 className="font-bold text-xs text-slate-900 dark:text-zinc-100">
-                    AI-Matched Learning Prep for "{viewingJob.title}"
-                  </h4>
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">Curated by Admin</span>
-              </div>
-
-              {matchedResources.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {matchedResources.map((res) => (
-                    <a
-                      key={res.id}
-                      href={res.youtubeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-800/50 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all flex flex-col justify-between space-y-1.5 group"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-mono font-bold flex items-center gap-1">
-                            <Youtube className="w-3 h-3 text-rose-600" />
-                            <span>{res.topic}</span>
-                          </span>
-                          <span className="text-slate-400 font-mono">{res.duration}</span>
-                        </div>
-                        <h5 className="text-xs font-bold text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mt-1 leading-snug">
-                          {res.title}
-                        </h5>
-                        {res.summary && (
-                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 mt-0.5">
-                            {res.summary}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1 pt-1">
-                        <span>Watch Tutorial</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-[11px] text-slate-400 font-mono py-1">
-                  Scanning learning vault for topic matches...
-                </div>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-2">
-              <a
-                href={viewingJob.applyUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3.5 py-2 bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-200 transition-colors"
-              >
-                <span>Open Original Portal</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-
-              <button
-                onClick={() => {
-                  const url = viewingJob.applyUrl;
-                  setViewingJob(null);
-                  checkProfileAndRun([url], 'autonomous');
-                }}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors"
-              >
-                <Zap className="w-3.5 h-3.5 text-emerald-400 fill-current" />
-                <span>Autonomous Apply Now</span>
+                Dismiss Window
               </button>
             </div>
           </div>
