@@ -262,6 +262,12 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
 
   const handleOpenInGmail = (contact: OutreachContact, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const isFree = !currentUser?.tier || currentUser?.tier === 'free';
+    if (isFree) {
+      onOpenUpgrade?.('Direct Recruiter Outreach & Gmail Compose (Seeker Pro / Max)');
+      return;
+    }
+
     const subject = renderEmailSubject(contact);
     const body = renderEmailBody(contact);
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
@@ -283,6 +289,12 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
   };
 
   const handleOpenSelectedInGmail = () => {
+    const isFree = !currentUser?.tier || currentUser?.tier === 'free';
+    if (isFree) {
+      onOpenUpgrade?.('Bulk Verified Recruiter Outreach (Seeker Pro / Max)');
+      return;
+    }
+
     const targets = contacts.filter((c) => selectedEmails.has(c.email));
     if (targets.length === 0) return;
     targets.forEach((c, idx) => {
@@ -498,11 +510,15 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleOpenInGmail(contact, e)}
-                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 dark:text-emerald-300 flex items-center gap-1 transition shadow-2xs"
-                        title={`Open pre-filled Gmail compose tab for ${contact.name}`}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1 transition shadow-2xs ${
+                          (!currentUser?.tier || currentUser?.tier === 'free')
+                            ? 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-emerald-400'
+                            : 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 dark:text-emerald-300'
+                        }`}
+                        title={(!currentUser?.tier || currentUser?.tier === 'free') ? 'Upgrade to Seeker Pro / Max to access verified outreach' : `Open pre-filled Gmail compose tab for ${contact.name}`}
                       >
                         <Mail className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                        <span>Open in Gmail</span>
+                        <span>{(!currentUser?.tier || currentUser?.tier === 'free') ? '🔒 Open in Gmail' : 'Open in Gmail'}</span>
                       </button>
 
                       <button
