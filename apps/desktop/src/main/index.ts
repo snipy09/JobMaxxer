@@ -59,6 +59,8 @@ import {
 
 const mainDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(process.execPath);
 
+app.setName('Nomadic');
+
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]', err);
 });
