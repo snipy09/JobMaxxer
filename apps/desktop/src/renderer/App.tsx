@@ -363,7 +363,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden select-none font-sans">
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
       
       {/* Top Application Header */}
       <TopBar
@@ -523,21 +523,25 @@ export default function App() {
           </div>
         </main>
 
-        <UpgradeModal
-          isOpen={showUpgradeModal}
-          onClose={() => setShowUpgradeModal(false)}
-          currentUser={currentUser}
-          triggerFeature={upgradeFeature}
-          onUpgradeSuccess={() => addLog('[Upgrade] Subscription verified.')}
-        />
+        {showUpgradeModal && (
+          <UpgradeModal
+            isOpen={showUpgradeModal}
+            onClose={() => setShowUpgradeModal(false)}
+            currentUser={currentUser}
+            triggerFeature={upgradeFeature}
+            onUpgradeSuccess={() => addLog('[Upgrade] Subscription verified.')}
+          />
+        )}
 
-        <CommandPalette
-          isOpen={showCommandPalette}
-          onClose={() => setShowCommandPalette(false)}
-          onSelectTab={setActiveTab}
-          activeTrack={activeTrack}
-          onToggleTrack={setActiveTrack}
-        />
+        {showCommandPalette && (
+          <CommandPalette
+            isOpen={showCommandPalette}
+            onClose={() => setShowCommandPalette(false)}
+            onSelectTab={handleNavigate}
+            activeTrack={activeTrack}
+            onToggleTrack={handleTrackChange}
+          />
+        )}
       </div>
     </div>
   );

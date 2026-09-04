@@ -138,7 +138,7 @@ export const TopBar: React.FC<TopBarProps> = ({
       </header>
 
       {/* In-App Update Modal */}
-      {updateInfo && (
+      {showUpdateModal && updateInfo && (
         <UpdateModal
           isOpen={showUpdateModal}
           onClose={() => setShowUpdateModal(false)}
