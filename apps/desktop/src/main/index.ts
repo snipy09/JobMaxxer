@@ -639,12 +639,15 @@ ipcMain.handle('open-external-url', async (_, url: string) => {
   return { success: false, error: 'Blocked: Disallowed or invalid URL' };
 });
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  try {
+    await initLocalDatabase(app.getPath('userData'));
+    log('[Database] Local SQLite initialized successfully ✓');
+  } catch (err: any) {
+    console.error('[Database] Init note:', err?.message);
+  }
 
-  initLocalDatabase(app.getPath('userData'))
-    .then(() => log('[Database] Local SQLite initialized successfully ✓'))
-    .catch((err) => console.error('[Database] Init note:', err?.message));
+  createWindow();
 
   // Background verification: check if local Chrome / Edge is present
   setTimeout(() => {
