@@ -56,6 +56,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [newResumeName, setNewResumeName] = useState<string>('');
   const [newResumeRole, setNewResumeRole] = useState<string>('');
   const [newResumePath, setNewResumePath] = useState<string>('');
+  const [isPickingFile, setIsPickingFile] = useState<boolean>(false);
 
   // Diagnostics
   const [depStatus, setDepStatus] = useState<DependencyStatus>({
@@ -117,6 +118,34 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     const current = { ...(profile.customAnswers || {}) };
     delete current[key];
     setProfile({ ...profile, customAnswers: current });
+  };
+
+  const handlePickAndAddResume = async () => {
+    const api = getApi();
+    if (!api || !api.pickResumeFile) return;
+    setIsPickingFile(true);
+    try {
+      const res = await api.pickResumeFile();
+      if (!res.canceled && res.filePath) {
+        const name = res.fileName || res.filePath.split(/[/\\]/).pop() || 'Resume.pdf';
+        const role = profile.desiredTitle || 'General';
+        const isFirst = resumes.length === 0;
+        if (api.saveResume) {
+          await api.saveResume({
+            name,
+            targetRole: role,
+            filePath: res.filePath,
+            isDefault: isFirst,
+          });
+        }
+        await loadResumes();
+        onLog(`[Resumes] Uploaded resume: ${name}`);
+      }
+    } catch (err: any) {
+      onLog(`[Resumes] Upload note: ${err?.message}`);
+    } finally {
+      setIsPickingFile(false);
+    }
   };
 
   const handleAddResume = async () => {
@@ -374,31 +403,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           {/* Add Resume Box */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 space-y-3">
-            <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Add New Resume Record</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <input
-                type="text"
-                value={newResumeName}
-                onChange={(e) => setNewResumeName(e.target.value)}
-                placeholder="Label (e.g. Frontend_Lead_Resume.pdf)"
-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg outline-none"
-              />
-              <input
-                type="text"
-                value={newResumeRole}
-                onChange={(e) => setNewResumeRole(e.target.value)}
-                placeholder="Target Role (e.g. Frontend Engineer)"
-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg outline-none"
-              />
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Upload New Resume</span>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Select a .pdf or .docx document from your computer to use for automated applications.</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePickAndAddResume}
+                disabled={isPickingFile}
+                className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-xs shrink-0 disabled:opacity-50"
+              >
+                {isPickingFile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                <span>{isPickingFile ? 'Selecting...' : 'Select File (.pdf, .docx)'}</span>
+              </button>
             </div>
-            <button
-              onClick={handleAddResume}
-              disabled={!newResumeName.trim() || !newResumeRole.trim()}
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40"
-            >
-              Add Resume
-            </button>
           </div>
 
           {/* Resumes List */}

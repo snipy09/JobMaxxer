@@ -320,7 +320,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
               className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>New AI Track</span>
+              <span>New Track</span>
             </button>
 
             <button
@@ -491,7 +491,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-slate-900 dark:text-white" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Generate Custom AI Track</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Create New Track</h3>
               </div>
               <button onClick={() => setShowGenerateModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200">
                 <X className="w-4 h-4" />

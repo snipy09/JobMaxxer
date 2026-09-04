@@ -18,13 +18,28 @@ interface FeedViewProps {
   onNavigateToOutreach?: (company: string, jobTitle: string) => void;
 }
 
+const DEMO_TEST_JOB: Job = {
+  title: 'Senior Software Engineer (1-Click Test Job)',
+  company: 'Nomadic Labs',
+  location: 'Remote · Global',
+  source: 'Verified Demo ATS',
+  applyUrl: 'https://httpbin.org/post',
+  score: 98,
+  employmentType: 'job',
+  workplaceType: 'remote',
+  experienceLevel: 'mid',
+  salary: '₹22 LPA · $140k',
+  description: 'A pre-configured live test position to immediately test 1-click autonomous auto-apply, Playwright stealth form pre-filling, and resume attachment.',
+  createdAt: new Date().toISOString(),
+};
+
 export const FeedView: React.FC<FeedViewProps> = ({
   profile,
   onUpdateProfile,
   onLog,
   onNavigateToOutreach,
 }) => {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([DEMO_TEST_JOB]);
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
@@ -101,15 +116,19 @@ export const FeedView: React.FC<FeedViewProps> = ({
     try {
       const res = await api.getCloudFeed('candidate');
       if (res.success && res.jobs && res.jobs.length > 0) {
-        setJobs(res.jobs);
+        setJobs([DEMO_TEST_JOB, ...res.jobs.filter(j => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
         onLog(`[Feed] Stream synced ${res.jobs.length} opportunities from live ATS endpoints.`);
       } else if (api.runScrapers) {
         // Auto-run scrapers if cache is completely empty
         const scraped = await api.runScrapers();
         if (scraped && scraped.jobs && scraped.jobs.length > 0) {
-          setJobs(scraped.jobs);
+          setJobs([DEMO_TEST_JOB, ...scraped.jobs.filter(j => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
           onLog(`[Feed] Extracted ${scraped.jobs.length} fresh opportunities from ATS endpoints.`);
+        } else {
+          setJobs([DEMO_TEST_JOB]);
         }
+      } else {
+        setJobs([DEMO_TEST_JOB]);
       }
       const saved = await api.getSavedJobs();
       setSavedJobs(saved || []);

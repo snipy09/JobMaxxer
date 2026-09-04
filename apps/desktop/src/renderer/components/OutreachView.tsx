@@ -429,7 +429,7 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
           <button
             onClick={handleFetchLatestContacts}
             disabled={loadingContacts || isFetchingContacts}
-            className="w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs hover:shadow active:scale-98 disabled:opacity-50"
+            className="w-full sm:w-auto px-3.5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition hover:opacity-90 shadow-xs disabled:opacity-50"
             title="Fetch latest verified HR, Recruiter, and Engineering Manager contacts"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingContacts || isFetchingContacts ? 'animate-spin' : ''}`} />
@@ -440,7 +440,7 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
             <button
               onClick={handleDispatchDrip}
               disabled={selectedEmails.size === 0 || sendingMails}
-              className="w-full md:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs disabled:opacity-40"
+              className="w-full md:w-auto px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition hover:opacity-90 shadow-xs disabled:opacity-40"
             >
               {sendingMails ? (
                 <>
@@ -459,8 +459,8 @@ export const OutreachView: React.FC<OutreachViewProps> = ({ profile, onLog, init
               onClick={handleToggleLinkedinWaitlist}
               className={`w-full md:w-auto px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs ${
                 linkedinWaitlistJoined
-                  ? 'bg-emerald-600 text-white dark:bg-emerald-500'
-                  : 'bg-[#0077B5] hover:bg-[#006097] text-white'
+                  ? 'bg-black dark:bg-white text-white dark:text-black'
+                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:bg-slate-200'
               }`}
             >
               {linkedinWaitlistJoined ? (
