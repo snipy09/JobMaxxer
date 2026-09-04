@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   BookOpen, ExternalLink, FileText, Code2, ChevronRight,
-  X, Sparkles
+  X, Sparkles, Search, Building, ArrowUpRight, Flame
 } from 'lucide-react';
 import {
   VAULT_TEXTBOOKS, VAULT_CHEATSHEETS,
   VaultTextbook, VaultCheatsheet
 } from '../data/resourceVault';
+import leetcodeCompaniesDataRaw from '../data/leetcodeCompaniesDataset.json';
 import { AppUser, getApi } from '../types';
 
 interface ResourceVaultViewProps {
@@ -15,6 +16,28 @@ interface ResourceVaultViewProps {
   onLog?: (msg: string) => void;
 }
 
+interface CompanyProblem {
+  title: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD' | string;
+  link: string;
+  frequency?: string;
+  topics?: string[];
+}
+
+interface CompanyEntry {
+  company: string;
+  questionCount: number;
+  problems: CompanyProblem[];
+}
+
+const leetcodeCompaniesData = leetcodeCompaniesDataRaw as Record<string, CompanyEntry>;
+
+const POPULAR_COMPANIES = [
+  'Google', 'Meta', 'Amazon', 'Microsoft', 'Apple', 'Uber', 'Netflix',
+  'Adobe', 'Atlassian', 'Stripe', 'Airbnb', 'Bloomberg', 'Goldman Sachs',
+  'Salesforce', 'ByteDance', 'Oracle'
+];
+
 export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
   currentUser,
   onOpenUpgrade,
@@ -22,6 +45,12 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
 }) => {
   const [activeVaultSection, setActiveVaultSection] = useState<'questions' | 'textbooks' | 'cheatsheets'>('questions');
   const [selectedTextbook, setSelectedTextbook] = useState<VaultTextbook | null>(null);
+  
+  // Company-Wise Questions State
+  const [selectedCompany, setSelectedCompany] = useState<string>('Google');
+  const [companySearch, setCompanySearch] = useState<string>('');
+  const [problemSearch, setProblemSearch] = useState<string>('');
+  const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
 
   const isFree = !currentUser?.tier || currentUser?.tier === 'free';
 
@@ -37,8 +66,52 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
     onLog?.('[Resource Vault] Opened All LeetCode Questions in browser.');
   };
 
+  const handleOpenProblem = (link: string, title: string, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const api = getApi();
+    if (api && api.openExternalUrl) {
+      api.openExternalUrl(link);
+    } else {
+      window.open(link, '_blank');
+    }
+    onLog?.(`[Resource Vault] Opened LeetCode problem: "${title}"`);
+  };
+
+  const allCompanyNames = useMemo(() => {
+    return Object.keys(leetcodeCompaniesData).sort();
+  }, []);
+
+  const filteredCompanyNames = useMemo(() => {
+    if (!companySearch.trim()) return allCompanyNames;
+    const q = companySearch.toLowerCase().trim();
+    return allCompanyNames.filter(c => c.toLowerCase().includes(q));
+  }, [allCompanyNames, companySearch]);
+
+  const activeCompanyData = useMemo(() => {
+    return leetcodeCompaniesData[selectedCompany] || leetcodeCompaniesData['Google'] || null;
+  }, [selectedCompany]);
+
+  const displayedProblems = useMemo(() => {
+    if (!activeCompanyData) return [];
+    let list = activeCompanyData.problems || [];
+    
+    if (difficultyFilter !== 'ALL') {
+      list = list.filter(p => p.difficulty.toUpperCase() === difficultyFilter);
+    }
+
+    if (problemSearch.trim()) {
+      const q = problemSearch.toLowerCase().trim();
+      list = list.filter(p => 
+        p.title.toLowerCase().includes(q) || 
+        (p.topics || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [activeCompanyData, difficultyFilter, problemSearch]);
+
   return (
-    <div className="space-y-6 font-sans select-none max-w-5xl mx-auto pb-20">
+    <div className="space-y-6 font-sans max-w-6xl mx-auto pb-20">
       
       {/* ── TOP HEADER & MAIN VAULT TABS ───────────────────────────────────── */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 shadow-xs space-y-4">
@@ -49,14 +122,19 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
               <span>Technical Resource Vault</span>
             </h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              LeetCode practice portal, engineering textbooks, and system design architecture sheets.
+              428+ Company-wise LeetCode problems, engineering textbooks, and system design architecture sheets.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-              Active
-            </span>
+            <button
+              type="button"
+              onClick={handleOpenLeetCodeAll}
+              className="px-4 py-2 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+            >
+              <span>All LeetCode Questions</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -71,7 +149,7 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                 : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
-            Question Bank
+            Company Question Bank (428+ Companies)
           </button>
 
           <button
@@ -100,35 +178,170 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
         </div>
       </div>
 
-      {/* ── QUESTION BANK SECTION: ONLY ONE BUTTON (ZERO LIST/CLUTTER) ───────── */}
+      {/* ── QUESTION BANK: 428+ COMPANY WISE EXPLORER ───────────────────────── */}
       {activeVaultSection === 'questions' && (
-        <div className="min-h-[50vh] flex items-center justify-center font-sans select-none p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-8 sm:p-12 text-center max-w-lg w-full space-y-5 shadow-xs animate-in fade-in duration-200">
-            
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-mono font-bold text-slate-800 dark:text-zinc-200">
-              <Code2 className="w-3.5 h-3.5 text-slate-700 dark:text-zinc-300" />
-              <span>Practice Portal</span>
+        <div className="space-y-5 animate-in fade-in duration-150">
+          
+          {/* Quick Popular Company Pills */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Building className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Top Tech Companies</span>
+                <span className="text-[10px] font-mono text-slate-400">({allCompanyNames.length} total)</span>
+              </div>
+
+              {/* Company Search Dropdown / Input */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={companySearch}
+                  onChange={(e) => setCompanySearch(e.target.value)}
+                  placeholder="Find company (e.g. Netflix, Stripe)..."
+                  className="w-full bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
+                />
+              </div>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              LeetCode Question Vault
-            </h2>
+            {/* Company Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap max-h-28 overflow-y-auto pt-1">
+              {(companySearch ? filteredCompanyNames.slice(0, 30) : POPULAR_COMPANIES).map((comp) => {
+                const isSelected = selectedCompany === comp;
+                const count = leetcodeCompaniesData[comp]?.questionCount || 0;
 
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 leading-relaxed max-w-md mx-auto">
-              Access the complete collection of data structure algorithms, technical coding challenges, and company interview questions.
-            </p>
+                return (
+                  <button
+                    key={comp}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCompany(comp);
+                      setProblemSearch('');
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-xs'
+                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 border border-slate-200/80 dark:border-zinc-700'
+                    }`}
+                  >
+                    <span>{comp}</span>
+                    <span className={`text-[10px] font-mono px-1 rounded ${
+                      isSelected
+                        ? 'bg-white/20 dark:bg-black/20 text-white dark:text-black'
+                        : 'bg-slate-200/70 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            <div className="pt-2 flex justify-center">
-              <button
-                type="button"
-                onClick={handleOpenLeetCodeAll}
-                className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl text-xs font-bold hover:opacity-90 transition flex items-center gap-2 shadow-xs"
-              >
-                <span>All LeetCode Questions</span>
-                <ExternalLink className="w-4 h-4" />
-              </button>
+          {/* Active Company Problems Header & Filter Bar */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center font-bold text-xs text-slate-900 dark:text-white">
+                {selectedCompany.slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                  {selectedCompany} Problem Set
+                </h3>
+                <div className="text-[11px] text-slate-500 font-mono">
+                  Showing {displayedProblems.length} questions
+                </div>
+              </div>
             </div>
 
+            {/* Problem Filter Controls */}
+            <div className="flex items-center gap-2">
+              <div className="relative w-48 sm:w-60">
+                <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
+                <input
+                  type="text"
+                  value={problemSearch}
+                  onChange={(e) => setProblemSearch(e.target.value)}
+                  placeholder="Filter problems or topics..."
+                  className="w-full bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-xl pl-7 pr-3 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
+                />
+              </div>
+
+              {/* Difficulty Pills */}
+              <div className="flex items-center p-0.5 bg-slate-100 dark:bg-zinc-800 rounded-xl text-[11px] font-bold">
+                {(['ALL', 'EASY', 'MEDIUM', 'HARD'] as const).map((diff) => (
+                  <button
+                    key={diff}
+                    type="button"
+                    onClick={() => setDifficultyFilter(diff)}
+                    className={`px-2 py-1 rounded-lg transition ${
+                      difficultyFilter === diff
+                        ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900'
+                    }`}
+                  >
+                    {diff}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Problem List Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {displayedProblems.map((prob, idx) => {
+              const diff = prob.difficulty.toUpperCase();
+              const diffBadgeClass =
+                diff === 'EASY'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  : diff === 'MEDIUM'
+                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+
+              return (
+                <div
+                  key={idx}
+                  onClick={(e) => handleOpenProblem(prob.link, prob.title, e)}
+                  className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-2xl p-4 shadow-xs hover:shadow-sm transition flex flex-col justify-between gap-3 cursor-pointer group"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                        {prob.title}
+                      </h4>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 ${diffBadgeClass}`}>
+                        {diff}
+                      </span>
+                    </div>
+
+                    {prob.topics && prob.topics.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {prob.topics.map((t, tIdx) => (
+                          <span
+                            key={tIdx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 text-slate-600 dark:text-zinc-400 border border-slate-200/60 dark:border-zinc-700/60"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-800/80 text-[11px]">
+                    <span className="text-slate-400 font-mono text-[10px] flex items-center gap-1">
+                      <Flame className="w-3 h-3 text-amber-500" />
+                      <span>Freq: {prob.frequency ? parseFloat(prob.frequency).toFixed(1) : '90+'}</span>
+                    </span>
+
+                    <span className="text-slate-900 dark:text-white font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform text-xs">
+                      <span>Solve Problem</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -246,51 +459,60 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
       {/* ── MODAL: TEXTBOOK DETAIL ─────────────────────────────────────────── */}
       {selectedTextbook && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-5 shadow-2xl animate-in fade-in duration-200 font-sans">
-            <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-in fade-in duration-200 font-sans max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
               <div>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                  {selectedTextbook.category} · {selectedTextbook.pages} Pages
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                  {selectedTextbook.category}
                 </span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
                   {selectedTextbook.title}
                 </h3>
-                <div className="text-xs text-slate-500 font-mono">by {selectedTextbook.author}</div>
+                <div className="text-xs text-slate-500 font-mono">by {selectedTextbook.author} · {selectedTextbook.pages} Pages</div>
               </div>
-              <button onClick={() => setSelectedTextbook(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200">
+              <button
+                type="button"
+                onClick={() => setSelectedTextbook(null)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 p-1"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
-              {selectedTextbook.description}
-            </p>
+            <div className="space-y-4 text-xs">
+              <div>
+                <span className="font-bold text-slate-900 dark:text-zinc-100">Overview:</span>
+                <p className="text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                  {selectedTextbook.description}
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Key Chapters:</span>
-              <div className="space-y-1.5">
-                {selectedTextbook.chapters.map((ch, idx) => (
-                  <div key={idx} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 text-xs flex items-center justify-between">
-                    <span className="text-slate-800 dark:text-zinc-200 font-medium">{ch.title}</span>
-                    <span className="text-[10px] font-mono text-slate-400">p. {ch.pageRange}</span>
-                  </div>
-                ))}
+              <div>
+                <span className="font-bold text-slate-900 dark:text-zinc-100">Core Chapters &amp; Topics:</span>
+                <ul className="mt-2 space-y-1.5 text-slate-700 dark:text-zinc-300 font-mono">
+                  {selectedTextbook.chapters.map((ch, idx) => (
+                    <li key={idx} className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                      <span>{ch}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
 
-            <div className="flex items-center justify-end pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-zinc-800">
+              <span className="text-[11px] font-mono text-slate-400">Curated Reference Handbook</span>
               <button
                 type="button"
                 onClick={() => setSelectedTextbook(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
+                className="px-4 py-2 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-xl text-xs font-bold transition-all shadow-xs"
               >
-                Close
+                Close Handbook
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };
