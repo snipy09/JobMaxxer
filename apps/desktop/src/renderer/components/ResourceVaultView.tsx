@@ -2,12 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   BookOpen, Search, Check, ExternalLink,
   FileText, Code2, Play, ChevronRight,
-  X, Bookmark, Terminal, Star, Download, Youtube
+  X, Bookmark, Terminal, Star, Download, Youtube,
+  Sparkles, Layers, Shield, CheckCircle2, Lock
 } from 'lucide-react';
 import {
   VAULT_QUESTIONS, VAULT_TEXTBOOKS, VAULT_CHEATSHEETS,
   VaultQuestion, VaultTextbook, VaultCheatsheet
 } from '../data/resourceVault';
+import {
+  LEETCODE_PREMIUM_QUESTIONS,
+  LeetCodePremiumQuestion
+} from '../data/leetcodePremiumDataset';
 import { AppUser, CuratedResource, getApi } from '../types';
 
 interface ResourceVaultViewProps {
@@ -21,16 +26,18 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
   onOpenUpgrade,
   onLog
 }) => {
-  const [activeVaultSection, setActiveVaultSection] = useState<'questions' | 'textbooks' | 'cheatsheets' | 'tutorials'>('questions');
-  const [curatedVideos, setCuratedVideos] = useState<CuratedResource[]>([]);
+  const [activeVaultSection, setActiveVaultSection] = useState<'questions' | 'textbooks' | 'cheatsheets'>('questions');
   
-  // Question Bank Filter State
+  // Question Bank Category Tabs
+  const [selectedQuestionCategory, setSelectedQuestionCategory] = useState<string>('leetcode_premium');
+
+  // Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
 
   // Interactive Drawers
+  const [selectedLeetCodeQuestion, setSelectedLeetCodeQuestion] = useState<LeetCodePremiumQuestion | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<VaultQuestion | null>(null);
   const [selectedTextbook, setSelectedTextbook] = useState<VaultTextbook | null>(null);
   const [showSolutionCode, setShowSolutionCode] = useState<boolean>(false);
@@ -39,16 +46,24 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
   const [unlockedForSession, setUnlockedForSession] = useState<boolean>(false);
   const isUserSubscribed = currentUser?.tier === 'learner_pro' || currentUser?.tier === 'seeker_max' || currentUser?.tier === 'pro' || unlockedForSession;
 
-  useEffect(() => {
-    const api = getApi();
-    if (api && api.adminGetLearningResources) {
-      api.adminGetLearningResources().then(res => {
-        if (res && res.length) setCuratedVideos(res);
-      }).catch(() => {});
-    }
-  }, []);
+  // Filtered LeetCode Premium Questions
+  const filteredLeetCode = useMemo(() => {
+    return LEETCODE_PREMIUM_QUESTIONS.filter(q => {
+      const matchSearch =
+        searchQuery === '' ||
+        q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(q.number).includes(searchQuery) ||
+        q.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        q.companies.some(c => c.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // Filtered Question List
+      const matchDiff = selectedDifficulty === 'all' || q.difficulty.toLowerCase() === selectedDifficulty.toLowerCase();
+      const matchComp = selectedCompany === 'all' || q.companies.includes(selectedCompany);
+
+      return matchSearch && matchDiff && matchComp;
+    });
+  }, [searchQuery, selectedDifficulty, selectedCompany]);
+
+  // Filtered Standard Question Bank List
   const filteredQuestions = useMemo(() => {
     return VAULT_QUESTIONS.filter(q => {
       const matchSearch =
@@ -57,13 +72,35 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
         q.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
         q.companyTags.some(c => c.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchCat = selectedCategory === 'all' || q.category === selectedCategory;
+      const matchCat =
+        selectedQuestionCategory === 'all_general' ? true :
+        selectedQuestionCategory === 'system_design' ? q.category === 'system_design' :
+        selectedQuestionCategory === 'behavioral' ? q.category === 'behavioral' :
+        selectedQuestionCategory === 'product_case' ? (q.category === 'product' || q.category === 'case_study') :
+        q.category === selectedQuestionCategory;
+
       const matchDiff = selectedDifficulty === 'all' || q.difficulty === selectedDifficulty;
       const matchComp = selectedCompany === 'all' || q.companyTags.includes(selectedCompany);
 
       return matchSearch && matchCat && matchDiff && matchComp;
     });
-  }, [searchQuery, selectedCategory, selectedDifficulty, selectedCompany]);
+  }, [searchQuery, selectedQuestionCategory, selectedDifficulty, selectedCompany]);
+
+  const handleOpenLink = (url: string, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const api = getApi();
+    if (api && api.openExternalUrl) {
+      api.openExternalUrl(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleOpenLeetCodeDrawer = (q: LeetCodePremiumQuestion) => {
+    setSelectedLeetCodeQuestion(q);
+    setUserAttemptCode(q.starterCode || '// Write solution...');
+    setShowSolutionCode(false);
+  };
 
   const handleOpenQuestion = (q: VaultQuestion) => {
     setSelectedQuestion(q);
@@ -71,51 +108,30 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
     setShowSolutionCode(false);
   };
 
-  const handleUnlockAll = () => {
-    setUnlockedForSession(true);
-    onLog?.('[Vault] Unlocked full question library.');
-  };
-
   return (
     <div className="space-y-6 font-sans select-none max-w-5xl mx-auto pb-20">
       
-      {/* ── CLEAN TOP HEADER & SEGMENTED CONTROLS ───────────────────────────── */}
+      {/* ── TOP HEADER & MAIN VAULT TABS ───────────────────────────────────── */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-              Technical Resources
+            <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-slate-900 dark:text-white" />
+              <span>Career &amp; Technical Resource Vault</span>
             </h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              1,500+ interview questions, technical textbooks, and architecture reference sheets.
+              High-frequency company question banks, LeetCode Premium breakdowns, textbooks, and engineering cheat sheets.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            {!isUserSubscribed ? (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onOpenUpgrade?.('Resource Library')}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold transition-colors shadow-xs"
-                >
-                  Unlock Paid Library (₹79/mo)
-                </button>
-                <button
-                  onClick={handleUnlockAll}
-                  className="text-[11px] text-slate-400 hover:text-slate-700 dark:hover:text-zinc-300 font-mono underline"
-                >
-                  [Demo Unlock]
-                </button>
-              </div>
-            ) : (
-              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                Full Library Active
-              </span>
-            )}
+            <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+              Verified Resource Library Active
+            </span>
           </div>
         </div>
 
-        {/* Clean Segmented Tab Switcher */}
+        {/* Primary Vault Sections */}
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800/70 p-1 rounded-xl overflow-x-auto border border-slate-200/60 dark:border-zinc-700/60">
           <button
             onClick={() => setActiveVaultSection('questions')}
@@ -125,7 +141,7 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                 : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
-            Question Bank ({VAULT_QUESTIONS.length})
+            Question Banks ({LEETCODE_PREMIUM_QUESTIONS.length + VAULT_QUESTIONS.length}+)
           </button>
 
           <button
@@ -136,7 +152,7 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                 : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
-            Textbooks ({VAULT_TEXTBOOKS.length})
+            Curated Textbooks ({VAULT_TEXTBOOKS.length})
           </button>
 
           <button
@@ -147,377 +163,536 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                 : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
             }`}
           >
-            Cheatsheets ({VAULT_CHEATSHEETS.length})
-          </button>
-
-          <button
-            onClick={() => setActiveVaultSection('tutorials')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-              activeVaultSection === 'tutorials'
-                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
-            }`}
-          >
-            <Youtube className="w-3.5 h-3.5 text-rose-600" />
-            <span>Curated Tutorials ({curatedVideos.length})</span>
+            Architecture Reference Sheets ({VAULT_CHEATSHEETS.length})
           </button>
         </div>
       </div>
 
-      {/* ── SECTION 1: QUESTION BANK ─────────────────────────────────────────── */}
+      {/* ── QUESTION BANK SECTION (WITH CATEGORIES) ─────────────────────────── */}
       {activeVaultSection === 'questions' && (
         <div className="space-y-4">
           
-          {/* Filters Row */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-xs space-y-3">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search questions by topic, algorithm, company..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-                />
-              </div>
+          {/* Category Chips Bar: First Category is "All LeetCode Premium Questions" */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setSelectedQuestionCategory('leetcode_premium')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                selectedQuestionCategory === 'leetcode_premium'
+                  ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
+                  : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <span>All LeetCode Premium Questions ({LEETCODE_PREMIUM_QUESTIONS.length})</span>
+            </button>
 
-              {/* Category Pills */}
-              <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto">
-                {['all', 'Frontend', 'Backend', 'DSA', 'System Design'].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1 rounded-md text-xs font-semibold capitalize transition-colors ${
-                      selectedCategory === cat
-                        ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                        : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-100'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+            <button
+              onClick={() => setSelectedQuestionCategory('system_design')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition shrink-0 ${
+                selectedQuestionCategory === 'system_design'
+                  ? 'bg-black text-white dark:bg-white dark:text-black font-bold shadow-xs'
+                  : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
+              }`}
+            >
+              System Design &amp; Architecture
+            </button>
+
+            <button
+              onClick={() => setSelectedQuestionCategory('behavioral')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition shrink-0 ${
+                selectedQuestionCategory === 'behavioral'
+                  ? 'bg-black text-white dark:bg-white dark:text-black font-bold shadow-xs'
+                  : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
+              }`}
+            >
+              Behavioral &amp; STAR Leadership
+            </button>
+
+            <button
+              onClick={() => setSelectedQuestionCategory('product_case')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition shrink-0 ${
+                selectedQuestionCategory === 'product_case'
+                  ? 'bg-black text-white dark:bg-white dark:text-black font-bold shadow-xs'
+                  : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
+              }`}
+            >
+              Domain &amp; Case Studies
+            </button>
+
+            <button
+              onClick={() => setSelectedQuestionCategory('all_general')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition shrink-0 ${
+                selectedQuestionCategory === 'all_general'
+                  ? 'bg-black text-white dark:bg-white dark:text-black font-bold shadow-xs'
+                  : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300'
+              }`}
+            >
+              All Other Questions
+            </button>
+          </div>
+
+          {/* Search & Sub-Filters Toolbar */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search questions, problem #, or keywords..."
+                className="w-full bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
+              />
             </div>
 
-            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-500 font-mono">
-              <span>Showing {filteredQuestions.length} questions</span>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedDifficulty}
-                  onChange={(e) => setSelectedDifficulty(e.target.value)}
-                  className="p-1 bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded border border-slate-200 dark:border-zinc-700 outline-none"
-                >
-                  <option value="all">All Difficulties</option>
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+              <select
+                value={selectedDifficulty}
+                onChange={(e) => setSelectedDifficulty(e.target.value)}
+                className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-zinc-300 focus:outline-none"
+              >
+                <option value="all">All Difficulties</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+
+              <select
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-zinc-300 focus:outline-none"
+              >
+                <option value="all">All Companies</option>
+                <option value="Google">Google</option>
+                <option value="Meta">Meta</option>
+                <option value="Amazon">Amazon</option>
+                <option value="Apple">Apple</option>
+                <option value="Microsoft">Microsoft</option>
+                <option value="Stripe">Stripe</option>
+                <option value="Bloomberg">Bloomberg</option>
+              </select>
             </div>
           </div>
 
-          {/* Question List */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl divide-y divide-slate-100 dark:divide-zinc-800/80 shadow-xs overflow-hidden">
-            {filteredQuestions.map((q) => {
-              const isLocked = q.isPaid && !isUserSubscribed;
+          {/* ── VIEW 1: ALL LEETCODE PREMIUM QUESTIONS (PRIMARY CATEGORY) ───────── */}
+          {selectedQuestionCategory === 'leetcode_premium' ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+                <span>Showing {filteredLeetCode.length} LeetCode Premium High-Frequency Problems</span>
+                <span>Direct LeetCode &amp; Video Search Integration</span>
+              </div>
 
-              return (
+              {filteredLeetCode.map((q) => (
                 <div
                   key={q.id}
-                  onClick={() => handleOpenQuestion(q)}
-                  className="p-4 hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer flex items-center justify-between gap-4 group"
+                  className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-2xl p-5 shadow-xs transition space-y-3.5"
                 >
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.2 rounded ${
-                        q.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
-                        q.difficulty === 'Medium' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' :
-                        'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
-                      }`}>
-                        {q.difficulty}
-                      </span>
-                      <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                        {q.category}
-                      </span>
-                      {q.companyTags.slice(0, 2).map((comp) => (
-                        <span key={comp} className="text-[10px] font-mono text-slate-400">
-                          {comp}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200">
+                          #{q.number}
+                        </span>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                          {q.title}
+                        </h3>
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                          q.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                          q.difficulty === 'Medium' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' :
+                          'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                        }`}>
+                          {q.difficulty}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          Acceptance: {q.acceptanceRate} · Freq Score: {q.frequencyScore}%
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed pt-0.5">
+                        {q.prompt}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-start">
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenLink(q.leetcodeUrl, e)}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-xs font-semibold text-slate-800 dark:text-zinc-200 transition flex items-center gap-1.5"
+                        title="Open direct problem page on LeetCode"
+                      >
+                        <span>LeetCode</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenLink(q.videoSolutionUrl, e)}
+                        className="px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/30 text-xs font-semibold text-red-700 dark:text-red-300 hover:bg-red-100 transition flex items-center gap-1.5"
+                        title="Watch full video explanation on YouTube"
+                      >
+                        <Youtube className="w-3.5 h-3.5 text-red-600" />
+                        <span>Solution Video</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenLeetCodeDrawer(q)}
+                        className="px-3 py-1.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold hover:opacity-90 transition flex items-center gap-1"
+                      >
+                        <span>Code &amp; Solution</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Company Tags & Key Concepts */}
+                  <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-zinc-800/80 text-xs flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono text-slate-400">Companies:</span>
+                      {q.companies.map((c, cIdx) => (
+                        <span key={cIdx} className="text-[10px] font-mono px-2 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                          {c}
                         </span>
                       ))}
                     </div>
 
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100 group-hover:underline truncate">
-                      {q.title}
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isLocked ? (
-                      <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500">
-                        Pro
-                      </span>
-                    ) : (
-                      <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-900 dark:group-hover:text-zinc-100">
-                        Solve
-                      </span>
-                    )}
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono text-slate-400">Concepts:</span>
+                      {q.keyConcepts.map((k, kIdx) => (
+                        <span key={kIdx} className="text-[10px] font-mono px-2 py-0.2 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400">
+                          {k}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── SECTION 2: TEXTBOOKS ─────────────────────────────────────────────── */}
-      {activeVaultSection === 'textbooks' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {VAULT_TEXTBOOKS.map((book) => (
-            <div
-              key={book.id}
-              onClick={() => setSelectedTextbook(book)}
-              className="p-5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                  <span>{book.category}</span>
-                  <span className="text-amber-500 font-bold">★ {book.rating}</span>
-                </div>
-                <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100 group-hover:underline leading-snug">
-                  {book.title}
-                </h3>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  by {book.author}
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs font-semibold text-slate-900 dark:text-zinc-100">
-                <span>View Summary</span>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── SECTION 3: CHEATSHEETS ───────────────────────────────────────────── */}
-      {activeVaultSection === 'cheatsheets' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {VAULT_CHEATSHEETS.map((cs) => (
-            <div
-              key={cs.id}
-              className="p-5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase text-slate-400">{cs.category}</span>
-                <span className="text-[10px] font-mono text-slate-400">{cs.downloadsCount}+ downloads</span>
+          ) : (
+            /* ── VIEW 2: STANDARD / DOMAIN QUESTION BANKS ───────────────────────── */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+                <span>Showing {filteredQuestions.length} Interview Problems</span>
               </div>
-              <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100">{cs.title}</h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">{cs.description}</p>
-              
-              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-                <span className="text-[11px] font-mono text-slate-400">{cs.highlights?.length || 5} key rules</span>
-                <a
-                  href={cs.viewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-zinc-100 hover:underline"
+
+              {filteredQuestions.map((q) => (
+                <div
+                  key={q.id}
+                  onClick={() => handleOpenQuestion(q)}
+                  className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-2xl p-5 shadow-xs transition space-y-3 cursor-pointer"
                 >
-                  <span>Open Sheet</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                          {q.title}
+                        </h3>
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                          q.difficulty === 'easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                          q.difficulty === 'medium' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' :
+                          'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                        }`}>
+                          {q.difficulty.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400 uppercase">
+                          {q.category}
+                        </span>
+                      </div>
 
-      {/* ── SECTION 4: CURATED VIDEO TUTORIALS (ADMIN CURATED) ────────────────── */}
-      {activeVaultSection === 'tutorials' && (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Youtube className="w-4 h-4 text-rose-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-zinc-100">
-                  Curated YouTube Video Tutorials
-                </h3>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                Hand-picked, high-signal architecture, systems, and full-stack video masterclasses verified by staff instructors.
-              </p>
-            </div>
-            <span className="text-[10px] font-mono text-slate-400">
-              {curatedVideos.length} Tutorials Available
-            </span>
-          </div>
+                      <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
+                        {q.prompt}
+                      </p>
+                    </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {curatedVideos.map((vid) => (
-              <div
-                key={vid.id}
-                className="p-5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-slate-300 dark:hover:border-zinc-700 transition-all shadow-xs flex flex-col justify-between space-y-3 group"
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900 flex items-center gap-1">
-                      <Youtube className="w-3 h-3 text-rose-600" />
-                      <span>{vid.topic}</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {vid.duration || '20 mins'}
-                    </span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-1" />
                   </div>
 
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {vid.title}
-                  </h4>
-
-                  <div className="text-[10px] text-slate-600 dark:text-zinc-400">
-                    <span className="text-slate-400">Target Role: </span>
-                    <span className="bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-zinc-300 font-medium">{vid.targetRole}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-zinc-800/80">
+                    <span className="text-[10px] font-mono text-slate-400">Asked At:</span>
+                    {q.companyTags.map((c, idx) => (
+                      <span key={idx} className="text-[10px] font-mono px-2 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                        {c}
+                      </span>
+                    ))}
                   </div>
-
-                  {vid.summary && (
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
-                      {vid.summary}
-                    </p>
-                  )}
                 </div>
-
-                <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-slate-400">Full Masterclass</span>
-                  <a
-                    href={vid.youtubeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline"
-                  >
-                    <span>Watch on YouTube</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {curatedVideos.length === 0 && (
-            <div className="text-center py-12 border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl bg-slate-50/50 dark:bg-zinc-800/30">
-              <Youtube className="w-8 h-8 text-slate-300 dark:text-zinc-600 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-600 dark:text-zinc-400">No tutorials loaded yet.</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">Admin can add tutorials anytime from the Master Admin Dashboard.</p>
+              ))}
             </div>
           )}
+
         </div>
       )}
 
-      {/* Question Drawer Modal */}
-      {selectedQuestion && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fade-up">
-            <div className="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-start justify-between gap-4">
+      {/* ── TEXTBOOKS SECTION ──────────────────────────────────────────────── */}
+      {activeVaultSection === 'textbooks' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {VAULT_TEXTBOOKS.map((t) => (
+            <div
+              key={t.id}
+              onClick={() => setSelectedTextbook(t)}
+              className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-2xl p-5 shadow-xs transition space-y-3 cursor-pointer"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                    {t.category}
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-2">
+                    {t.title}
+                  </h3>
+                  <div className="text-xs text-slate-500 font-mono mt-0.5">by {t.author}</div>
+                </div>
+                <BookOpen className="w-5 h-5 text-slate-400 shrink-0 mt-1" />
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
+                {t.description}
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs font-mono text-slate-500">
+                <span>{t.pages} Pages</span>
+                <span className="text-slate-900 dark:text-white font-semibold flex items-center gap-1">
+                  <span>Read Handbook</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── CHEATSHEETS SECTION ────────────────────────────────────────────── */}
+      {activeVaultSection === 'cheatsheets' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {VAULT_CHEATSHEETS.map((c) => (
+            <div
+              key={c.id}
+              className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 shadow-xs space-y-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                    {c.category}
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-2">
+                    {c.title}
+                  </h3>
+                </div>
+                <FileText className="w-5 h-5 text-slate-400 shrink-0 mt-1" />
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
+                {c.summary}
+              </p>
+
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Key Architectural Sections:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {c.keyTopics.map((k, idx) => (
+                    <span key={idx} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300">
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── MODAL / DRAWER: LEETCODE PREMIUM QUESTION DETAIL ───────────────── */}
+      {selectedLeetCodeQuestion && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-3xl w-full max-h-[88vh] overflow-y-auto p-6 sm:p-7 space-y-6 shadow-2xl animate-in fade-in duration-200">
+            
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                    {selectedQuestion.category} · {selectedQuestion.difficulty}
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200">
+                    LeetCode #{selectedLeetCodeQuestion.number}
+                  </span>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                    selectedLeetCodeQuestion.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                    selectedLeetCodeQuestion.difficulty === 'Medium' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' :
+                    'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                  }`}>
+                    {selectedLeetCodeQuestion.difficulty}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Acceptance: {selectedLeetCodeQuestion.acceptanceRate}
                   </span>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1.5">
+                  {selectedLeetCodeQuestion.title}
+                </h3>
+              </div>
+              <button onClick={() => setSelectedLeetCodeQuestion(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Problem Statement */}
+            <div className="space-y-3 text-xs">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 leading-relaxed font-sans">
+                {selectedLeetCodeQuestion.prompt}
+              </div>
+
+              {/* Examples */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Examples:</span>
+                {selectedLeetCodeQuestion.examples.map((ex, exIdx) => (
+                  <pre key={exIdx} className="p-3 rounded-lg bg-slate-100 dark:bg-black border border-slate-200 dark:border-zinc-800 text-xs font-mono text-slate-800 dark:text-zinc-200 overflow-x-auto">
+                    {ex}
+                  </pre>
+                ))}
+              </div>
+            </div>
+
+            {/* Code Workspace & Solution Toggle */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 font-mono">
+                  TypeScript Solution &amp; Implementation
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSolutionCode(!showSolutionCode)}
+                  className="text-xs text-slate-600 dark:text-zinc-400 hover:text-black dark:hover:text-white font-semibold underline"
+                >
+                  {showSolutionCode ? 'Hide Verified Solution' : 'Reveal Verified Solution'}
+                </button>
+              </div>
+
+              <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 dark:bg-black dark:text-zinc-200 text-xs font-mono overflow-x-auto max-h-72 border border-slate-800">
+                {showSolutionCode && selectedLeetCodeQuestion.solutionCode
+                  ? selectedLeetCodeQuestion.solutionCode
+                  : selectedLeetCodeQuestion.starterCode}
+              </pre>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenLink(selectedLeetCodeQuestion.leetcodeUrl, e)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-100 flex items-center gap-1.5"
+                >
+                  <span>Open on LeetCode</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => handleOpenLink(selectedLeetCodeQuestion.videoSolutionUrl, e)}
+                  className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition flex items-center gap-1.5"
+                >
+                  <Youtube className="w-4 h-4" />
+                  <span>Watch Video Solution</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedLeetCodeQuestion(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
+              >
+                Close
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: STANDARD QUESTION DETAIL ────────────────────────────────── */}
+      {selectedQuestion && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-5 shadow-2xl animate-in fade-in duration-200">
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                  {selectedQuestion.category.toUpperCase()} · {selectedQuestion.difficulty.toUpperCase()}
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
                   {selectedQuestion.title}
                 </h3>
               </div>
-              <button onClick={() => setSelectedQuestion(null)} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSelectedQuestion(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 space-y-5">
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">Problem Prompt:</h4>
-                <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed font-sans">
-                  {selectedQuestion.prompt}
-                </p>
+            <div className="space-y-2 text-xs">
+              <span className="font-bold text-slate-900 dark:text-zinc-100">Question Prompt:</span>
+              <p className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 leading-relaxed">
+                {selectedQuestion.prompt}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Solution &amp; Explanation:</span>
+              <div className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
+                {selectedQuestion.solutionExplanation || 'Detailed architectural solution notes...'}
               </div>
+            </div>
 
-              {/* Code Playground */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-700 dark:text-zinc-300">Solution Playground:</span>
-                  <button
-                    onClick={() => setShowSolutionCode(!showSolutionCode)}
-                    className="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-zinc-200 underline"
-                  >
-                    {showSolutionCode ? 'Hide Solution' : 'Reveal Solution & Analysis'}
-                  </button>
-                </div>
-
-                <div className="rounded-xl overflow-hidden border border-slate-300 dark:border-zinc-700 bg-slate-950 text-zinc-100 font-mono text-xs p-4">
-                  <textarea
-                    value={userAttemptCode}
-                    onChange={(e) => setUserAttemptCode(e.target.value)}
-                    rows={6}
-                    className="w-full bg-transparent outline-none resize-none font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Solution Code Revealed */}
-              {showSolutionCode && (
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 space-y-3 animate-fade-up">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">Optimal Reference Solution:</h4>
-                  <pre className="p-3 bg-slate-950 text-emerald-400 rounded-lg text-xs font-mono overflow-x-auto">
-                    {selectedQuestion.solutionCode}
-                  </pre>
-                  <div className="flex items-center gap-4 text-xs font-mono text-slate-600 dark:text-zinc-400 pt-1">
-                    <span>Time: {selectedQuestion.timeComplexity}</span>
-                    <span>Space: {selectedQuestion.spaceComplexity}</span>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center justify-end pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setSelectedQuestion(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Textbook Details Modal */}
+      {/* ── MODAL: TEXTBOOK DETAIL ─────────────────────────────────────────── */}
       {selectedTextbook && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-fade-up">
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-5 shadow-2xl animate-in fade-in duration-200">
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
               <div>
-                <span className="text-[10px] font-mono uppercase font-bold text-slate-400">{selectedTextbook.category}</span>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-0.5">{selectedTextbook.title}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">by {selectedTextbook.author}</p>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                  {selectedTextbook.category} · {selectedTextbook.pages} Pages
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
+                  {selectedTextbook.title}
+                </h3>
+                <div className="text-xs text-slate-500 font-mono">by {selectedTextbook.author}</div>
               </div>
-              <button onClick={() => setSelectedTextbook(null)} className="p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSelectedTextbook(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-2 text-xs text-slate-700 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-800">
-              <h4 className="font-bold text-slate-900 dark:text-zinc-100">Key Takeaways:</h4>
-              <ul className="space-y-1">
-                {selectedTextbook.keyTakeaways.map((takeaway, i) => (
-                  <li key={i} className="flex items-start gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1 shrink-0" />
-                    <span>{takeaway}</span>
-                  </li>
+            <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
+              {selectedTextbook.description}
+            </p>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Key Chapters:</span>
+              <div className="space-y-1.5">
+                {selectedTextbook.chapters.map((ch, idx) => (
+                  <div key={idx} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 text-xs flex items-center justify-between">
+                    <span className="text-slate-800 dark:text-zinc-200 font-medium">{ch.title}</span>
+                    <span className="text-[10px] font-mono text-slate-400">p. {ch.pageRange}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
-              <a
-                href={selectedTextbook.readUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            <div className="flex items-center justify-end pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setSelectedTextbook(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
               >
-                <span>Read Digital Edition</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+                Close
+              </button>
             </div>
           </div>
         </div>

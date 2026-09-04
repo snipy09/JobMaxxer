@@ -37,8 +37,26 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   onNavigateToSeeker,
   onLog
 }) => {
-  const [customRoadmaps, setCustomRoadmaps] = useState<Roadmap[]>([]);
-  const [activeRoadmapId, setActiveRoadmapId] = useState<string>('');
+  const [customRoadmaps, setCustomRoadmaps] = useState<Roadmap[]>(() => {
+    try {
+      const cached = localStorage.getItem('nomadic_cached_roadmap');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id) return [parsed];
+      }
+    } catch {}
+    return [];
+  });
+  const [activeRoadmapId, setActiveRoadmapId] = useState<string>(() => {
+    try {
+      const cached = localStorage.getItem('nomadic_cached_roadmap');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id) return parsed.id;
+      }
+    } catch {}
+    return '';
+  });
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
   const [completedConcepts, setCompletedConcepts] = useState<Set<string>>(() => {
     try {
@@ -78,16 +96,24 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           }
         }).filter(Boolean);
 
-        setCustomRoadmaps(parsed);
-
         if (parsed.length > 0) {
+          setCustomRoadmaps(parsed);
           const found = parsed.find(p => p.id === activeRoadmapId);
           if (!found) {
             setActiveRoadmapId(parsed[0].id);
+            try {
+              localStorage.setItem('nomadic_cached_roadmap', JSON.stringify(parsed[0]));
+            } catch {}
           }
+          return;
         }
-      } else {
-        const target = forceTitle || profile.desiredTitle || 'Product Management Specialist';
+      }
+
+      // If we already have a cached roadmap in memory or state, do not auto-synthesize
+      if (customRoadmaps.length > 0) return;
+
+      const target = forceTitle || profile.desiredTitle;
+      if (target && !isGeneratingRoadmap) {
         await autoSynthesizeFirstRoadmap(target);
       }
     } catch {}
@@ -110,6 +136,9 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
       if (res && res.success && res.roadmap) {
         setCustomRoadmaps([res.roadmap]);
         setActiveRoadmapId(res.roadmap.id);
+        try {
+          localStorage.setItem('nomadic_cached_roadmap', JSON.stringify(res.roadmap));
+        } catch {}
         onLog(`[Curriculum Engine] Synthesized personalized curriculum for "${roleTitle}"`);
       }
     } catch (err: any) {
@@ -265,6 +294,9 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
       if (res && res.success && res.roadmap) {
         await loadCustomRoadmaps();
         setActiveRoadmapId(res.roadmap.id);
+        try {
+          localStorage.setItem('nomadic_cached_roadmap', JSON.stringify(res.roadmap));
+        } catch {}
         setShowGenerateModal(false);
         setNewRoleTitle('');
         setNewSkillsInput('');

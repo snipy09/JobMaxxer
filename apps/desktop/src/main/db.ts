@@ -196,12 +196,14 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
       id               TEXT PRIMARY KEY,
       role_title       TEXT NOT NULL,
       domain           TEXT NOT NULL,
-      target_horizon   TEXT DEFAULT '2 Months',
+      target_horizon   TEXT DEFAULT '3 Months',
       daily_commitment TEXT DEFAULT '2 Hours/Day',
       roadmap_json     TEXT NOT NULL,
       created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+    try { db.run(`ALTER TABLE custom_roadmaps ADD COLUMN target_horizon TEXT DEFAULT '3 Months'`); } catch {}
+    try { db.run(`ALTER TABLE custom_roadmaps ADD COLUMN daily_commitment TEXT DEFAULT '2 Hours/Day'`); } catch {}
   } catch {}
 
   try {

@@ -60,6 +60,13 @@ import {
 const mainDir = typeof __dirname !== 'undefined' ? __dirname : path.dirname(process.execPath);
 
 app.setName('Nomadic');
+const nomadicUserData = path.join(app.getPath('appData'), 'Nomadic');
+if (!fs.existsSync(nomadicUserData)) {
+  try {
+    fs.mkdirSync(nomadicUserData, { recursive: true });
+  } catch {}
+}
+app.setPath('userData', nomadicUserData);
 
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]', err);

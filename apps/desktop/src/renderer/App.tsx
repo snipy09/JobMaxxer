@@ -75,23 +75,29 @@ export default function App() {
   const [outreachTargetCompany, setOutreachTargetCompany] = useState<string>('');
 
   // Master profile state
-  const [profile, setProfile] = useState<MasterProfile>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    linkedin: '',
-    github: '',
-    sponsorship: 'No',
-    desiredSalary: '',
-    noticePeriod: '2 weeks',
-    groqApiKey: '',
-    smtpPassword: '',
-    resumeText: '',
-    desiredTitle: '',
-    techStack: '',
-    customAnswers: {},
-    onboardingCompleted: false,
+  const [profile, setProfile] = useState<MasterProfile>(() => {
+    try {
+      const saved = localStorage.getItem('nomadic_master_profile') || localStorage.getItem('hirestack_master_profile');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      linkedin: '',
+      github: '',
+      sponsorship: 'No',
+      desiredSalary: '',
+      noticePeriod: '2 weeks',
+      groqApiKey: '',
+      smtpPassword: '',
+      resumeText: '',
+      desiredTitle: '',
+      techStack: '',
+      customAnswers: {},
+      onboardingCompleted: false,
+    };
   });
 
   const [onboardingLoaded, setOnboardingLoaded] = useState<boolean>(false);
@@ -146,10 +152,16 @@ export default function App() {
           onboardingCompleted: isCompleted,
         };
         setProfile(mapped);
+        try {
+          localStorage.setItem('nomadic_master_profile', JSON.stringify(mapped));
+        } catch {}
         if (!isCompleted) {
           setShowOnboarding(true);
         } else {
           setShowOnboarding(false);
+          try {
+            localStorage.setItem('nomadic_onboarding_done', 'true');
+          } catch {}
         }
         return mapped;
       } else {
@@ -228,6 +240,12 @@ export default function App() {
     const api = getApi();
     if (!api) return;
     setSavingProfile(true);
+    try {
+      localStorage.setItem('nomadic_master_profile', JSON.stringify({
+        ...profile,
+        onboardingCompleted: true,
+      }));
+    } catch {}
     try {
       await api.saveMasterProfile({
         firstName: profile.firstName,
