@@ -179,6 +179,37 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
       {activeVaultSection === 'questions' && (
         <div className="space-y-5 animate-in fade-in duration-150">
           
+          {/* Upcoming Full Native Questions & Premium Vault Notice */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50 via-powder-50/40 to-slate-50 dark:from-zinc-900 dark:via-powder-950/20 dark:to-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-powder-100 dark:bg-powder-950 text-powder-700 dark:text-powder-300 flex items-center justify-center shrink-0 border border-powder-200 dark:border-powder-800 mt-0.5">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                    Full In-App Problem Runner &amp; Paid Questions In Development
+                  </h4>
+                  <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-powder-100 text-powder-800 dark:bg-powder-950 dark:text-powder-300 font-bold border border-powder-200 dark:border-powder-800">
+                    Coming Soon
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed max-w-2xl">
+                  We are building an embedded in-app code execution workspace with all paid LeetCode Premium questions and verified editorials. Till then, practice with these curated, 100% free company-wise question sets below.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenLeetCodeAll}
+              className="px-4 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 text-xs font-bold transition shadow-xs whitespace-nowrap active:scale-95 flex items-center gap-1.5 self-end sm:self-center"
+            >
+              <span>Explore All Questions</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          
           {/* Quick Popular Company Pills */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-xs space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
