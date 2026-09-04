@@ -1,90 +1,125 @@
-# Unified Context for Hirestack Project
+# Unified Context for Nomadic Project
 
-This document consolidates all core architecture, feature blueprints, and operational guidelines for **Hirestack**.
-
-> **Note:** For the complete, authoritative Master Product Specification with deep dives into the Duolingo-style Learner Tree, Seeker Hub, Razorpay 4-Tier Pricing, and Defensive Engineering Risk Matrix, refer to [HIRESTACK_MASTER_SPEC.md](file:///C:/Users/sajal/projects/Hirestack/HIRESTACK_MASTER_SPEC.md).
+This document consolidates the authoritative system architecture, product blueprints, design conventions, and operational guidelines for **Nomadic**.
 
 ---
 
 ## 1. Executive Summary
 
-**Hirestack** is an enterprise-grade desktop career acceleration operating system built with **Electron + React 18 + Vite + Tailwind CSS**, local **SQLite** (`sql.js`), and **Supabase** cloud sync.
+**Nomadic** is a cross-industry desktop career acceleration operating system built with **Electron 31 + React 18 + Vite 5 + Tailwind CSS**, local **SQLite** (`sql.js`), **Supabase** cloud synchronization, and **Playwright Stealth** browser automation.
 
-It is split into two major pillars:
-### B. Learner Hub (Career Accelerator & Up-skilling)
-* **Goal & Commitment Calibration**: Target role selection + 1m/2m/6m/1y horizon + 1h/3h/5h daily commitment.
-* **Duolingo-Style Serpentine Tree**: Interactive progressive node path with sub-tasks, locked/active states, and day-by-day lesson milestones.
-* **3-Step Mastery Loop per Node**:
-  1. *Learn*: Curated zero-fluff video masterclasses, MDN/React official docs, and cheatsheets.
-  2. *Practice*: Embedded interactive code runner playground with test case validation + Multiple-Choice Quiz bench with instant explanations.
-  3. *Apply*: Portfolio project challenges with guided architecture, deliverables checklists, and 1-click GitHub boilerplate links.
-* **Paid Resource Vault (`learner-resources`)**:
-  - **1,500+ Question Bank (Paid Tier / Learner Pro)**: Real-world frontend, backend, DSA, SQL, and PM case interview problems with optimal code solutions, time/space complexity, and video walkthroughs.
-  - **Textbook Vault**: Iconic books (*Designing Data-Intensive Applications*, *Clean Code*, *System Design Interview*, *You Don't Know JS*, *Cracking the PM Interview*) with chapter outlines, key takeaways, and digital library references.
-  - **Architecture Cheatsheets**: High-yield reference guides (React 18 RSC, PostgreSQL Indexing, Docker/K8s).
-* **Gamification**: 52-week GitHub-style activity streak heatmap, daily streak flame counter (`🔥 5 Days`), and XP meter.
-* **1-Click Skill Sync**: Transports unlocked competencies directly into the Seeker candidate profile for ATS match ranking.
+The platform is organized into two core persona tracks with a shared candidate intelligence core:
 
-2. **Hirestack Seeker Hub**: 1,000+ source ATS job radar (anti-ghost job filtered via SHA-256 hashes), RAM-safe Semi-Auto (3–5 tabs) and 100% Autonomous auto-apply, and 4-stage 0%-bounce HR cold email outreach.
-
----
-
-## 2. Pricing & Tier Structure
-
-All plans include a **3-Day Free Trial** on signup (Google OAuth) locked to the laptop's hardware fingerprint:
-
-| Tier | Price | Highlights |
-| :--- | :--- | :--- |
-| **Free Tier** | **₹0** | 3-day full access trial, roadmap preview, top 10 daily job feed. |
-| **Learner Pro** | **₹79 / mo** | Full Duolingo-style skill trees, daily task scheduler, interactive coding drills, guided project builder, GitHub streak heatmap, AI companion. |
-| **Seeker Pro** | **₹149 / mo** | 1,000+ job source radar (anti-ghost filter), semi-autonomous auto-apply (up to 50 jobs/week), verified HR lead directory. |
-| **Seeker Max** | **₹299 / mo** | **Complete Suite**: Full Learner Pro + 100% Autonomous Auto-Apply + Automated 0%-bounce HR Email Outreach Campaigns. |
+### A. Learner Track (Career Acceleration & Competency Mastery)
+* **Default Landing on Startup & Login:** All users immediately land on the Learner Track (`activeTrack: 'learner'`, `activeTab: 'learner-roadmaps'`).
+* **Universal Cross-Industry Support:** Accommodates any profession (Engineering, Product Management, UI/UX Design, Growth Marketing, Financial Analysis, Sales, Operations, Data Analytics).
+* **Dynamic AI Curriculum Generation:**
+  - Synthesizes personalized multi-phase curricula with structured milestones and modular sub-topics based on candidate goals.
+  - Curricula are **locked** in local SQLite (`custom_roadmaps`) and `localStorage` to prevent automatic re-synthesis loops on boot.
+* **2-Column Phase Breakdown:**
+  - **Left Column:** Interactive Concepts to Learn checklist with 1-click mastery toggles.
+  - **Right Column:** Verified, live YouTube tutorial and official documentation search links that open seamlessly in the default web browser.
+* **Goal & Commitment Calibration:**
+  - Target Timeline Horizons: `1 Month (Fast-Track / Sprint)`, `3 Months (Standard)`, `6 Months (Comprehensive Mastery)`.
+  - Daily Commitment: `1 Hour / Day`, `2 Hours / Day`, `4+ Hours / Day`.
+* **Authentic Activity Heatmap:** 52-week activity streak heatmap aggregating verified user actions from SQLite (`user_activity_log`).
+* **Technical Resource Vault:**
+  - **Question Bank:** Single clean 1-click action: **"All LeetCode Questions"** (zero list clutter or table bloat).
+  - **Curated Textbooks & Architecture Guides:** High-yield reference handbooks with digital reading guides.
+* **Opportunity Board (`activeTab: 'opportunities'`):** Clean, uncluttered Coming Soon section for paid research fellowships, global hackathons, open-source grants, and builder residencies with 1-click launch notifications.
 
 ---
 
-## 3. Monorepo Architecture
+### B. Seeker Track (Opportunity Pipeline & Auto-Apply)
+* **Real-time Opportunity Radar:** Integrated with direct ATS endpoints (Greenhouse, Lever, Ashby, Internshala, and developer feeds), deduplicated cryptographically via SHA-256 job hashes.
+* **Persistent Feed Caching:**
+  - Job feed is synchronously loaded from `localStorage` on page navigation to eliminate layout shift.
+  - Automatically syncs fresh cloud jobs on new session startups or via the 1-click **"Refresh"** button.
+* **Job Board Segmented Filters:**
+  - `All`, `Full-Time Jobs`, `Internships`, `Internshala`, `Latest`, `High Match (≥80%)`, `Remote`, `Saved`.
+* **Autonomous Auto-Apply Engine:**
+  - Playwright Stealth autofill running in RAM-safe parallel batches with automated questionnaire answering.
+  - **Pre-Apply Profile & Resume Gatekeeper:** Intercepts applications if candidate first name, phone, or verified resume file (`.pdf`/`.docx`) are missing.
+* **Multi-Resume Library (`ProfileView.tsx` & `CompleteProfileModal.tsx`):**
+  - Direct 1-click file picker supporting `.pdf` and `.docx` documents.
+  - Live listing of all uploaded resumes with active default indicators and delete actions.
+* **Verified HR & Recruiter Outreach (`OutreachView.tsx`):**
+  - 4-stage email verification pipeline (RFC 5322, MX DNS check, SMTP handshake).
+  - Dual dispatch modes: direct SMTP drip or system default browser Gmail compose drafts.
+* **Local Application Tracker (`ApplicationsView.tsx`):** Authentic tracking backed directly by SQLite (`local_applications`) with status progression (`draft`, `applied`, `interviewing`, `offer`, `rejected`) and manual logging modal.
+
+---
+
+## 2. Visual Identity & Design System
+
+* **Monotone Palette Foundation:** Pure black (`#000000`), zinc-900 (`#09090b`), dark border (`#27272a`), and crisp white (`#ffffff`).
+* **Subtle Powder Blue Accent:**
+  - Applied sparingly and subtly (Claude / Linear style) for active indicator pills, track switchers, and update badges (`#bae2fd`, `#7cc9fa`, `#0284c7`, `#f0f7ff`).
+* **Typography:** Clean Apple SF Pro / Geist system stack with high contrast hierarchy.
+* **Neutral Proprietary Branding:** Zero third-party AI backend mentions (e.g. Gemini, Groq, LLaMA) in user-facing copy; branded strictly as the **Nomadic AI Engine**.
+
+---
+
+## 3. Storage Architecture & Zero Data Loss Guarantee
+
+To prevent data loss when users launch portable or installer executables from Downloads:
+1. **Permanent `userData` Locking:** Electron main process executes:
+   ```typescript
+   app.setPath('userData', path.join(app.getPath('appData'), 'Nomadic'));
+   ```
+   All local databases and Chromium `localStorage` partitions permanently anchor to `C:\Users\<user>\AppData\Roaming\Nomadic\`.
+2. **Triple-Layer Profile Persistence:**
+   - **Layer 1 (Instant):** `localStorage` (`nomadic_master_profile`, `nomadic_cached_roadmap`) for 0ms sub-second restoration.
+   - **Layer 2 (Local SQLite):** `job_automator_local.db` tables (`master_profile`, `custom_roadmaps`, `resumes`, `local_applications`, `user_activity_log`).
+   - **Layer 3 (Cloud Sync):** Supabase `cloud_user_data` / `user_preferences` cloud sync.
+
+---
+
+## 4. In-App Updates & Auto-Updater Engine
+
+* **Silent Background Version Check:** On startup, queries latest release manifests via GitHub API (`snipy09/JobMaxxer`).
+* **Invisible by Default:** When up-to-date, the update trigger is **100% hidden** (0 pixels in the UI).
+* **Subtle Update Pill:** When a new version is released, a subtle powder-blue button appears in the top navigation bar (`Update Available (v...)`).
+* **1-Click In-App Installation:** Streams the new installer binary with a live progress bar, executes the update, and relaunches with zero data loss.
+
+---
+
+## 5. Monorepo Structure
 
 ```
-Hirestack/
+nomadic/
 ├── apps/
-│   ├── desktop/               # Electron 28 + React 18 + Vite + Tailwind CSS shell
-│   │   └── src/renderer/      # LearnerView, FeedView, OutreachView, Sidebar, TopBar
-│   └── web/                   # Public landing & download portal (Vercel / React + Vite)
+│   ├── desktop/               # Electron 31 + React 18 + Vite 5 desktop application
+│   │   ├── src/main/          # Main process (index.ts, db.ts, device.ts, preload.ts)
+│   │   └── src/renderer/      # UI components (LearnerView, FeedView, OutreachView, etc.)
+│   └── web/                   # Public web landing page (React 18 + Vite 5 + Tailwind CSS)
 ├── packages/
-│   ├── automation/            # Playwright Stealth auto-apply engine & Groq LLaMA 3.1 8B AI
-│   ├── email-verifier/        # 4-stage HR email verification & Nodemailer / Chrome drip outreach
-│   ├── scrapers/              # 5 high-throughput job scrapers & keyword-relevance ranker
-│   └── supabase/              # Supabase client, SQL migrations, single-IP & hardware session lock RPCs
-├── HIRESTACK_MASTER_SPEC.md   # Complete Master Product Specification
-├── package.json               # Root monorepo configuration & scripts
-└── UNIFIED_CONTEXT.md         # Consolidated architectural summary
+│   ├── automation/            # Playwright Stealth auto-apply & AI question solver
+│   ├── email-verifier/        # 4-stage MX email verification & Nodemailer / browser Gmail drip
+│   ├── scrapers/              # High-throughput scrapers (Greenhouse, Lever, Ashby, Internshala)
+│   └── supabase/              # Supabase client, schema migrations, and sync scripts
+├── UNIFIED_CONTEXT.md         # Authoritative consolidated system reference
+└── package.json               # Root monorepo configuration & build scripts
 ```
 
 ---
 
-## 4. Key Defensive Architecture Safeguards & What Could Go Wrong
+## 6. Build, Test & Development Workflow
 
-1. **Auto-Apply Memory Freeze**: Capped strictly at 3–5 parallel Chromium tabs (FIFO queue) so student laptops (8GB RAM) never crash.
-2. **CAPTCHAs & OTPs**: Automatic detection surfaces the browser window with an alert chime for user solve, then resumes autopilot.
-3. **AI Form Errors**: Strict JSON schema validation prevents text from being submitted to numeric/date/dropdown fields.
-4. **Shadow DOM Piercing**: Playwright piercing selector engine (`css=div >> css=input`) penetrates Workday/Salesforce Shadow DOM trees.
-5. **Split Phone & Dial Codes**: `libphonenumber-js` normalizes phone numbers, setting dial codes (`+91`/`+1`) and 10-digit text fields independently.
-6. **Autocomplete Location Dropdowns**: Synthetic `ArrowDown` + `Enter` selection triggers Google Places / Mapbox prediction commits.
-7. **EEOC Demographic Defaults**: Automatically selects safe, compliant defaults (*"Decline to self-identify"*).
-8. **Custom Dropdowns & Hidden Inputs**: Native click simulation for Radix/React-Select popovers + `setInputFiles` for hidden drag-drop zones.
-9. **Resume Validation**: Client-side 2MB size verification + 1-click in-app PDF compression via `pdf-lib`.
-10. **Multi-Step Wizards**: Step-by-step navigation loop with DOM readiness verification on each page transition.
-11. **Email Spam & Account Bans**: Hard quota of 15–25 emails/day per user with 60s–180s randomized drip delays via logged-in browser sessions.
-12. **0% Bounce & Catch-All Probing**: 4-stage verification + non-existent mailbox probe (`xyzrandom123@domain.com`) flags catch-all enterprise servers.
-13. **URL Parameter Hash Stripping**: Sanitizes dynamic tracking parameters (`utm_*`, `gh_jid`) before computing SHA-256 job hashes.
-14. **Ghost Job Protection**: Cryptographic SHA-256 deduplication + 14-day inactivity auto-archiving.
-15. **Scraper Reliability & Quota**: Direct public ATS JSON APIs (Greenhouse, Lever, Ashby) scheduled every 2 hours (100% within free GitHub runner limits).
-16. **Code Runner Sandboxing & Memory Cleanup**: Web Worker execution with a 2-second timeout and 10-run instance recycle prevents infinite loops and memory leaks.
-17. **Offline-to-Online Sync Merging**: Union-Set calculation ($\text{Merged} = \text{Cloud} \cup \text{Local}$) guarantees completed milestones are never lost.
-18. **AI API Outages**: Exponential backoff retries with local fallback to pre-baked hint & interview answer dictionaries.
-19. **0-Cost Local AI Caching**: Answers to recurring form questions are cached in local SQLite to protect gross margins on ₹79/₹149 plans.
-20. **RBI e-Mandate Failures & Webhook Drops**: Single-month and 3-month UPI prepaid passes (GPay, PhonePe, Paytm) + server-to-server Razorpay webhooks.
-21. **Hardware Fingerprint Anti-Abuse**: Free 3-day trials and licenses are bound to CPU ID + Motherboard UUID to prevent throwaway email farming.
-22. **Desktop OS & Packaging Safety**: System browser loopback auth (`localhost:42813`) + Authenticode signing + SQLite WAL mode + Electron background throttling (<45MB RAM).
-
----
+* **Instant Hot Reload (No Reinstallation):**
+  ```bash
+  npm run dev:desktop
+  ```
+  - React changes hot reload in <200ms via Vite Fast Refresh.
+  - `F12` or `Ctrl+Shift+I` toggles Chrome DevTools.
+  - `Ctrl+Shift+R` triggers a hard window reload.
+* **Test Suite:**
+  ```bash
+  npx vitest run
+  ```
+  - 19/19 test suites, 190 tests passing.
+* **Packaging Production Executables:**
+  ```bash
+  npm run package:desktop
+  ```
+  - Generates `Nomadic Setup 1.0.0.exe` (NSIS Installer) and `Nomadic.exe` (Portable) and copies to `C:\Users\sajal\Downloads\`.
