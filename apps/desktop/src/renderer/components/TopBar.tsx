@@ -53,6 +53,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Learner Track</span>
+            {activeTrack === 'learner' && <span className="w-1.5 h-1.5 rounded-full bg-powder-400 dark:bg-powder-400" />}
           </button>
 
           <button
@@ -68,6 +69,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             <Zap className="w-3.5 h-3.5 text-slate-950 dark:text-white" />
             <span>Seeker Track</span>
+            {activeTrack === 'seeker' && <span className="w-1.5 h-1.5 rounded-full bg-powder-400 dark:bg-powder-400" />}
           </button>
         </div>
       )}

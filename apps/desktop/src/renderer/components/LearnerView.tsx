@@ -366,7 +366,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                 {currentRoadmap?.title || (isGeneratingRoadmap ? 'Synthesizing Curriculum...' : 'Career Progression Track')}
               </h1>
               {profile.desiredTitle && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-powder-50/80 text-powder-800 dark:bg-powder-950/40 dark:text-powder-300 border border-powder-200/80 dark:border-powder-800/60 font-semibold">
                   Target: {profile.desiredTitle}
                 </span>
               )}

@@ -80,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectTab(item.id)}
-                className={`w-full rounded-xl text-xs font-bold transition-all flex items-center ${
+                className={`w-full rounded-xl text-xs font-bold transition-all flex items-center relative ${
                   collapsed ? 'justify-center py-2.5 px-0' : 'text-left px-3.5 py-2.5'
                 } ${
                   isActive
@@ -89,10 +89,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }`}
                 title={item.label}
               >
+                {isActive && !collapsed && (
+                  <span className="absolute left-1.5 w-1 h-3.5 rounded-full bg-powder-400 dark:bg-powder-500" />
+                )}
                 {collapsed ? (
                   <Icon className="w-4 h-4" />
                 ) : (
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate pl-1.5">{item.label}</span>
                 )}
               </button>
             );

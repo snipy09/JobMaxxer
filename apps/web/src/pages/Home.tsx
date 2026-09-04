@@ -288,6 +288,11 @@ export default function Home() {
       {/* 2. Hero Section */}
       <section className="pt-16 sm:pt-24 pb-12 sm:pb-16 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center space-y-6">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#f0f7ff] text-[#0369a1] border border-[#bae2fd]/70 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7]" />
+            <span>Universal Career OS</span>
+          </div>
+
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-[#0A0A0A] leading-[1.1]">
             Build your career.<br />
             Automate the busywork.
