@@ -31,6 +31,12 @@ const COMMITMENT_OPTIONS = [
   { id: '4+ Hours/Day', label: '4+ Hours / Day', sub: 'Full Immersion' },
 ];
 
+const ensureArray = (val: any): string[] => {
+  if (Array.isArray(val)) return val.filter(Boolean).map(String);
+  if (typeof val === 'string') return val.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+  return [];
+};
+
 export const LearnerView: React.FC<LearnerViewProps> = ({
   profile,
   onUpdateProfile,
@@ -535,12 +541,12 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
 
                         {/* Sub-modules & topics quick summary */}
                         <div className="flex items-center gap-2 flex-wrap pt-1">
-                          {subModulesList.length > 0 && (
+                          {Array.isArray(subModulesList) && subModulesList.length > 0 && (
                             <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
                               {subModulesList.length} Sub-Modules
                             </span>
                           )}
-                          {(milestone.skills || milestone.skillsGained || []).map((skill: string, sIdx: number) => (
+                          {ensureArray(milestone.skills || milestone.skillsGained).map((skill: string, sIdx: number) => (
                             <span
                               key={sIdx}
                               className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
@@ -740,8 +746,8 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                 <div className="space-y-4">
                   {selectedMilestone.subModules.map((sub: SubModule, sIdx: number) => {
                     const subId = sub.id || `sub-${sIdx}`;
-                    const concepts = sub.keyConcepts || (selectedMilestone.topics || ['Foundational theory', 'Workflow standards', 'Execution methodology']);
-                    const rawResources = sub.resources || [];
+                    const concepts = ensureArray(sub.keyConcepts || sub.topics || selectedMilestone.topics || ['Foundational theory', 'Workflow standards', 'Execution methodology']);
+                    const rawResources = Array.isArray(sub.resources) ? sub.resources : [];
                     
                     // Construct live working search URLs for video & doc resources
                     const roleTitle = profile.desiredTitle || 'Professional';
@@ -886,7 +892,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                   <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-2">
                     <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Key Concepts Covered:</span>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
-                      {(selectedMilestone.topics || selectedMilestone.skills || []).map((t: string, idx: number) => (
+                      {ensureArray(selectedMilestone.topics || selectedMilestone.skills).map((t: string, idx: number) => (
                         <li key={idx} className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-600" />
                           <span>{t}</span>
