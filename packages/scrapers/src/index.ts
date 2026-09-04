@@ -172,5 +172,50 @@ export async function runAllScrapers(
     `${deduplicated.length} unique positions -> sorted latest to oldest.`
   );
 
+  // Auto-push scraped jobs to Supabase if connected
+  try {
+    const supabase = getScraperSupabase();
+    if (supabase && deduplicated.length > 0) {
+      const rows = deduplicated.map((j) => ({
+        title: j.title,
+        company: j.company,
+        location: j.location || 'Remote',
+        apply_url: j.applyUrl,
+        source: j.source || 'Direct ATS',
+        description: j.description || '',
+        job_hash: j.jobHash,
+        salary_range: (j as any).salary || undefined,
+        is_active: true,
+        created_at: (j as any).createdAt || new Date().toISOString()
+      }));
+
+      supabase.from('jobs').upsert(rows, { onConflict: 'job_hash', ignoreDuplicates: true }).then(({ error }) => {
+        if (!error) console.log(`[Scraper Cloud Sync] Upserted ${rows.length} jobs to Supabase.`);
+      }).catch(() => {});
+    }
+  } catch {}
+
   return scored;
+}
+
+export async function syncScrapedJobsToSupabase(jobs: RawJob[]): Promise<number> {
+  try {
+    const supabase = getScraperSupabase();
+    if (!supabase || !jobs.length) return 0;
+    const rows = jobs.map(j => ({
+      title: j.title,
+      company: j.company,
+      location: j.location || 'Remote',
+      apply_url: j.applyUrl,
+      source: j.source || 'Direct ATS',
+      description: j.description || '',
+      job_hash: j.jobHash,
+      is_active: true,
+      created_at: new Date().toISOString()
+    }));
+    const { error } = await supabase.from('jobs').upsert(rows, { onConflict: 'job_hash', ignoreDuplicates: true });
+    return error ? 0 : rows.length;
+  } catch {
+    return 0;
+  }
 }

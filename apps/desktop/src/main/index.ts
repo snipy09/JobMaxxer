@@ -76,12 +76,12 @@ process.on('unhandledRejection', (reason) => {
   console.error('[Unhandled Rejection]', reason);
 });
 
-app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-app.commandLine.appendSwitch('no-sandbox');
-app.commandLine.appendSwitch('disk-cache-size', '1');
-app.commandLine.appendSwitch('media-cache-size', '1');
-app.disableHardwareAcceleration();
+// ── Performance & GPU Hardware Acceleration ──────────────────────────────
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('enable-smooth-scrolling');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
 
 // ── Deep Linking & OAuth ──────────────────────────────────────────────
 if (process.defaultApp) {

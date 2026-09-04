@@ -374,7 +374,7 @@ export default function App() {
 
         {/* Dynamic Sub-view Container */}
         <main className="flex-1 overflow-y-auto p-5 md:p-8 bg-slate-50 dark:bg-slate-950 transition-colors">
-          <div className="max-w-6xl mx-auto">
+          <div key={activeTab} className="max-w-6xl mx-auto animate-in fade-in duration-150 ease-out">
             {activeTab === 'learner-roadmaps' && (
               <LearnerView
                 profile={profile}

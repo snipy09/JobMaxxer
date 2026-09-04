@@ -55,8 +55,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Clean Filter Tabs: all, internshala, latest, high_match, remote, saved
-  const [filterTab, setFilterTab] = useState<'all' | 'internshala' | 'latest' | 'high_match' | 'remote' | 'saved'>('all');
+  // Clean Filter Tabs: all, jobs, internships, internshala, latest, high_match, remote, saved
+  const [filterTab, setFilterTab] = useState<'all' | 'jobs' | 'internships' | 'internshala' | 'latest' | 'high_match' | 'remote' | 'saved'>('all');
 
   // Action execution modal state
   const [executingAutoApply, setExecutingAutoApply] = useState<boolean>(false);
@@ -202,6 +202,17 @@ export const FeedView: React.FC<FeedViewProps> = ({
       if (!matchesSearch) return false;
 
       // Tab Filtering
+      if (filterTab === 'jobs') {
+        const titleLower = (job.title || '').toLowerCase();
+        const empType = (job.employmentType || '').toLowerCase();
+        return empType === 'job' || empType === 'full-time' || (!titleLower.includes('intern') && !titleLower.includes('internship'));
+      }
+      if (filterTab === 'internships') {
+        const titleLower = (job.title || '').toLowerCase();
+        const empType = (job.employmentType || '').toLowerCase();
+        const srcLower = (job.source || '').toLowerCase();
+        return empType === 'internship' || titleLower.includes('intern') || titleLower.includes('internship') || srcLower.includes('internshala');
+      }
       if (filterTab === 'internshala') {
         return (job.source || '').toLowerCase().includes('internshala');
       }
@@ -409,6 +420,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1">
             {[
               { id: 'all', label: 'All' },
+              { id: 'jobs', label: 'Full-Time Jobs' },
+              { id: 'internships', label: 'Internships' },
               { id: 'internshala', label: 'Internshala' },
               { id: 'latest', label: 'Latest' },
               { id: 'high_match', label: 'High Match' },
