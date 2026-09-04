@@ -547,10 +547,12 @@ function createWindow(): void {
     path.join(__dirname, 'preload.js'),
     path.join(mainDir, 'preload.cjs'),
     path.join(mainDir, 'preload.js'),
-    path.join(process.resourcesPath || '', 'app.asar/out/main/preload.cjs'),
-    path.join(process.resourcesPath || '', 'out/main/preload.cjs'),
+    path.join(process.resourcesPath || '', 'app.asar', 'out', 'main', 'preload.cjs'),
+    path.join(process.resourcesPath || '', 'out', 'main', 'preload.cjs'),
   ];
-  const preloadPath = possiblePreloadPaths.find(p => p && fs.existsSync(p)) || path.join(mainDir, 'preload.cjs');
+  const preloadPath = possiblePreloadPaths.find(p => {
+    try { return Boolean(p && fs.existsSync(p)); } catch { return false; }
+  }) || path.join(__dirname, 'preload.cjs');
 
   const possibleIcons = [
     path.join(__dirname, '../../assets/icon.ico'),
@@ -561,18 +563,20 @@ function createWindow(): void {
     path.join(process.resourcesPath || '', 'assets/icon.ico'),
     path.join(process.resourcesPath || '', 'assets/logo.png'),
   ];
-  const appIcon = possibleIcons.find(p => p && fs.existsSync(p));
+  const appIcon = possibleIcons.find(p => {
+    try { return Boolean(p && fs.existsSync(p)); } catch { return false; }
+  });
 
   mainWindow = new BrowserWindow({
     width: 1320,
     height: 860,
     minWidth: 980,
     minHeight: 680,
-    title: 'Nomadic — Job Search & Application Automation Platform',
+    title: 'Nomadic — Universal Career OS & Application Automation Platform',
     icon: appIcon,
     backgroundColor: '#09090b',
     autoHideMenuBar: true,
-    show: false,
+    show: true,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
@@ -582,11 +586,19 @@ function createWindow(): void {
   });
 
   mainWindow.once('ready-to-show', () => {
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
       mainWindow.focus();
     }
   });
+
+  // Failsafe: Ensure window is shown even if ready-to-show event timing varies
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }, 600);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -606,11 +618,17 @@ function createWindow(): void {
     const possibleHtmlPaths = [
       path.join(__dirname, '../renderer/index.html'),
       path.join(mainDir, '../renderer/index.html'),
-      path.join(process.resourcesPath || '', 'app.asar/out/renderer/index.html'),
-      path.join(process.resourcesPath || '', 'out/renderer/index.html'),
+      path.join(process.resourcesPath || '', 'app.asar', 'out', 'renderer', 'index.html'),
+      path.join(process.resourcesPath || '', 'out', 'renderer', 'index.html'),
     ];
-    const htmlPath = possibleHtmlPaths.find(p => p && fs.existsSync(p)) || path.join(mainDir, '../renderer/index.html');
-    mainWindow.loadFile(htmlPath);
+    const htmlPath = possibleHtmlPaths.find(p => {
+      try { return Boolean(p && fs.existsSync(p)); } catch { return false; }
+    }) || path.join(__dirname, '../renderer/index.html');
+
+    mainWindow.loadFile(htmlPath).catch((err) => {
+      console.error('[Window] loadFile error, retrying fallback:', err);
+      mainWindow?.loadFile(path.join(__dirname, '../renderer/index.html')).catch(() => {});
+    });
   }
 
   // ── Keyboard Shortcuts: F12 (DevTools) & Ctrl+Shift+R (Reload) ───────────
