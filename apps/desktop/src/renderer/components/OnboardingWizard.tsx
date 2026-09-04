@@ -61,6 +61,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [targetRoleTitle, setTargetRoleTitle] = useState<string>(initialProfile.desiredTitle || 'Product Manager');
   const [experienceLevel, setExperienceLevel] = useState<string>(initialProfile.experienceLevel || 'fresher');
   const [bioOrResumeText, setBioOrResumeText] = useState<string>(initialProfile.resumeText || '');
+  const [uploadedResumePath, setUploadedResumePath] = useState<string>(initialProfile.resumeFilePath || '');
+  const [uploadedResumeName, setUploadedResumeName] = useState<string>('');
+  const [isPickingResumeFile, setIsPickingResumeFile] = useState<boolean>(false);
   const [customGeminiKey, setCustomGeminiKey] = useState<string>(initialProfile.geminiApiKey || '');
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(() => {
     const s = new Set<string>(['Product Strategy', 'UI/UX Design', 'User Research', 'SQL']);
@@ -94,6 +97,46 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     setNewSkillInput('');
   };
 
+  const handlePickResumeFile = async (e?: React.ChangeEvent<HTMLInputElement>) => {
+    const api = getApi();
+    setIsPickingResumeFile(true);
+    try {
+      let fileName = 'Resume.pdf';
+      let filePath = '';
+
+      if (e && e.target.files && e.target.files.length > 0) {
+        const f = e.target.files[0];
+        fileName = f.name;
+        filePath = (f as any).path || URL.createObjectURL(f);
+      } else if (api && api.pickResumeFile) {
+        const res = await api.pickResumeFile();
+        if (res.canceled || !res.filePath) {
+          setIsPickingResumeFile(false);
+          return;
+        }
+        filePath = res.filePath;
+        fileName = res.fileName || res.filePath.split(/[/\\]/).pop() || 'Resume.pdf';
+      }
+
+      if (filePath) {
+        setUploadedResumePath(filePath);
+        setUploadedResumeName(fileName);
+        if (api && api.saveResume) {
+          await api.saveResume({
+            name: fileName,
+            targetRole: targetRoleTitle || 'General',
+            filePath,
+            isDefault: true,
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Onboarding Resume] Picker error:', err?.message);
+    } finally {
+      setIsPickingResumeFile(false);
+    }
+  };
+
   // ── Step 1 → 2: Trigger Real AI Profile & Roadmap Generation ──────────────
   const handleGenerateAIProfile = async () => {
     setIsGenerating(true);
@@ -122,6 +165,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           techStack: res.profile.techStack || Array.from(selectedSkills).join(', '),
           desiredSalary: res.profile.desiredSalary || '₹12 LPA – ₹26 LPA',
           resumeText: bioOrResumeText.trim() || res.profile.resumeText || '',
+          resumeFilePath: uploadedResumePath || initialProfile.resumeFilePath,
           experienceLevel: experienceLevel as any,
           geminiApiKey: customGeminiKey.trim() || undefined,
           onboardingCompleted: true,
@@ -216,6 +260,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       phone: phone.trim() || synthesizedProfile.phone || '',
       desiredTitle: synthesizedProfile.desiredTitle || targetRoleTitle,
       techStack: synthesizedProfile.techStack || Array.from(selectedSkills).join(', '),
+      resumeFilePath: uploadedResumePath || synthesizedProfile.resumeFilePath || initialProfile.resumeFilePath,
       geminiApiKey: customGeminiKey.trim() || undefined,
       onboardingCompleted: true,
     };
@@ -440,6 +485,47 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   Add
                 </button>
               </div>
+            </div>
+
+            {/* Resume Upload File Box */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                Upload Resume Document (.pdf, .docx) (Optional)
+              </label>
+              
+              {uploadedResumePath ? (
+                <div className="p-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
+                        {uploadedResumeName || uploadedResumePath.split(/[/\\]/).pop()}
+                      </div>
+                      <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-mono">
+                        ✓ Resume document attached successfully
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePickResumeFile}
+                    className="text-xs text-slate-600 dark:text-zinc-400 hover:text-black dark:hover:text-white underline font-medium"
+                  >
+                    Change File
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={handlePickResumeFile}
+                  className="p-3.5 rounded-xl border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-slate-400 dark:hover:border-zinc-500 bg-slate-50/50 dark:bg-zinc-900/30 text-center cursor-pointer transition flex items-center justify-center gap-2"
+                >
+                  {isPickingResumeFile ? <Loader2 className="w-4 h-4 animate-spin text-slate-500" /> : <Upload className="w-4 h-4 text-slate-400" />}
+                  <span className="text-xs font-medium text-slate-700 dark:text-zinc-300">
+                    {isPickingResumeFile ? 'Selecting document...' : 'Click to attach your Resume (.pdf, .docx)'}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Resume / Background Text */}

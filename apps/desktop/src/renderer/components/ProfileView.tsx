@@ -57,6 +57,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [newResumeRole, setNewResumeRole] = useState<string>('');
   const [newResumePath, setNewResumePath] = useState<string>('');
   const [isPickingFile, setIsPickingFile] = useState<boolean>(false);
+  const [resumeSuccessMsg, setResumeSuccessMsg] = useState<string | null>(null);
+  const profileFileInputRef = useRef<HTMLInputElement>(null);
 
   // Diagnostics
   const [depStatus, setDepStatus] = useState<DependencyStatus>({
@@ -120,31 +122,48 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setProfile({ ...profile, customAnswers: current });
   };
 
-  const handlePickAndAddResume = async () => {
+  const handlePickAndAddResume = async (e?: React.ChangeEvent<HTMLInputElement>) => {
     const api = getApi();
-    if (!api || !api.pickResumeFile) return;
     setIsPickingFile(true);
+    setResumeSuccessMsg(null);
     try {
-      const res = await api.pickResumeFile();
-      if (!res.canceled && res.filePath) {
-        const name = res.fileName || res.filePath.split(/[/\\]/).pop() || 'Resume.pdf';
+      let fileName = 'Resume.pdf';
+      let filePath = '';
+
+      if (e && e.target.files && e.target.files.length > 0) {
+        const f = e.target.files[0];
+        fileName = f.name;
+        filePath = (f as any).path || URL.createObjectURL(f);
+      } else if (api && api.pickResumeFile) {
+        const res = await api.pickResumeFile();
+        if (res.canceled || !res.filePath) {
+          setIsPickingFile(false);
+          return;
+        }
+        filePath = res.filePath;
+        fileName = res.fileName || res.filePath.split(/[/\\]/).pop() || 'Resume.pdf';
+      }
+
+      if (filePath) {
         const role = profile.desiredTitle || 'General';
         const isFirst = resumes.length === 0;
-        if (api.saveResume) {
+        if (api && api.saveResume) {
           await api.saveResume({
-            name,
+            name: fileName,
             targetRole: role,
-            filePath: res.filePath,
+            filePath,
             isDefault: isFirst,
           });
         }
         await loadResumes();
-        onLog(`[Resumes] Uploaded resume: ${name}`);
+        setResumeSuccessMsg(`✓ Resume "${fileName}" uploaded successfully!`);
+        onLog(`[Resumes] Uploaded resume document: ${fileName}`);
       }
     } catch (err: any) {
       onLog(`[Resumes] Upload note: ${err?.message}`);
     } finally {
       setIsPickingFile(false);
+      if (profileFileInputRef.current) profileFileInputRef.current.value = '';
     }
   };
 
@@ -395,76 +414,116 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {/* ── TAB 2: RESUMES (NOTION LIST STYLE) ─────────────────────────────── */}
       {activeSection === 'resumes' && (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
+          <input
+            type="file"
+            ref={profileFileInputRef}
+            onChange={handlePickAndAddResume}
+            accept=".pdf,.docx,.doc,.txt"
+            className="hidden"
+          />
+
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Multi-Resume Library</h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Upload tailored PDFs for different roles (e.g. Frontend vs Backend).</p>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Multi-Resume Library ({resumes.length})</h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Manage and upload resumes attached during automated job applications.</p>
             </div>
           </div>
+
+          {resumeSuccessMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{resumeSuccessMsg}</span>
+            </div>
+          )}
 
           {/* Add Resume Box */}
           <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Upload New Resume</span>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Select a .pdf or .docx document from your computer to use for automated applications.</p>
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Upload New Resume Document</span>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Select a .pdf or .docx file to auto-attach during applications.</p>
               </div>
 
               <button
                 type="button"
-                onClick={handlePickAndAddResume}
+                onClick={() => {
+                  if (profileFileInputRef.current) profileFileInputRef.current.click();
+                  else handlePickAndAddResume();
+                }}
                 disabled={isPickingFile}
                 className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-xs shrink-0 disabled:opacity-50"
               >
                 {isPickingFile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                <span>{isPickingFile ? 'Selecting...' : 'Select File (.pdf, .docx)'}</span>
+                <span>{isPickingFile ? 'Selecting...' : 'Upload Resume (.pdf, .docx)'}</span>
               </button>
             </div>
           </div>
 
           {/* Resumes List */}
-          <div className="space-y-2">
-            {resumes.map((r) => (
-              <div
-                key={r.id}
-                className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between gap-3 text-xs"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                  <div>
-                    <div className="font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
-                      <span>{r.name}</span>
-                      {r.isDefault && (
-                        <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold">
-                          Default
-                        </span>
-                      )}
+          {resumes.length > 0 ? (
+            <div className="space-y-2">
+              {resumes.map((r) => (
+                <div
+                  key={r.id}
+                  className={`p-3.5 rounded-xl border transition flex items-center justify-between gap-3 text-xs ${
+                    r.isDefault
+                      ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-800/80 shadow-xs'
+                      : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                        <span className="truncate">{r.name}</span>
+                        {r.isDefault && (
+                          <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 font-bold shrink-0">
+                            Active Default
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono truncate">{r.filePath} · Added {r.createdAt}</div>
                     </div>
-                    <div className="text-[11px] text-slate-500 font-mono">{r.targetRole} · Added {r.createdAt}</div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!r.isDefault && r.id && (
+                      <button
+                        onClick={() => handleSetDefaultResume(r.id!)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-[11px] font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      >
+                        Set Default
+                      </button>
+                    )}
+                    {r.id && (
+                      <button
+                        onClick={() => handleDeleteResume(r.id!)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  {!r.isDefault && r.id && (
-                    <button
-                      onClick={() => handleSetDefaultResume(r.id!)}
-                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-[11px] font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-50"
-                    >
-                      Set Default
-                    </button>
-                  )}
-                  {r.id && (
-                    <button
-                      onClick={() => handleDeleteResume(r.id!)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              onClick={() => {
+                if (profileFileInputRef.current) profileFileInputRef.current.click();
+                else handlePickAndAddResume();
+              }}
+              className="p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-slate-400 dark:hover:border-zinc-500 bg-slate-50/50 dark:bg-zinc-800/30 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2"
+            >
+              <Upload className="w-6 h-6 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-900 dark:text-white">
+                No resumes uploaded yet
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                Click here to upload your primary .pdf or .docx resume for job applications.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
