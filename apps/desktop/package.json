@@ -47,7 +47,7 @@
     },
     "portable": {
       "artifactName": "Nomadic ${version}.exe",
-      "requestExecutionLevel": "admin"
+      "requestExecutionLevel": "user"
     },
     "mac": {
       "target": "dmg",

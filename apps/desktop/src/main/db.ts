@@ -14,24 +14,41 @@ export async function initLocalDatabase(userDataPath: string): Promise<Database>
 
   dbFilePath = path.join(userDataPath, 'job_automator_local.db');
 
+  let wasmBinary: Buffer | undefined;
   const locateWasm = (file: string) => {
-    let baseDir = process.cwd();
-    try {
-      baseDir = path.dirname(fileURLToPath(import.meta.url));
-    } catch {}
+    const appDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+    const resourcesDir = process.resourcesPath || '';
 
     const candidates = [
-      path.join(baseDir, file),
-      path.join(baseDir, '..', '..', 'node_modules', 'sql.js', 'dist', file),
-      path.join(process.cwd(), 'node_modules', 'sql.js', 'dist', file),
+      path.join(appDir, file),
+      path.join(appDir, 'sql-wasm.wasm'),
+      path.join(appDir, '../main/sql-wasm.wasm'),
+      path.join(resourcesDir, file),
+      path.join(resourcesDir, 'sql-wasm.wasm'),
+      path.join(resourcesDir, 'app.asar/out/main/sql-wasm.wasm'),
+      path.join(resourcesDir, 'out/main/sql-wasm.wasm'),
+      path.join(process.cwd(), 'out/main', file),
+      path.join(process.cwd(), 'apps/desktop/out/main', file),
+      path.join(process.cwd(), 'node_modules/sql.js/dist', file),
     ];
     for (const c of candidates) {
-      if (fs.existsSync(c)) return c;
+      if (c && fs.existsSync(c)) {
+        try {
+          if (!wasmBinary) wasmBinary = fs.readFileSync(c);
+          return c;
+        } catch {}
+      }
     }
     return file;
   };
 
-  const SQL = await initSqlJs({ locateFile: locateWasm });
+  const wasmPath = locateWasm('sql-wasm.wasm');
+  const sqlOptions: any = { locateFile: () => wasmPath };
+  if (wasmBinary) {
+    sqlOptions.wasmBinary = wasmBinary;
+  }
+
+  const SQL = await initSqlJs(sqlOptions);
 
   // Load existing DB file if present, otherwise create fresh
   if (fs.existsSync(dbFilePath)) {

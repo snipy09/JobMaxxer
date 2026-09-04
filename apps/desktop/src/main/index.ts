@@ -542,12 +542,19 @@ const ADMIN_NO_SERVICE_ERR =
   'Admin actions require SUPABASE_SERVICE_ROLE_KEY to be set on this machine (operator only).';
 
 function createWindow(): void {
-  let preloadPath = path.join(mainDir, 'preload.cjs');
-  if (!fs.existsSync(preloadPath)) {
-    preloadPath = path.join(mainDir, 'preload.js');
-  }
+  const possiblePreloadPaths = [
+    path.join(__dirname, 'preload.cjs'),
+    path.join(__dirname, 'preload.js'),
+    path.join(mainDir, 'preload.cjs'),
+    path.join(mainDir, 'preload.js'),
+    path.join(process.resourcesPath || '', 'app.asar/out/main/preload.cjs'),
+    path.join(process.resourcesPath || '', 'out/main/preload.cjs'),
+  ];
+  const preloadPath = possiblePreloadPaths.find(p => p && fs.existsSync(p)) || path.join(mainDir, 'preload.cjs');
 
   const possibleIcons = [
+    path.join(__dirname, '../../assets/icon.ico'),
+    path.join(__dirname, '../renderer/assets/logo-icon.png'),
     path.join(mainDir, '../renderer/assets/logo-icon.png'),
     path.join(mainDir, '../../assets/icon.ico'),
     path.join(mainDir, '../../assets/logo.png'),
@@ -563,15 +570,22 @@ function createWindow(): void {
     minHeight: 680,
     title: 'Nomadic — Job Search & Application Automation Platform',
     icon: appIcon,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#09090b',
     autoHideMenuBar: true,
-    show: true,
+    show: false,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
     },
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -589,7 +603,14 @@ function createWindow(): void {
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(mainDir, '../renderer/index.html'));
+    const possibleHtmlPaths = [
+      path.join(__dirname, '../renderer/index.html'),
+      path.join(mainDir, '../renderer/index.html'),
+      path.join(process.resourcesPath || '', 'app.asar/out/renderer/index.html'),
+      path.join(process.resourcesPath || '', 'out/renderer/index.html'),
+    ];
+    const htmlPath = possibleHtmlPaths.find(p => p && fs.existsSync(p)) || path.join(mainDir, '../renderer/index.html');
+    mainWindow.loadFile(htmlPath);
   }
 
   // ── Keyboard Shortcuts: F12 (DevTools) & Ctrl+Shift+R (Reload) ───────────
