@@ -2158,6 +2158,138 @@ ipcMain.handle('delete-custom-roadmap', async (_, id: string) => {
   return { success: ok };
 });
 
+// ── IPC: In-App Version & Update Checker ──────────────────────────────────
+function isNewerVersion(latest: string, current: string): boolean {
+  const parse = (v: string) => v.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const [lMaj, lMin, lPatch] = parse(latest);
+  const [cMaj, cMin, cPatch] = parse(current);
+  if (lMaj > cMaj) return true;
+  if (lMaj === cMaj && lMin > cMin) return true;
+  if (lMaj === cMaj && lMin === cMin && lPatch > cPatch) return true;
+  return false;
+}
+
+ipcMain.handle('check-for-updates', async () => {
+  const currentVersion = app.getVersion() || '1.0.0';
+  try {
+    // 1. Fetch latest release from GitHub API
+    const res = await fetch('https://api.github.com/repos/snipy09/JobMaxxer/releases/latest', {
+      headers: { 'User-Agent': 'Nomadic-Desktop' }
+    });
+
+    if (res.ok) {
+      const data = await res.json() as any;
+      const latestTag = (data.tag_name || data.name || '').replace(/^v/, '');
+      if (latestTag && isNewerVersion(latestTag, currentVersion)) {
+        let downloadUrl = data.html_url || 'https://github.com/snipy09/JobMaxxer/releases/latest';
+        if (Array.isArray(data.assets)) {
+          const exeAsset = data.assets.find((a: any) => a.name && a.name.endsWith('.exe'));
+          if (exeAsset && exeAsset.browser_download_url) {
+            downloadUrl = exeAsset.browser_download_url;
+          }
+        }
+        return {
+          updateAvailable: true,
+          currentVersion,
+          latestVersion: latestTag,
+          releaseName: data.name || `Nomadic v${latestTag}`,
+          releaseNotes: data.body || 'A new update is available with performance upgrades and latest career intelligence.',
+          downloadUrl
+        };
+      }
+    }
+
+    // 2. Fallback check raw repository package.json
+    const pkgRes = await fetch('https://raw.githubusercontent.com/snipy09/JobMaxxer/main/apps/desktop/package.json', {
+      headers: { 'User-Agent': 'Nomadic-Desktop' }
+    });
+    if (pkgRes.ok) {
+      const pkgData = await pkgRes.json() as any;
+      if (pkgData && pkgData.version && isNewerVersion(pkgData.version, currentVersion)) {
+        return {
+          updateAvailable: true,
+          currentVersion,
+          latestVersion: pkgData.version,
+          releaseName: `Nomadic v${pkgData.version}`,
+          releaseNotes: 'New version released with systemic speed improvements and new tools.',
+          downloadUrl: 'https://github.com/snipy09/JobMaxxer/releases/latest'
+        };
+      }
+    }
+
+    return {
+      updateAvailable: false,
+      currentVersion,
+      latestVersion: currentVersion
+    };
+  } catch (err: any) {
+    log(`[Updates] Check note: ${err?.message}`);
+    return {
+      updateAvailable: false,
+      currentVersion,
+      latestVersion: currentVersion
+    };
+  }
+});
+
+ipcMain.handle('download-update', async (_, downloadUrl?: string) => {
+  const url = downloadUrl || 'https://github.com/snipy09/JobMaxxer/releases/latest';
+  try {
+    const updatesDir = path.join(app.getPath('userData'), 'updates');
+    if (!fs.existsSync(updatesDir)) {
+      fs.mkdirSync(updatesDir, { recursive: true });
+    }
+
+    // If it's a direct .exe binary, download directly
+    if (url.endsWith('.exe')) {
+      const targetPath = path.join(updatesDir, path.basename(url));
+      const res = await fetch(url);
+      if (!res.ok || !res.body) throw new Error('Download failed from release server');
+      
+      const fileStream = fs.createWriteStream(targetPath);
+      const totalBytes = Number(res.headers.get('content-length') || 0);
+      let receivedBytes = 0;
+
+      const reader = (res.body as any).getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fileStream.write(Buffer.from(value));
+        receivedBytes += value.length;
+        if (totalBytes > 0 && mainWindow) {
+          const pct = Math.round((receivedBytes / totalBytes) * 100);
+          mainWindow.webContents.send('update-download-progress', pct);
+        }
+      }
+      fileStream.end();
+      return { success: true, filePath: targetPath };
+    } else {
+      // Open GitHub releases download page in system browser
+      shell.openExternal(url);
+      return { success: true, openedBrowser: true };
+    }
+  } catch (err: any) {
+    log(`[Updates] Download error: ${err?.message}`);
+    shell.openExternal(url);
+    return { success: false, error: err?.message };
+  }
+});
+
+ipcMain.handle('install-update', async (_, installerPath?: string) => {
+  try {
+    if (installerPath && fs.existsSync(installerPath)) {
+      shell.openPath(installerPath);
+      setTimeout(() => {
+        app.quit();
+      }, 1000);
+      return { success: true };
+    }
+    return { success: false, error: 'Installer path not found.' };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+});
+
 // ── IPC: Activity Heatmap & Logging ────────────────────────────────────────
 ipcMain.handle('get-activity-heatmap', async (_, days?: number) => {
   return getUserActivityHeatmapDb(days || 365);

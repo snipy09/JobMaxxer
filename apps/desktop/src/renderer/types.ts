@@ -187,6 +187,15 @@ export interface ActivityStats {
   totalActions: number;
 }
 
+export interface AppUpdateInfo {
+  updateAvailable: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  releaseName?: string;
+  releaseNotes?: string;
+  downloadUrl?: string;
+}
+
 export interface ElectronAPI {
   getMasterProfile: () => Promise<Record<string, unknown> | null>;
   saveMasterProfile: (data: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
@@ -378,6 +387,12 @@ export interface ElectronAPI {
     paymentMethod: string;
   }) => Promise<{ success: boolean; error?: string }>;
   adminGetMetrics: () => Promise<AdminMetrics>;
+
+  // In-App Updates
+  checkForUpdates?: () => Promise<AppUpdateInfo>;
+  downloadUpdate?: (downloadUrl?: string) => Promise<{ success: boolean; filePath?: string; openedBrowser?: boolean; error?: string }>;
+  installUpdate?: (installerPath?: string) => Promise<{ success: boolean; error?: string }>;
+  onUpdateDownloadProgress?: (cb: (pct: number) => void) => () => void;
 }
 
 declare global {

@@ -1011,6 +1011,25 @@ export function createBrowserApiShim(): ElectronAPI {
         }
       };
     },
+
+    // In-App Updates
+    checkForUpdates: async () => {
+      return {
+        updateAvailable: false,
+        currentVersion: '1.0.0',
+        latestVersion: '1.0.0'
+      };
+    },
+    downloadUpdate: async (url?: string) => {
+      window.open(url || 'https://github.com/snipy09/JobMaxxer/releases/latest', '_blank');
+      return { success: true, openedBrowser: true };
+    },
+    installUpdate: async () => {
+      return { success: true };
+    },
+    onUpdateDownloadProgress: (_cb: any) => {
+      return () => {};
+    },
   };
 }
 

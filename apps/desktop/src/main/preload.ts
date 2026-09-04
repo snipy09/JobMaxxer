@@ -90,6 +90,14 @@ const apiObj = {
   adminCreateBillingRecord: (record: Record<string, unknown>) => ipcRenderer.invoke('admin-create-billing-record', record),
   adminGetMetrics: () => ipcRenderer.invoke('admin-get-metrics'),
   authGoogle: () => ipcRenderer.invoke('auth-google'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: (downloadUrl?: string) => ipcRenderer.invoke('download-update', downloadUrl),
+  installUpdate: (installerPath?: string) => ipcRenderer.invoke('install-update', installerPath),
+  onUpdateDownloadProgress: (cb: (progressPct: number) => void) => {
+    const handler = (_: unknown, pct: number) => cb(pct);
+    ipcRenderer.on('update-download-progress', handler);
+    return () => ipcRenderer.removeListener('update-download-progress', handler);
+  },
   onOauthCallback: (cb: (url: string) => void) => {
     const handler = (_: unknown, url: string) => cb(url);
     ipcRenderer.on('oauth-callback', handler);
