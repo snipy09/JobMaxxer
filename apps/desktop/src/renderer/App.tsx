@@ -192,6 +192,24 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleNavigate = (newTab: TabType) => {
+    setActiveTab(newTab);
+    if (['learner-roadmaps', 'learner-resources', 'learner-interview-prep'].includes(newTab)) {
+      setActiveTrack('learner');
+    } else if (['feed', 'outreach', 'applications', 'logs'].includes(newTab)) {
+      setActiveTrack('seeker');
+    }
+  };
+
+  const handleTrackChange = (newTrack: PersonaTrack) => {
+    setActiveTrack(newTrack);
+    if (newTrack === 'learner') {
+      setActiveTab('learner-roadmaps');
+    } else {
+      setActiveTab('feed');
+    }
+  };
+
   const handleLoginSuccess = async (user: AppUser) => {
     setCurrentUser(user);
     try {
@@ -352,9 +370,9 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogout}
         activeTab={activeTab}
-        onNavigate={setActiveTab}
+        onNavigate={handleNavigate}
         activeTrack={activeTrack}
-        setTrack={setActiveTrack}
+        setTrack={handleTrackChange}
         onOpenUpgrade={() => handleOpenUpgrade()}
       />
 
@@ -365,7 +383,7 @@ export default function App() {
         <Sidebar
           activeTrack={activeTrack}
           activeTab={activeTab}
-          onSelectTab={setActiveTab}
+          onSelectTab={handleNavigate}
           heartbeat={heartbeat}
           logsCount={logs.length}
           currentUser={currentUser}
