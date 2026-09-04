@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ROADMAPS, calculateReadinessScore, RoadmapMilestone,
-  LearnResource, PracticeExercise, ProjectChallenge
+  LearnResource, SubModule
 } from '../data/roadmaps';
 import { MasterProfile, getApi, CustomRoadmapRecord, ActivityHeatmapDay, ActivityStats } from '../types';
 import {
   Check, CheckSquare, Square, ExternalLink,
-  ChevronRight, Play, Code2, BookOpen,
+  ChevronRight, Play, BookOpen,
   Laptop, X, ArrowRight, SlidersHorizontal,
-  Clock, ShieldCheck, Terminal, Layers, CheckCircle2,
-  Plus, Loader2, Sparkles, RefreshCw, Award
+  Clock, ShieldCheck, Layers, CheckCircle2,
+  Plus, Loader2, Sparkles, RefreshCw, Award,
+  Youtube, FileText, Compass, ChevronDown
 } from 'lucide-react';
 
 interface LearnerViewProps {
@@ -25,27 +26,21 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   onNavigateToSeeker,
   onLog
 }) => {
-  const [activeRoadmapId, setActiveRoadmapId] = useState<string>('frontend');
-  const [completedNodes, setCompletedNodes] = useState<string[]>(['html-css-dom']);
+  const [customRoadmaps, setCustomRoadmaps] = useState<any[]>([]);
+  const [activeRoadmapId, setActiveRoadmapId] = useState<string>('product-management');
+  const [completedNodes, setCompletedNodes] = useState<string[]>([]);
   const [selectedMilestone, setSelectedMilestone] = useState<RoadmapMilestone | null>(null);
 
-  // Custom AI Roadmaps from SQLite
-  const [customRoadmaps, setCustomRoadmaps] = useState<any[]>([]);
+  // Custom AI Roadmaps modal state
   const [showGenerateModal, setShowGenerateModal] = useState<boolean>(false);
   const [newRoleTitle, setNewRoleTitle] = useState<string>('');
   const [newSkillsInput, setNewSkillsInput] = useState<string>('');
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState<boolean>(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  // Real Database-backed Activity Heatmap & Stats
+  // Database-backed Activity Heatmap & Stats
   const [heatmapData, setHeatmapData] = useState<ActivityHeatmapDay[]>([]);
   const [activityStats, setActivityStats] = useState<ActivityStats>({ streakCount: 1, totalActions: 0 });
-
-  // Interactive practice state
-  const [userCode, setUserCode] = useState<string>('');
-  const [codeOutput, setCodeOutput] = useState<{ status: 'idle' | 'running' | 'success'; message: string }>({ status: 'idle', message: '' });
-  const [selectedQuizIdx, setSelectedQuizIdx] = useState<number | null>(null);
-  const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
 
   // Goal Calibration
   const [showGoalModal, setShowGoalModal] = useState<boolean>(false);
@@ -58,7 +53,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     if (!api || !api.getCustomRoadmaps) return;
     try {
       const records = await api.getCustomRoadmaps();
-      if (records && Array.isArray(records)) {
+      if (records && Array.isArray(records) && records.length > 0) {
         const parsed = records.map((r: CustomRoadmapRecord) => {
           try {
             return JSON.parse(r.roadmapJson);
@@ -67,6 +62,11 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           }
         }).filter(Boolean);
         setCustomRoadmaps(parsed);
+
+        // If candidate has a custom roadmap, set it as active immediately
+        if (parsed.length > 0) {
+          setActiveRoadmapId(parsed[0].id);
+        }
       }
     } catch {}
   };
@@ -92,6 +92,24 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     loadActivityData();
   }, []);
 
+  // Combined standard + custom roadmap list
+  const allRoadmaps = useMemo(() => {
+    return [...customRoadmaps, ...ROADMAPS];
+  }, [customRoadmaps]);
+
+  useEffect(() => {
+    if (profile.desiredTitle && customRoadmaps.length === 0) {
+      const lower = profile.desiredTitle.toLowerCase();
+      if (lower.includes('product') || lower.includes('manager') || lower.includes('tpm') || lower.includes('apm') || lower.includes('scrum')) {
+        setActiveRoadmapId('product-management');
+      } else if (lower.includes('design') || lower.includes('ui') || lower.includes('ux') || lower.includes('figma')) {
+        setActiveRoadmapId('ui-ux-design');
+      } else {
+        setActiveRoadmapId('frontend');
+      }
+    }
+  }, [profile.desiredTitle, customRoadmaps]);
+
   // Load saved progress from SQLite on mount / roadmap change
   useEffect(() => {
     const loadProgress = async () => {
@@ -103,42 +121,20 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           setCompletedNodes(prog.completedNodes);
           if (prog.targetHorizon) setTargetHorizon(prog.targetHorizon);
           if (prog.dailyCommitment) setDailyCommitment(prog.dailyCommitment);
+        } else {
+          setCompletedNodes([]);
         }
       } catch {}
     };
     loadProgress();
   }, [activeRoadmapId]);
 
-  useEffect(() => {
-    if (profile.desiredTitle) {
-      const lower = profile.desiredTitle.toLowerCase();
-      // Check if custom roadmap matches
-      const customMatch = customRoadmaps.find(cr =>
-        cr.title.toLowerCase().includes(lower) || (cr.targetRoles && cr.targetRoles.some((tr: string) => tr.toLowerCase().includes(lower)))
-      );
-      if (customMatch) {
-        setActiveRoadmapId(customMatch.id);
-      } else if (lower.includes('ai') || lower.includes('llm') || lower.includes('machine learning') || lower.includes('data') || lower.includes('backend') || lower.includes('systems') || lower.includes('node') || lower.includes('go') || lower.includes('devops') || lower.includes('cloud')) {
-        setActiveRoadmapId('backend');
-      } else if (lower.includes('product') || lower.includes('tpm') || lower.includes('apm') || lower.includes('scrum') || lower.includes('project')) {
-        setActiveRoadmapId('product-management');
-      } else {
-        setActiveRoadmapId('frontend');
-      }
-    }
-  }, [profile.desiredTitle, customRoadmaps]);
-
-  // Combined standard + custom roadmap list
-  const allRoadmaps = useMemo(() => {
-    return [...ROADMAPS, ...customRoadmaps];
-  }, [customRoadmaps]);
-
   const roadmap = useMemo(() => {
-    return allRoadmaps.find(r => r.id === activeRoadmapId) || ROADMAPS[0];
+    return allRoadmaps.find(r => r.id === activeRoadmapId) || allRoadmaps[0] || ROADMAPS[0];
   }, [allRoadmaps, activeRoadmapId]);
 
-  const totalCount = roadmap.milestones?.length || 0;
-  const completedCount = completedNodes.filter(id => (roadmap.milestones || []).some((m: any) => m.id === id)).length;
+  const totalCount = roadmap?.milestones?.length || 0;
+  const completedCount = completedNodes.filter(id => (roadmap?.milestones || []).some((m: any) => m.id === id)).length;
   const score = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const toggleComplete = async (id: string, e?: React.MouseEvent) => {
@@ -167,57 +163,15 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
 
   const handleOpenMilestone = (m: RoadmapMilestone) => {
     setSelectedMilestone(m);
-    setUserCode(m.practice?.[0]?.starterCode || '// Write solution...');
-    setCodeOutput({ status: 'idle', message: '' });
-    setSelectedQuizIdx(null);
-    setQuizSubmitted(false);
   };
 
-  const handleRunTest = async () => {
-    if (!selectedMilestone) return;
-    const exercise = selectedMilestone.practice?.[0];
-    if (!exercise) return;
-
-    setCodeOutput({ status: 'running', message: 'Running test execution engine...' });
-
-    try {
-      const trimmed = userCode.trim();
-      if (!trimmed || trimmed.length < 10) {
-        setCodeOutput({ status: 'idle', message: 'Please write a valid solution before running tests.' });
-        return;
-      }
-
-      let passed = true;
-      let feedback = 'All unit tests passed successfully.';
-
-      if (exercise.testCases && exercise.testCases.length > 0) {
-        try {
-          const fn = new Function('input', `${trimmed}\n return typeof solution !== "undefined" ? solution(input) : null;`);
-          for (const tc of exercise.testCases) {
-            const actual = fn(tc.input);
-            if (JSON.stringify(actual) !== JSON.stringify(tc.expected)) {
-              passed = false;
-              feedback = `Test Failed: input (${JSON.stringify(tc.input)}) returned ${JSON.stringify(actual)}, expected ${JSON.stringify(tc.expected)}`;
-              break;
-            }
-          }
-        } catch {
-          passed = true;
-        }
-      }
-
-      if (passed) {
-        setCodeOutput({ status: 'success', message: feedback });
-        const api = getApi();
-        if (api && api.logUserActivity) {
-          await api.logUserActivity('milestone', `Passed practice exercise for ${selectedMilestone.title}`);
-          loadActivityData();
-        }
-      } else {
-        setCodeOutput({ status: 'idle', message: feedback });
-      }
-    } catch (err: any) {
-      setCodeOutput({ status: 'idle', message: `Runtime error: ${err?.message}` });
+  const handleOpenLink = (url: string, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const api = getApi();
+    if (api && api.openExternalUrl) {
+      api.openExternalUrl(url);
+    } else {
+      window.open(url, '_blank');
     }
   };
 
@@ -275,7 +229,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     }
   };
 
-  // Build authentic 52-week activity heatmap from real database records
+  // 52-week authentic activity heatmap
   const heatmapWeeks = useMemo(() => {
     const activityMap = new Map<string, number>();
     heatmapData.forEach(d => {
@@ -319,7 +273,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   return (
     <div className="space-y-6 font-sans select-none max-w-5xl mx-auto pb-20">
       
-      {/* ── SECTION 1: DASHBOARD & REAL ACTIVITY HEATMAP ────────────────────── */}
+      {/* ── SECTION 1: HEADER & AUTHENTIC ACTIVITY HEATMAP ────────────────── */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
         
         {/* Top Header Row */}
@@ -327,7 +281,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                {roadmap.title}
+                {roadmap?.title || 'Career Progression Track'}
               </h1>
               {profile.desiredTitle && (
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
@@ -336,29 +290,29 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Curriculum progression · {completedCount} of {totalCount} completed ({score}%)
+              {roadmap?.domain || 'Universal Career Track'} · {completedCount} of {totalCount} completed ({score}%)
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Roadmap Switcher */}
+            {/* Roadmap Switcher Dropdown */}
             <select
               value={activeRoadmapId}
               onChange={(e) => setActiveRoadmapId(e.target.value)}
               className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 font-medium focus:outline-none"
             >
-              <optgroup label="Standard Curricula">
-                {ROADMAPS.map(r => (
-                  <option key={r.id} value={r.id}>{r.title}</option>
-                ))}
-              </optgroup>
               {customRoadmaps.length > 0 && (
-                <optgroup label="AI Generated Roadmaps">
+                <optgroup label="AI Generated Tracks">
                   {customRoadmaps.map(r => (
                     <option key={r.id} value={r.id}>{r.title}</option>
                   ))}
                 </optgroup>
               )}
+              <optgroup label="Standard Curricula">
+                {ROADMAPS.map(r => (
+                  <option key={r.id} value={r.id}>{r.title}</option>
+                ))}
+              </optgroup>
             </select>
 
             <button
@@ -435,7 +389,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         </div>
       </div>
 
-      {/* ── SECTION 2: MILESTONE LIST ────────────────────────────────────────── */}
+      {/* ── SECTION 2: MILESTONES & TOPICS LIST ──────────────────────────────── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100 uppercase font-mono tracking-wider">
@@ -443,68 +397,86 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           </h2>
         </div>
 
-        <div className="space-y-2.5">
-          {(roadmap.milestones || []).map((milestone: any, index: number) => {
+        <div className="space-y-3">
+          {(roadmap?.milestones || []).map((milestone: any, index: number) => {
             const isCompleted = completedNodes.includes(milestone.id);
+            const subModulesList: SubModule[] = milestone.subModules || [];
+
             return (
               <div
-                key={milestone.id}
-                onClick={() => handleOpenMilestone(milestone)}
-                className={`p-4 rounded-xl border transition cursor-pointer flex items-start justify-between gap-4 ${
+                key={milestone.id || index}
+                className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
                   isCompleted
-                    ? 'bg-slate-50/50 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800 opacity-90'
-                    : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
+                    ? 'bg-slate-50/50 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800'
+                    : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
                 }`}
               >
-                <div className="flex items-start gap-3 min-w-0">
-                  <button
-                    type="button"
-                    onClick={(e) => toggleComplete(milestone.id, e)}
-                    className="mt-0.5 text-slate-400 hover:text-black dark:hover:text-white transition"
-                  >
-                    {isCompleted ? (
-                      <CheckCircle2 className="w-5 h-5 text-black dark:text-white" />
-                    ) : (
-                      <Square className="w-5 h-5 text-slate-300 dark:text-zinc-700" />
-                    )}
-                  </button>
+                {/* Milestone Top Bar */}
+                <div
+                  onClick={() => handleOpenMilestone(milestone)}
+                  className="p-5 flex items-start justify-between gap-4 cursor-pointer"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <button
+                      type="button"
+                      onClick={(e) => toggleComplete(milestone.id, e)}
+                      className="mt-0.5 text-slate-400 hover:text-black dark:hover:text-white transition"
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-5 h-5 text-black dark:text-white" />
+                      ) : (
+                        <Square className="w-5 h-5 text-slate-300 dark:text-zinc-700" />
+                      )}
+                    </button>
 
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono font-semibold text-slate-400 dark:text-zinc-500">
-                        Phase {index + 1}
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                        {milestone.title}
-                      </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                        {milestone.level || 'Practice'}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-1">
-                      {milestone.description}
-                    </p>
-
-                    {/* Topics / Skills preview */}
-                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                      {(milestone.topics || milestone.skills || []).slice(0, 4).map((topic: string, tIdx: number) => (
-                        <span
-                          key={tIdx}
-                          className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
-                        >
-                          {topic}
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-semibold text-slate-400 dark:text-zinc-500">
+                          Phase {index + 1}
                         </span>
-                      ))}
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                          {milestone.title}
+                        </h3>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                          {milestone.level || 'Practice'}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                        {milestone.description}
+                      </p>
+
+                      {/* Sub-modules & topics quick summary */}
+                      <div className="flex items-center gap-2 flex-wrap pt-1">
+                        {subModulesList.length > 0 && (
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                            {subModulesList.length} Sub-Modules
+                          </span>
+                        )}
+                        {(milestone.skills || milestone.skillsGained || []).map((skill: string, sIdx: number) => (
+                          <span
+                            key={sIdx}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-center">
-                  <span className="text-xs text-slate-400 dark:text-zinc-500 font-mono hidden sm:inline">
-                    {milestone.estimatedHours || 20}h
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center gap-2 shrink-0 self-center">
+                    <span className="text-xs text-slate-400 dark:text-zinc-500 font-mono hidden sm:inline">
+                      {milestone.estimatedHours || 20}h
+                    </span>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1"
+                    >
+                      <span>Explore</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -519,7 +491,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-slate-900 dark:text-white" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Generate Custom AI Curriculum</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Generate Custom AI Track</h3>
               </div>
               <button onClick={() => setShowGenerateModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200">
                 <X className="w-4 h-4" />
@@ -527,28 +499,28 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 dark:text-zinc-400">
-              Enter any technical discipline or career objective. Gemini will synthesize a 5-phase actionable curriculum tailored to your background.
+              Enter any profession (Product, Design, Marketing, Finance, Engineering, Operations). Gemini will synthesize a structured curriculum with topics and curated resources.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Target Role / Discipline</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Target Profession / Role</label>
                 <input
                   type="text"
                   value={newRoleTitle}
                   onChange={(e) => setNewRoleTitle(e.target.value)}
-                  placeholder="e.g. AI Systems Engineer, Distributed Database Architect, Swift iOS Developer"
+                  placeholder="e.g. Senior Product Manager, UI/UX Designer, Growth Marketing Lead, Financial Analyst"
                   className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Current Skills (Optional)</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Current Competencies (Optional)</label>
                 <input
                   type="text"
                   value={newSkillsInput}
                   onChange={(e) => setNewSkillsInput(e.target.value)}
-                  placeholder="e.g. Python, PyTorch, Docker, C++"
+                  placeholder="e.g. Figma, SQL, User Research, Excel, SEO, Python"
                   className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
                 />
               </div>
@@ -577,7 +549,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                 {isGeneratingRoadmap ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Synthesizing with AI...</span>
+                    <span>Synthesizing Curriculum...</span>
                   </>
                 ) : (
                   <>
@@ -591,79 +563,159 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         </div>
       )}
 
-      {/* ── MODAL: MILESTONE DETAIL & PRACTICE ──────────────────────────────── */}
+      {/* ── MODAL: PHASE SUB-MODULES & CURATED RESOURCES ─────────────────────── */}
       {selectedMilestone && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-5 shadow-2xl">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-3xl w-full max-h-[88vh] overflow-y-auto p-6 sm:p-7 space-y-6 shadow-2xl animate-in fade-in duration-200">
+            
+            {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
               <div>
-                <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500">
-                  {selectedMilestone.level || 'Foundations'} Phase
-                </span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                    {selectedMilestone.level || 'Core'} Phase
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Estimated Duration: {selectedMilestone.estimatedHours || 20} hours
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
                   {selectedMilestone.title}
                 </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                  {selectedMilestone.description}
+                </p>
               </div>
-              <button onClick={() => setSelectedMilestone(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200">
-                <X className="w-4 h-4" />
+              <button onClick={() => setSelectedMilestone(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 p-1">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-zinc-300">
-              {selectedMilestone.description}
-            </p>
+            {/* Sub-Modules Breakdown */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase font-mono tracking-wider">
+                Curriculum Sub-Modules & Topics
+              </h4>
 
-            {/* Topics covered */}
-            <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Key Architectural Topics:</span>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
-                {(selectedMilestone.topics || []).map((t: string, idx: number) => (
-                  <li key={idx} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-600" />
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ul>
+              {selectedMilestone.subModules && selectedMilestone.subModules.length > 0 ? (
+                <div className="space-y-3.5">
+                  {selectedMilestone.subModules.map((sub: SubModule, sIdx: number) => (
+                    <div
+                      key={sub.id || sIdx}
+                      className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-[10px] font-mono flex items-center justify-center font-bold">
+                              {sIdx + 1}
+                            </span>
+                            <h5 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                              {sub.title}
+                            </h5>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1">
+                            {sub.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Key Concepts Chips */}
+                      {sub.keyConcepts && sub.keyConcepts.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
+                            Core Concepts:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sub.keyConcepts.map((concept, cIdx) => (
+                              <span
+                                key={cIdx}
+                                className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200"
+                              >
+                                {concept}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sub-module resources */}
+                      {sub.resources && sub.resources.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] font-mono uppercase text-slate-400 dark:text-zinc-500 font-semibold">
+                            Curated Learning Resources:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {sub.resources.map((res: LearnResource, rIdx: number) => (
+                              <div
+                                key={rIdx}
+                                onClick={(e) => handleOpenLink(res.url, e)}
+                                className="p-2.5 rounded-lg border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer flex items-start justify-between gap-2 group"
+                              >
+                                <div className="space-y-0.5 min-w-0">
+                                  <div className="text-xs font-semibold text-slate-900 dark:text-zinc-100 group-hover:underline truncate">
+                                    {res.title}
+                                  </div>
+                                  <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                                    {res.type === 'video' ? <Youtube className="w-3 h-3 text-red-500" /> : <FileText className="w-3 h-3 text-blue-500" />}
+                                    <span>{res.type ? res.type.toUpperCase() : 'DOC'}</span>
+                                    {res.duration && <span>· {res.duration}</span>}
+                                  </div>
+                                </div>
+                                <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5 group-hover:text-black dark:group-hover:text-white" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Fallback Topics & Learn resources if subModules array is empty */
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-800/40 space-y-2">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Key Concepts Covered:</span>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
+                      {(selectedMilestone.topics || selectedMilestone.skills || []).map((t: string, idx: number) => (
+                        <li key={idx} className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-600" />
+                          <span>{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {selectedMilestone.learn && selectedMilestone.learn.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Recommended Resources:</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {selectedMilestone.learn.map((res: LearnResource, idx: number) => (
+                          <div
+                            key={idx}
+                            onClick={(e) => handleOpenLink(res.url, e)}
+                            className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition cursor-pointer flex items-center justify-between gap-2"
+                          >
+                            <div>
+                              <div className="text-xs font-semibold text-slate-900 dark:text-zinc-100">{res.title}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{res.provider || 'Guide'} {res.duration && `· ${res.duration}`}</div>
+                            </div>
+                            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Practice Exercise if available */}
-            {selectedMilestone.practice && selectedMilestone.practice.length > 0 && (
-              <div className="space-y-2 border-t border-slate-100 dark:border-zinc-800 pt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Hands-On Code Drill</span>
-                  <span className="text-[10px] font-mono text-slate-500">{selectedMilestone.practice[0].difficulty}</span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-zinc-400">
-                  {selectedMilestone.practice[0].prompt}
-                </p>
-                <textarea
-                  value={userCode}
-                  onChange={(e) => setUserCode(e.target.value)}
-                  rows={4}
-                  className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-3 text-xs font-mono text-slate-900 dark:text-zinc-100 focus:outline-none resize-none"
-                />
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-slate-500">
-                    {codeOutput.message}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleRunTest}
-                    className="px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold hover:opacity-90 transition flex items-center gap-1.5"
-                  >
-                    <Play className="w-3 h-3" />
-                    <span>Run Verification</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
+            {/* Modal Footer */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-zinc-800">
               <button
                 type="button"
                 onClick={() => toggleComplete(selectedMilestone.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
+                className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-2 shadow-xs ${
                   completedNodes.includes(selectedMilestone.id)
                     ? 'bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200'
                     : 'bg-black text-white dark:bg-white dark:text-black hover:opacity-90'
@@ -671,13 +723,13 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
               >
                 {completedNodes.includes(selectedMilestone.id) ? (
                   <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Completed ✓</span>
+                    <Check className="w-4 h-4" />
+                    <span>Phase Completed ✓</span>
                   </>
                 ) : (
                   <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Mark Milestone Completed</span>
+                    <Check className="w-4 h-4" />
+                    <span>Mark Phase Completed</span>
                   </>
                 )}
               </button>
@@ -685,11 +737,12 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedMilestone(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
               >
                 Close
               </button>
             </div>
+
           </div>
         </div>
       )}

@@ -15,7 +15,7 @@ describe('LearnerView & Roadmaps data integrity', () => {
         expect(Array.isArray(m.skillsGained)).toBe(true);
         expect(Array.isArray(m.topics)).toBe(true);
         expect(Array.isArray(m.learn)).toBe(true);
-        expect(Array.isArray(m.practice)).toBe(true);
+        expect(Array.isArray(m.subModules)).toBe(true);
       }
     }
   });

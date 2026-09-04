@@ -4,9 +4,8 @@ import {
   Briefcase, Target, Clock, Search,
   Compass, BookOpen, Layers, CheckCircle2,
   Code2, Phone, Mail, Loader2, Key, Upload, FileText,
-  Shield, Cpu, Zap
+  Shield, Cpu, Zap, Sparkles, ExternalLink
 } from 'lucide-react';
-import { searchRoleTitles } from '../data/jobRolesDataset';
 import { MasterProfile, AppUser, getApi } from '../types';
 
 interface OnboardingWizardProps {
@@ -18,16 +17,28 @@ interface OnboardingWizardProps {
 
 const EXPERIENCE_LEVELS = [
   { id: 'fresher', label: 'Fresher / Student', desc: '0 – 1 years · Looking for internships or entry-level positions' },
-  { id: 'junior', label: 'Junior Developer', desc: '1 – 2 years · Solid fundamentals, looking to level up' },
-  { id: 'mid', label: 'Mid-Level Engineer', desc: '2 – 5 years · Experience building scalable production systems' },
-  { id: 'senior', label: 'Senior / Specialist', desc: '5+ years · Architecture, system design, and technical leadership' },
-  { id: 'switcher', label: 'Career Switcher', desc: 'Transitioning from another discipline into modern software' },
+  { id: 'junior', label: 'Junior Associate', desc: '1 – 2 years · Solid fundamentals, looking to level up' },
+  { id: 'mid', label: 'Mid-Level Specialist', desc: '2 – 5 years · Experience delivering real-world projects & outcomes' },
+  { id: 'senior', label: 'Senior / Lead', desc: '5+ years · Strategy, system leadership, and high-stakes execution' },
+  { id: 'switcher', label: 'Career Switcher', desc: 'Transitioning from another discipline into this career path' },
 ];
 
 const DEFAULT_POPULAR_SKILLS = [
-  'TypeScript', 'React', 'Node.js', 'Next.js', 'PostgreSQL',
-  'Python', 'Tailwind CSS', 'Docker', 'REST APIs', 'Git',
-  'GraphQL', 'AWS', 'Redis', 'FastAPI', 'Go', 'Kubernetes'
+  'Product Strategy', 'UI/UX Design', 'Figma', 'TypeScript',
+  'React', 'Growth Marketing', 'SQL', 'Project Management',
+  'Financial Modeling', 'Data Analysis', 'SEO / SEM', 'Python',
+  'User Research', 'Brand Strategy', 'Workflow Automation', 'Operations'
+];
+
+const SUGGESTED_ROLES = [
+  'Product Manager',
+  'UI/UX & Product Designer',
+  'Full Stack Software Engineer',
+  'Growth Marketing Manager',
+  'Data & Business Analyst',
+  'Financial Analyst',
+  'Operations Lead',
+  'Content & Brand Strategist',
 ];
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
@@ -47,12 +58,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [firstName, setFirstName] = useState<string>(initialFirst);
   const [lastName, setLastName] = useState<string>(initialLast);
   const [phone, setPhone] = useState<string>(initialProfile.phone || '');
-  const [targetRoleTitle, setTargetRoleTitle] = useState<string>(initialProfile.desiredTitle || 'Full Stack Engineer');
+  const [targetRoleTitle, setTargetRoleTitle] = useState<string>(initialProfile.desiredTitle || 'Product Manager');
   const [experienceLevel, setExperienceLevel] = useState<string>(initialProfile.experienceLevel || 'fresher');
   const [bioOrResumeText, setBioOrResumeText] = useState<string>(initialProfile.resumeText || '');
   const [customGeminiKey, setCustomGeminiKey] = useState<string>(initialProfile.geminiApiKey || '');
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(() => {
-    const s = new Set<string>(['TypeScript', 'React', 'Node.js', 'PostgreSQL']);
+    const s = new Set<string>(['Product Strategy', 'UI/UX Design', 'User Research', 'SQL']);
     if (initialProfile.techStack) {
       initialProfile.techStack.split(',').map(x => x.trim()).filter(Boolean).forEach(x => s.add(x));
     }
@@ -65,11 +76,6 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [aiError, setAiError] = useState<string | null>(null);
   const [synthesizedProfile, setSynthesizedProfile] = useState<Partial<MasterProfile>>({});
   const [synthesizedRoadmap, setSynthesizedRoadmap] = useState<any>(null);
-
-  // Role suggestions autocomplete
-  const roleSuggestions = useMemo(() => {
-    return searchRoleTitles(targetRoleTitle || 'software', 5);
-  }, [targetRoleTitle]);
 
   const toggleSkill = (skill: string) => {
     const next = new Set(selectedSkills);
@@ -96,7 +102,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     const api = getApi();
     try {
       const res = await api.generateAiOnboardingProfile({
-        targetRole: targetRoleTitle.trim() || 'Software Engineer',
+        targetRole: targetRoleTitle.trim() || 'Professional Specialist',
         experienceLevel,
         bioOrResumeText: bioOrResumeText.trim(),
         customSkills: Array.from(selectedSkills),
@@ -105,6 +111,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       });
 
       if (res && res.success && res.profile) {
+        const roadmapObj = res.roadmap;
         setSynthesizedProfile({
           ...initialProfile,
           firstName: firstName.trim() || res.profile.firstName || 'Candidate',
@@ -113,35 +120,82 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           phone: phone.trim(),
           desiredTitle: res.profile.desiredTitle || targetRoleTitle,
           techStack: res.profile.techStack || Array.from(selectedSkills).join(', '),
-          desiredSalary: res.profile.desiredSalary || '₹14 LPA – ₹28 LPA',
+          desiredSalary: res.profile.desiredSalary || '₹12 LPA – ₹26 LPA',
           resumeText: bioOrResumeText.trim() || res.profile.resumeText || '',
           experienceLevel: experienceLevel as any,
           geminiApiKey: customGeminiKey.trim() || undefined,
           onboardingCompleted: true,
         });
-        setSynthesizedRoadmap(res.roadmap);
+        setSynthesizedRoadmap(roadmapObj);
         setStep(2);
       } else {
         throw new Error(res?.error || 'AI synthesis failed.');
       }
     } catch (err: any) {
       console.warn('[Onboarding AI] Fallback triggered:', err?.message);
-      // Graceful fallback
+      // Universal fallback
       const fallbackStack = Array.from(selectedSkills).join(', ');
+      const fallbackId = `roadmap-${Date.now()}`;
+      const fallbackRoadmap = {
+        id: fallbackId,
+        title: `${targetRoleTitle.trim() || 'Career'} Acceleration Roadmap`,
+        domain: 'Professional Track',
+        targetRoles: [targetRoleTitle.trim() || 'Specialist'],
+        milestones: [
+          {
+            id: 'phase-1',
+            title: 'Phase 1: Foundations & Core Principles',
+            level: 'Foundations',
+            estimatedHours: 20,
+            description: 'Core concepts, operating workflows, and essential toolsets.',
+            subModules: [
+              {
+                id: 'sub-1-1',
+                title: 'Fundamentals & Industry Standards',
+                description: 'Key principles, frameworks, and workflow best practices.',
+                keyConcepts: ['Core theory', 'Workflow standards', 'Daily toolkits'],
+                resources: [
+                  { title: 'Foundational Overview & Guide', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' basics')}`, type: 'video' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'phase-2',
+            title: 'Phase 2: Intermediate Execution & Strategy',
+            level: 'Practice',
+            estimatedHours: 30,
+            description: 'Practical project deliverables, case studies, and artifact creation.',
+            subModules: [
+              {
+                id: 'sub-2-1',
+                title: 'Deliverables & Case Execution',
+                description: 'Hands-on workflow execution and deliverable management.',
+                keyConcepts: ['Execution framework', 'Quality metrics', 'Collaboration'],
+                resources: [
+                  { title: 'Case Study & Project Guide', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(targetRoleTitle + ' case study')}`, type: 'video' }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+
       setSynthesizedProfile({
         ...initialProfile,
         firstName: firstName.trim() || 'Candidate',
         lastName: lastName.trim() || '',
         email: userEmail || initialProfile.email || 'user@nomadic.app',
         phone: phone.trim(),
-        desiredTitle: targetRoleTitle.trim() || 'Software Engineer',
-        techStack: fallbackStack || 'TypeScript, React, Node.js, PostgreSQL',
-        desiredSalary: '₹14 LPA – ₹28 LPA · $110k – $150k',
+        desiredTitle: targetRoleTitle.trim() || 'Specialist',
+        techStack: fallbackStack || 'Strategy, Analysis, Execution',
+        desiredSalary: '₹12 LPA – ₹26 LPA · $90k – $150k',
         resumeText: bioOrResumeText.trim(),
         experienceLevel: experienceLevel as any,
         geminiApiKey: customGeminiKey.trim() || undefined,
         onboardingCompleted: true,
       });
+      setSynthesizedRoadmap(fallbackRoadmap);
       setStep(2);
     } finally {
       setIsGenerating(false);
@@ -172,7 +226,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         await api.saveCustomRoadmap({
           id: synthesizedRoadmap.id || `roadmap-${Date.now()}`,
           roleTitle: finalProf.desiredTitle || targetRoleTitle,
-          domain: synthesizedRoadmap.domain || 'Engineering',
+          domain: synthesizedRoadmap.domain || 'Professional Track',
           roadmapJson: JSON.stringify(synthesizedRoadmap),
           targetHorizon: '2 Months',
           dailyCommitment: '2 Hours/Day',
@@ -200,7 +254,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           </div>
           <div>
             <span className="font-semibold tracking-tight text-sm text-slate-900 dark:text-white">Nomadic</span>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-mono">Setup Assistant</span>
+            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-mono">Career Setup</span>
           </div>
         </div>
 
@@ -215,14 +269,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       <div className="max-w-3xl w-full mx-auto my-auto py-8">
         
         {step === 1 ? (
-          /* ── STEP 1: CANDIDATE INFO & TARGET GOAL ────────────────────────── */
+          /* ── STEP 1: CANDIDATE INFO & UNIVERSAL CAREER GOAL ──────────────── */
           <div className="space-y-8 animate-in fade-in duration-200">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
                 Initialize your career profile
               </h1>
               <p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">
-                Provide your target position and background. Gemini AI will analyze your profile, calibrate your tech stack, and structure your roadmap.
+                Enter your target role across any discipline (Product, Design, Marketing, Finance, Engineering, Operations). Gemini AI will analyze your background and structure your learning roadmap.
               </p>
             </div>
 
@@ -288,7 +342,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               </div>
             </div>
 
-            {/* Target Role with Real-time autocomplete */}
+            {/* Target Role with Real-time autocomplete suggestions */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
                 Target Role / Career Goal <span className="text-red-500">*</span>
@@ -299,27 +353,25 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   type="text"
                   value={targetRoleTitle}
                   onChange={(e) => setTargetRoleTitle(e.target.value)}
-                  placeholder="e.g. Full Stack Engineer, Backend Developer, DevOps, Product Manager"
+                  placeholder="e.g. Product Manager, UI/UX Designer, Growth Marketing, Software Engineer, Financial Analyst"
                   className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
                 />
               </div>
 
-              {/* Suggestions */}
-              {roleSuggestions.length > 0 && targetRoleTitle.length >= 2 && (
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  <span className="text-[11px] text-slate-400 dark:text-zinc-500">Suggestions:</span>
-                  {roleSuggestions.map((title) => (
-                    <button
-                      key={title}
-                      type="button"
-                      onClick={() => setTargetRoleTitle(title)}
-                      className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition"
-                    >
-                      {title}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Popular career role suggestions */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[11px] text-slate-400 dark:text-zinc-500">Popular Paths:</span>
+                {SUGGESTED_ROLES.map((title) => (
+                  <button
+                    key={title}
+                    type="button"
+                    onClick={() => setTargetRoleTitle(title)}
+                    className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition"
+                  >
+                    {title}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Seniority Level */}
@@ -349,7 +401,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             {/* Skills selection */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Key Technologies & Competencies
+                Key Skills & Competencies
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {DEFAULT_POPULAR_SKILLS.map((skill) => {
@@ -377,7 +429,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   value={newSkillInput}
                   onChange={(e) => setNewSkillInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddSkill(); }}
-                  placeholder="Add custom skill (e.g. Supabase, LangChain, Kafka)..."
+                  placeholder="Add custom competency (e.g. User Journey Mapping, Excel Modeling, Brand Identity)..."
                   className="flex-1 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition"
                 />
                 <button
@@ -393,13 +445,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             {/* Resume / Background Text */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
-                Resume Summary or Bio (Optional)
+                Summary, Bio or Resume Notes (Optional)
               </label>
               <textarea
                 value={bioOrResumeText}
                 onChange={(e) => setBioOrResumeText(e.target.value)}
                 rows={3}
-                placeholder="Paste your resume summary, bio, or notable projects here. Gemini will use this to fine-tune your application answers."
+                placeholder="Paste your resume summary, portfolio details, or experience notes. Gemini will use this to fine-tune your personalized curriculum."
                 className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-3 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-slate-400 dark:focus:border-zinc-600 transition resize-none font-mono"
               />
             </div>
@@ -454,7 +506,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   </>
                 ) : (
                   <>
-                    <span>Generate AI Profile & Roadmap</span>
+                    <span>Generate AI Track & Roadmap</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
@@ -466,10 +518,10 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           <div className="space-y-6 animate-in fade-in duration-200">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
-                Review Your AI Profile
+                Review Your Learning Track
               </h1>
               <p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">
-                Gemini synthesized your baseline parameters. You can edit any details or launch directly into your workspace.
+                Gemini synthesized a comprehensive curriculum for {synthesizedProfile.desiredTitle || targetRoleTitle}. You can launch directly into your personalized workspace.
               </p>
             </div>
 
@@ -492,7 +544,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               {/* Skills */}
               <div className="space-y-1.5">
                 <span className="text-[11px] font-mono uppercase text-slate-400 dark:text-zinc-500">
-                  Extracted Tech Stack
+                  Core Competencies & Tools
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {(synthesizedProfile.techStack || '').split(',').map((skill, idx) => (
@@ -509,7 +561,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               {/* Estimated Compensation */}
               {synthesizedProfile.desiredSalary && (
                 <div className="text-xs text-slate-600 dark:text-zinc-400 flex items-center gap-2">
-                  <span className="text-slate-400 dark:text-zinc-500">Target Range:</span>
+                  <span className="text-slate-400 dark:text-zinc-500">Market Range:</span>
                   <span className="font-mono font-medium text-slate-900 dark:text-zinc-100">
                     {synthesizedProfile.desiredSalary}
                   </span>
@@ -521,8 +573,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             {synthesizedRoadmap && synthesizedRoadmap.milestones && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-white">
-                    Generated Curriculum: {synthesizedRoadmap.title}
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-black dark:text-white" />
+                    <span>Generated Track: {synthesizedRoadmap.title}</span>
                   </span>
                   <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
                     {synthesizedRoadmap.milestones.length} Phases
@@ -533,9 +586,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   {synthesizedRoadmap.milestones.map((m: any, i: number) => (
                     <div
                       key={m.id || i}
-                      className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-start gap-3"
+                      className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-start gap-3"
                     >
-                      <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5">
+                      <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono shrink-0 mt-0.5 font-bold">
                         {i + 1}
                       </div>
                       <div className="space-y-1 min-w-0 flex-1">
@@ -544,7 +597,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                             {m.title}
                           </span>
                           <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 shrink-0">
-                            {m.level || 'Foundations'}
+                            {m.level || 'Core'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1">
@@ -582,7 +635,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 ) : (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Confirm & Launch Workspace</span>
+                    <span>Confirm & Go to Learner Track</span>
                   </>
                 )}
               </button>
@@ -595,7 +648,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       {/* Footer */}
       <div className="max-w-3xl w-full mx-auto text-center border-t border-slate-100 dark:border-zinc-900 pt-4">
         <p className="text-[11px] text-slate-400 dark:text-zinc-600">
-          Nomadic Offline-First Storage · Candidate data stored locally in encrypted SQLite
+          Nomadic Offline-First Storage · Career and learning progress stored locally in SQLite
         </p>
       </div>
 

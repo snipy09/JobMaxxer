@@ -1670,64 +1670,118 @@ ipcMain.handle('generate-ai-onboarding-profile', async (_, params: {
   log(`[AI Onboarding] Synthesizing candidate profile & roadmap for: "${targetRole}"...`);
 
   const prompt = `Candidate Input:
-- Target Role: ${targetRole || 'Full Stack Software Engineer'}
+- Target Role / Career Goal: ${targetRole || 'Software Engineer / Product Designer / Manager'}
 - Seniority/Level: ${experienceLevel || 'fresher'}
-- Skills Provided: ${(customSkills || []).join(', ')}
-- Bio / Resume Summary: ${bioOrResumeText || 'Passionate developer looking to build modern, production-grade systems.'}
+- Skills / Background: ${(customSkills || []).join(', ')}
+- Bio / Resume Summary: ${bioOrResumeText || 'Passionate professional looking to build modern, production-grade industry capabilities.'}
+
+Note: Nomadic is a universal career accelerator for ANY profession (Engineering, Product, UI/UX Design, Data Analysis, Marketing, Sales, Operations, Finance, HR, etc.).
 
 Analyze the candidate details and generate a JSON response matching this schema:
 {
   "firstName": "...",
   "lastName": "...",
-  "desiredTitle": "${targetRole || 'Full Stack Engineer'}",
-  "techStack": "comma-separated list of 6-8 core modern technologies",
-  "desiredSalary": "estimated market salary range e.g. ₹14 LPA - ₹28 LPA · $110k - $160k",
+  "desiredTitle": "${targetRole || 'Professional'}",
+  "techStack": "comma-separated list of 6-8 core tools, skills, or frameworks relevant to this profession",
+  "desiredSalary": "estimated market salary range e.g. ₹12 LPA - ₹26 LPA · $90k - $150k",
   "summaryHeadline": "one crisp executive summary sentence",
   "recommendedRoadmap": {
+    "id": "roadmap-${Date.now()}",
     "title": "${targetRole} Acceleration Roadmap",
-    "domain": "Software Engineering",
+    "domain": "Domain Name (e.g. Product Management, UI/UX Design, Software Engineering, Marketing & Growth, Financial Analysis, Sales)",
+    "targetRoles": ["${targetRole}"],
     "targetHorizon": "2 Months",
     "dailyCommitment": "2 Hours/Day",
     "milestones": [
       {
         "id": "phase-1",
-        "title": "Phase 1: Foundations & Architecture",
+        "title": "Phase 1: Foundations & Core Principles",
         "level": "Foundations",
         "difficulty": "Beginner",
-        "estimatedHours": 25,
-        "topics": ["Topic 1", "Topic 2", "Topic 3"],
+        "estimatedHours": 20,
+        "description": "Establish core principles, essential tooling, and mental models.",
         "skills": ["Skill 1", "Skill 2"],
-        "description": "Establish core foundations and system design basics."
+        "subModules": [
+          {
+            "id": "sub-1-1",
+            "title": "Core Fundamentals & Industry Workflows",
+            "description": "Overview of foundational standards and best practices.",
+            "keyConcepts": ["Key Concept 1", "Key Concept 2", "Key Concept 3"],
+            "resources": [
+              { "title": "Comprehensive Industry Guide", "url": "https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(targetRole)}", "type": "doc" },
+              { "title": "Foundations Video Masterclass", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' fundamentals')}", "type": "video", "duration": "30 mins" }
+            ]
+          },
+          {
+            "id": "sub-1-2",
+            "title": "Essential Tooling & Environment Setup",
+            "description": "Mastering the primary software and toolkits for daily execution.",
+            "keyConcepts": ["Tool configurations", "Workflow automations", "Quality control"],
+            "resources": [
+              { "title": "Tooling Reference Guide", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' essential tools')}", "type": "guide" }
+            ]
+          }
+        ]
       },
       {
         "id": "phase-2",
-        "title": "Phase 2: Core Engineering & APIs",
-        "level": "Core",
+        "title": "Phase 2: Intermediate Execution & Practical Applications",
+        "level": "Core Practice",
         "difficulty": "Intermediate",
         "estimatedHours": 30,
-        "topics": ["Topic 1", "Topic 2", "Topic 3"],
-        "skills": ["Skill 1", "Skill 2"],
-        "description": "Build high-throughput services and interactive frontend architectures."
+        "description": "Building real-world artifacts, managing lifecycles, and executing complex workflows.",
+        "skills": ["Skill 3", "Skill 4"],
+        "subModules": [
+          {
+            "id": "sub-2-1",
+            "title": "Practical Execution & Strategy",
+            "description": "Hands-on implementation of core role responsibilities.",
+            "keyConcepts": ["Execution frameworks", "Data-informed decision making", "Cross-functional collaboration"],
+            "resources": [
+              { "title": "Practical Case Study Breakdown", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' case study')}", "type": "video", "duration": "45 mins" }
+            ]
+          }
+        ]
       },
       {
         "id": "phase-3",
-        "title": "Phase 3: Production Deployments & Scale",
-        "level": "Production",
+        "title": "Phase 3: Advanced Optimization, Scale & Strategy",
+        "level": "Advanced",
         "difficulty": "Advanced",
-        "estimatedHours": 30,
-        "topics": ["Topic 1", "Topic 2", "Topic 3"],
-        "skills": ["Skill 1", "Skill 2"],
-        "description": "Containerization, caching, database tuning, and CI/CD pipelines."
+        "estimatedHours": 25,
+        "description": "Metrics tracking, leadership, efficiency optimization, and enterprise scaling.",
+        "skills": ["Skill 5", "Skill 6"],
+        "subModules": [
+          {
+            "id": "sub-3-1",
+            "title": "Advanced Metrics & Strategic Growth",
+            "description": "Optimizing deliverables for maximum measurable ROI.",
+            "keyConcepts": ["Key Performance Indicators", "Systemic bottlenecks", "Scale methodologies"],
+            "resources": [
+              { "title": "Advanced Strategy Playbook", "url": "https://google.com/search?q=${encodeURIComponent(targetRole + ' advanced strategy')}", "type": "doc" }
+            ]
+          }
+        ]
       },
       {
         "id": "phase-4",
-        "title": "Phase 4: Capstone Project & Interview Drills",
+        "title": "Phase 4: Capstone Portfolio & Bar-Raiser Interview Readiness",
         "level": "Interview Ready",
         "difficulty": "Advanced",
         "estimatedHours": 20,
-        "topics": ["System Design Drills", "Coding Challenges", "Portfolio Deployment"],
-        "skills": ["System Design", "Algorithms"],
-        "description": "Production capstone demonstration and bar-raiser mock interviews."
+        "description": "Portfolio presentation, behavioral drills, and technical/case interview preparation.",
+        "skills": ["Interview Strategy", "Communication"],
+        "subModules": [
+          {
+            "id": "sub-4-1",
+            "title": "Portfolio Defense & Behavioral Interviews",
+            "description": "Structuring impact with the STAR framework and answering high-stakes interview questions.",
+            "keyConcepts": ["STAR storytelling", "Case defense", "Salary negotiation"],
+            "resources": [
+              { "title": "Executive Interview Preparation Guide", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(targetRole + ' interview questions')}", "type": "video", "duration": "35 mins" }
+            ]
+          }
+        ]
       }
     ]
   }
@@ -1736,70 +1790,117 @@ Analyze the candidate details and generate a JSON response matching this schema:
   try {
     const res = await generateStructuredAIContent<any>(
       prompt,
-      'You are an expert technical career advisor and tech lead. Synthesize the candidate information into an authentic, structured profile and learning roadmap. Return ONLY raw JSON matching the schema.',
+      'You are an executive career architect and industry expert across tech, design, product, marketing, finance, and business. Synthesize the candidate information into an authentic, structured profile and learning roadmap. Return ONLY raw JSON matching the schema.',
       { geminiKey, groqKey }
     );
 
     if (res && res.techStack && res.recommendedRoadmap) {
       log(`[AI Onboarding] Successfully synthesized profile for "${targetRole}" via Gemini/Groq ✓`);
+      const roadmapId = res.recommendedRoadmap.id || `roadmap-${Date.now()}`;
+      res.recommendedRoadmap.id = roadmapId;
+      saveCustomRoadmapDb(
+        roadmapId,
+        res.desiredTitle || targetRole,
+        res.recommendedRoadmap.domain || 'Professional Career',
+        JSON.stringify(res.recommendedRoadmap),
+        '2 Months',
+        '2 Hours/Day'
+      );
       return { success: true, profile: res, roadmap: res.recommendedRoadmap };
     }
   } catch (err: any) {
     log(`[AI Onboarding] AI synthesis note: ${err?.message}`);
   }
 
-  // Graceful fallback profile & roadmap if offline
+  // Universal fallback profile & roadmap
   const fallbackSkills = (customSkills && customSkills.length > 0)
     ? customSkills.join(', ')
-    : 'TypeScript, React, Node.js, PostgreSQL, Docker';
+    : 'Strategy, Execution, Workflow Automation, Analytics, Leadership';
+
+  const fallbackId = `roadmap-${Date.now()}`;
+  const fallbackRoadmap = {
+    id: fallbackId,
+    title: `${targetRole || 'Career'} Acceleration Roadmap`,
+    domain: 'Professional Track',
+    targetRoles: [targetRole || 'Specialist'],
+    targetHorizon: '2 Months',
+    dailyCommitment: '2 Hours/Day',
+    milestones: [
+      {
+        id: 'phase-1',
+        title: 'Phase 1: Foundations & Core Principles',
+        level: 'Foundations',
+        difficulty: 'Beginner',
+        estimatedHours: 20,
+        description: 'Master core principles, terminology, and essential daily toolsets.',
+        skills: fallbackSkills.split(',').slice(0, 2).map(s => s.trim()),
+        subModules: [
+          {
+            id: 'sub-1-1',
+            title: 'Core Fundamentals & Standards',
+            description: 'Industry mental models, standard operating procedures, and basic workflows.',
+            keyConcepts: ['Foundational theory', 'Workflow standards', 'Core tool setup'],
+            resources: [
+              { title: 'Foundational Overview & Standards', url: `https://www.youtube.com/results?search_query=${encodeURIComponent((targetRole || 'career') + ' fundamentals')}`, type: 'video', duration: '30 mins' },
+              { title: 'Industry Best Practices Reference', url: `https://google.com/search?q=${encodeURIComponent((targetRole || 'career') + ' best practices guide')}`, type: 'doc' }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'phase-2',
+        title: 'Phase 2: Intermediate Execution & Deliverables',
+        level: 'Core Practice',
+        difficulty: 'Intermediate',
+        estimatedHours: 30,
+        description: 'Hands-on practical projects, artifact generation, and cross-functional workflows.',
+        skills: fallbackSkills.split(',').slice(2, 4).map(s => s.trim()),
+        subModules: [
+          {
+            id: 'sub-2-1',
+            title: 'Hands-On Execution & Project Management',
+            description: 'Creating high-impact deliverables and tracking performance.',
+            keyConcepts: ['Deliverable structuring', 'Feedback loops', 'Quality assurance'],
+            resources: [
+              { title: 'Practical Implementation Guide', url: `https://www.youtube.com/results?search_query=${encodeURIComponent((targetRole || 'career') + ' practical skills')}`, type: 'video', duration: '40 mins' }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'phase-3',
+        title: 'Phase 3: Production Scale & Interview Readiness',
+        level: 'Interview Ready',
+        difficulty: 'Advanced',
+        estimatedHours: 25,
+        description: 'Advanced optimization, portfolio defense, and bar-raiser mock interviews.',
+        skills: ['Portfolio Presentation', 'Interview Mastery'],
+        subModules: [
+          {
+            id: 'sub-3-1',
+            title: 'Portfolio Showcase & Case Defense',
+            description: 'Structuring your achievements with metrics and acing competency rounds.',
+            keyConcepts: ['STAR methodology', 'Portfolio review', 'Negotiation strategy'],
+            resources: [
+              { title: 'Top Interview Questions & STAR Framework', url: `https://www.youtube.com/results?search_query=${encodeURIComponent((targetRole || 'career') + ' interview preparation')}`, type: 'video', duration: '35 mins' }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+
+  saveCustomRoadmapDb(fallbackId, targetRole || 'Career', 'Professional Track', JSON.stringify(fallbackRoadmap), '2 Months', '2 Hours/Day');
 
   return {
     success: true,
     profile: {
-      desiredTitle: targetRole || 'Full Stack Engineer',
+      desiredTitle: targetRole || 'Specialist',
       techStack: fallbackSkills,
-      desiredSalary: '₹14 LPA – ₹28 LPA · $110k – $160k',
-      summaryHeadline: `Passionate ${targetRole || 'Software Engineer'} with hands-on focus on modern scalable web platforms.`,
+      desiredSalary: '₹12 LPA – ₹26 LPA · $90k – $150k',
+      summaryHeadline: `Dedicated ${targetRole || 'Professional'} focused on building high-impact deliverables and scalable outcomes.`,
     },
-    roadmap: {
-      id: 'custom-' + Date.now(),
-      title: `${targetRole || 'Software'} Acceleration Roadmap`,
-      domain: 'Engineering',
-      targetHorizon: '2 Months',
-      dailyCommitment: '2 Hours/Day',
-      milestones: [
-        {
-          id: 'phase-1',
-          title: 'Phase 1: Foundations & Architecture',
-          level: 'Foundations',
-          difficulty: 'Beginner',
-          estimatedHours: 20,
-          topics: ['Core syntax & data structures', 'Version control & Git', 'HTTP & REST architectures'],
-          skills: fallbackSkills.split(',').slice(0, 2).map(s => s.trim()),
-          description: 'Master core syntax and developer tooling workflows.'
-        },
-        {
-          id: 'phase-2',
-          title: 'Phase 2: Core Engineering & Systems',
-          level: 'Core',
-          difficulty: 'Intermediate',
-          estimatedHours: 30,
-          topics: ['Full-stack data flow', 'Relational database schema modeling', 'Authentication & middleware'],
-          skills: fallbackSkills.split(',').slice(2, 4).map(s => s.trim()),
-          description: 'Build robust end-to-end features and APIs.'
-        },
-        {
-          id: 'phase-3',
-          title: 'Phase 3: Production Scaling & CI/CD',
-          level: 'Production',
-          difficulty: 'Advanced',
-          estimatedHours: 25,
-          topics: ['Containerization with Docker', 'Automated testing suites', 'Cloud deployment & monitoring'],
-          skills: ['Docker', 'CI/CD', 'Testing'],
-          description: 'Deploy resilient services with automated test workflows.'
-        }
-      ]
-    }
+    roadmap: fallbackRoadmap
   };
 });
 
@@ -1813,70 +1914,112 @@ ipcMain.handle('generate-custom-roadmap', async (_, params: {
   groqKey?: string;
 }) => {
   const { roleTitle, currentSkills, targetHorizon, dailyCommitment, geminiKey, groqKey } = params;
-  log(`[AI Roadmap] Generating custom 5-phase curriculum for: "${roleTitle}"...`);
+  log(`[AI Roadmap] Generating custom curriculum for: "${roleTitle}"...`);
 
-  const prompt = `Role: ${roleTitle}
-Candidate Current Skills: ${currentSkills || 'Modern programming foundations'}
+  const prompt = `Role / Profession: ${roleTitle}
+Candidate Current Skills: ${currentSkills || 'Fundamental industry foundations'}
 Timeline: ${targetHorizon || '2 Months'} (${dailyCommitment || '2 Hours/Day'})
 
-Generate a comprehensive 5-phase career & learning roadmap formatted strictly in JSON:
+Note: This applies to ANY career path (Engineering, Product Management, UI/UX Design, Data Analytics, Growth Marketing, Sales, Operations, Finance, Human Resources, etc.).
+
+Generate a comprehensive 4-phase career & learning roadmap formatted strictly in JSON:
 {
   "id": "roadmap-${Date.now()}",
   "title": "${roleTitle} Mastery Roadmap",
-  "domain": "Software & Systems",
+  "domain": "Domain Name (e.g. Design, Product, Engineering, Marketing, Finance, Sales)",
   "targetRoles": ["${roleTitle}"],
   "targetHorizon": "${targetHorizon || '2 Months'}",
   "dailyCommitment": "${dailyCommitment || '2 Hours/Day'}",
   "milestones": [
     {
       "id": "m1",
-      "title": "Phase 1: Foundations & Core Architecture",
+      "title": "Phase 1: Foundations & Core Principles",
       "level": "Foundations",
       "difficulty": "Beginner",
       "estimatedHours": 20,
-      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
-      "skills": ["skill 1", "skill 2"],
-      "description": "Foundational understanding and development environment setup."
+      "description": "Establish core theory, terminology, and foundational workflows.",
+      "skills": ["Skill 1", "Skill 2"],
+      "subModules": [
+        {
+          "id": "sub-1-1",
+          "title": "Core Standards & Mental Models",
+          "description": "Detailed explanation of basic concepts and workflows.",
+          "keyConcepts": ["Concept 1", "Concept 2", "Concept 3"],
+          "resources": [
+            { "title": "Comprehensive Reference Guide", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' basics')}", "type": "video", "duration": "30 mins" },
+            { "title": "Official Standards & Documentation", "url": "https://google.com/search?q=${encodeURIComponent(roleTitle + ' fundamentals guide')}", "type": "doc" }
+          ]
+        },
+        {
+          "id": "sub-1-2",
+          "title": "Primary Toolkits & Productivity Setup",
+          "description": "Configuring essential software and daily toolkits.",
+          "keyConcepts": ["Software configuration", "Automation shortcuts", "Best practices"],
+          "resources": [
+            { "title": "Tooling Walkthrough", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' tools')}", "type": "video", "duration": "25 mins" }
+          ]
+        }
+      ]
     },
     {
       "id": "m2",
-      "title": "Phase 2: Intermediate Implementation & APIs",
-      "level": "Practice",
+      "title": "Phase 2: Intermediate Execution & Deliverables",
+      "level": "Core Practice",
       "difficulty": "Intermediate",
       "estimatedHours": 30,
-      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
-      "skills": ["skill 1", "skill 2"],
-      "description": "Building functional prototypes and robust service layers."
+      "description": "Practical workflows, problem solving, and artifact generation.",
+      "skills": ["Skill 3", "Skill 4"],
+      "subModules": [
+        {
+          "id": "sub-2-1",
+          "title": "Artifact Generation & Project Execution",
+          "description": "Building production-ready deliverables and case studies.",
+          "keyConcepts": ["Execution framework", "Quality metrics", "Cross-functional collaboration"],
+          "resources": [
+            { "title": "Execution Case Study", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' case study')}", "type": "video", "duration": "40 mins" }
+          ]
+        }
+      ]
     },
     {
       "id": "m3",
-      "title": "Phase 3: Production Optimization & Performance",
-      "level": "Projects",
+      "title": "Phase 3: Advanced Optimization & Scaling",
+      "level": "Advanced",
       "difficulty": "Advanced",
-      "estimatedHours": 30,
-      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
-      "skills": ["skill 1", "skill 2"],
-      "description": "Handling concurrency, caching, and database tuning."
+      "estimatedHours": 25,
+      "description": "Strategic scaling, metric optimization, and advanced patterns.",
+      "skills": ["Skill 5", "Skill 6"],
+      "subModules": [
+        {
+          "id": "sub-3-1",
+          "title": "Optimization & Systemic Strategy",
+          "description": "Measuring performance impact and strategic scaling.",
+          "keyConcepts": ["ROI measurement", "Process optimization", "Leadership insights"],
+          "resources": [
+            { "title": "Advanced Strategy Masterclass", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' advanced strategy')}", "type": "video", "duration": "45 mins" }
+          ]
+        }
+      ]
     },
     {
       "id": "m4",
-      "title": "Phase 4: Distributed Systems & Cloud Deployment",
-      "level": "Production",
-      "difficulty": "Advanced",
-      "estimatedHours": 25,
-      "topics": ["topic 1", "topic 2", "topic 3", "topic 4"],
-      "skills": ["skill 1", "skill 2"],
-      "description": "Cloud hosting, automated CI/CD, and system resiliency."
-    },
-    {
-      "id": "m5",
-      "title": "Phase 5: Bar-Raiser Interview Readiness",
+      "title": "Phase 4: Capstone Portfolio & Interview Mastery",
       "level": "Interview Ready",
       "difficulty": "Advanced",
       "estimatedHours": 20,
-      "topics": ["Live Coding Drills", "System Design Defense", "Portfolio Presentation"],
-      "skills": ["System Design", "Communication"],
-      "description": "Mock technical drills and live interview preparation."
+      "description": "Bar-raiser mock interviews, portfolio defense, and STAR framework drills.",
+      "skills": ["Interview Strategy", "Communication"],
+      "subModules": [
+        {
+          "id": "sub-4-1",
+          "title": "Portfolio Defense & Case Interviews",
+          "description": "Demonstrating business impact and acing behavioral & technical rounds.",
+          "keyConcepts": ["STAR framework stories", "Portfolio presentation", "Salary negotiation"],
+          "resources": [
+            { "title": "Top Interview Questions & Scenarios", "url": "https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' interview guide')}", "type": "video", "duration": "30 mins" }
+          ]
+        }
+      ]
     }
   ]
 }`;
@@ -1884,12 +2027,14 @@ Generate a comprehensive 5-phase career & learning roadmap formatted strictly in
   try {
     const res = await generateStructuredAIContent<any>(
       prompt,
-      'You are a Principal Engineer and curriculum architect. Return ONLY valid raw JSON representing the roadmap.',
+      'You are an executive curriculum architect. Return ONLY valid raw JSON representing the roadmap.',
       { geminiKey, groqKey }
     );
     if (res && Array.isArray(res.milestones) && res.milestones.length > 0) {
-      log(`[AI Roadmap] Generated 5-phase roadmap for "${roleTitle}" ✓`);
-      saveCustomRoadmapDb(res.id || `custom-${Date.now()}`, roleTitle, res.domain || 'Engineering', JSON.stringify(res), targetHorizon, dailyCommitment);
+      log(`[AI Roadmap] Generated roadmap for "${roleTitle}" ✓`);
+      const roadmapId = res.id || `custom-${Date.now()}`;
+      res.id = roadmapId;
+      saveCustomRoadmapDb(roadmapId, roleTitle, res.domain || 'Career Path', JSON.stringify(res), targetHorizon, dailyCommitment);
       return { success: true, roadmap: res };
     }
   } catch (err: any) {
@@ -1901,44 +2046,75 @@ Generate a comprehensive 5-phase career & learning roadmap formatted strictly in
   const fallbackRoadmap = {
     id: fallbackId,
     title: `${roleTitle} Acceleration Roadmap`,
-    domain: 'Engineering',
+    domain: 'Professional Track',
     targetRoles: [roleTitle],
     targetHorizon: targetHorizon || '2 Months',
     dailyCommitment: dailyCommitment || '2 Hours/Day',
     milestones: [
       {
         id: 'phase-1',
-        title: 'Phase 1: Core Fundamentals & Principles',
+        title: 'Phase 1: Foundations & Core Principles',
         level: 'Foundations',
         difficulty: 'Beginner',
         estimatedHours: 20,
-        topics: ['Core syntax', 'Standard patterns', 'Version control'],
-        skills: ['Core Language', 'Git'],
-        description: 'Establish foundational principles.'
+        description: 'Master core principles and essential toolsets.',
+        skills: ['Core Fundamentals', 'Tooling'],
+        subModules: [
+          {
+            id: 'sub-1-1',
+            title: 'Core Fundamentals & Standards',
+            description: 'Essential terminology and operating workflows.',
+            keyConcepts: ['Foundational concepts', 'Daily tools', 'Quality control'],
+            resources: [
+              { title: 'Foundational Video Guide', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' basics')}`, type: 'video', duration: '30 mins' },
+              { title: 'Industry Best Practices', url: `https://google.com/search?q=${encodeURIComponent(roleTitle + ' best practices')}`, type: 'doc' }
+            ]
+          }
+        ]
       },
       {
         id: 'phase-2',
-        title: 'Phase 2: Architecture & Service Design',
-        level: 'Practice',
+        title: 'Phase 2: Execution & Deliverables',
+        level: 'Core Practice',
         difficulty: 'Intermediate',
         estimatedHours: 30,
-        topics: ['Modular design', 'API standards', 'Database integration'],
-        skills: ['API Design', 'Databases'],
-        description: 'Build production services.'
+        description: 'Practical projects, artifact generation, and case studies.',
+        skills: ['Execution', 'Strategy'],
+        subModules: [
+          {
+            id: 'sub-2-1',
+            title: 'Practical Execution',
+            description: 'Hands-on workflow execution and deliverables.',
+            keyConcepts: ['Deliverable production', 'Workflow management', 'Feedback integration'],
+            resources: [
+              { title: 'Practical Tutorial', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' practical tutorial')}`, type: 'video', duration: '35 mins' }
+            ]
+          }
+        ]
       },
       {
         id: 'phase-3',
-        title: 'Phase 3: Production Readiness & Deployment',
-        level: 'Production',
+        title: 'Phase 3: Portfolio & Interview Readiness',
+        level: 'Interview Ready',
         difficulty: 'Advanced',
         estimatedHours: 25,
-        topics: ['Containerization', 'CI/CD pipelines', 'Telemetry'],
-        skills: ['Docker', 'CI/CD'],
-        description: 'Deploy to live cloud infrastructure.'
+        description: 'Portfolio defense, STAR framework responses, and interview mastery.',
+        skills: ['Interview Mastery', 'Communication'],
+        subModules: [
+          {
+            id: 'sub-3-1',
+            title: 'Portfolio Showcase & Behavioral Drills',
+            description: 'Structuring your work to ace competency and case interviews.',
+            keyConcepts: ['STAR storytelling', 'Impact defense', 'Negotiation'],
+            resources: [
+              { title: 'Interview Masterclass', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(roleTitle + ' interview questions')}`, type: 'video', duration: '30 mins' }
+            ]
+          }
+        ]
       }
     ]
   };
-  saveCustomRoadmapDb(fallbackId, roleTitle, 'Engineering', JSON.stringify(fallbackRoadmap), targetHorizon, dailyCommitment);
+  saveCustomRoadmapDb(fallbackId, roleTitle, 'Professional Track', JSON.stringify(fallbackRoadmap), targetHorizon, dailyCommitment);
   return { success: true, roadmap: fallbackRoadmap };
 });
 

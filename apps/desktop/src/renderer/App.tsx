@@ -205,13 +205,13 @@ export default function App() {
       if (user.role === 'admin') {
         setActiveTab('admin-overview');
       } else {
-        setActiveTrack('seeker');
-        setActiveTab('feed');
+        setActiveTrack('learner');
+        setActiveTab('learner-roadmaps');
       }
-      addLog(`[Auth] Existing candidate session restored (${user.email}). Direct to dashboard.`);
+      addLog(`[Auth] Session active (${user.email}). Navigated to Learner Roadmaps.`);
     } else {
       setShowOnboarding(true);
-      addLog(`[Auth] New candidate (${user.email}) registered. Direct to onboarding.`);
+      addLog(`[Auth] New user (${user.email}) registered. Direct to onboarding.`);
     }
   };
 
@@ -318,8 +318,8 @@ export default function App() {
               localStorage.setItem('nomadic_user', JSON.stringify(updated));
             }
           } catch {}
-          setActiveTrack('seeker');
-          setActiveTab('feed');
+          setActiveTrack('learner');
+          setActiveTab('learner-roadmaps');
         }}
       />
     );
