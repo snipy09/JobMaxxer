@@ -544,29 +544,13 @@ const ADMIN_NO_SERVICE_ERR =
   'Admin actions require SUPABASE_SERVICE_ROLE_KEY to be set on this machine (operator only).';
 
 function createWindow(): void {
-  const possiblePreloadPaths = [
-    path.join(__dirname, 'preload.cjs'),
-    path.join(__dirname, 'preload.js'),
-    path.join(mainDir, 'preload.cjs'),
-    path.join(mainDir, 'preload.js'),
-    path.join(process.resourcesPath || '', 'app.asar', 'out', 'main', 'preload.cjs'),
-    path.join(process.resourcesPath || '', 'out', 'main', 'preload.cjs'),
-  ];
-  const preloadPath = possiblePreloadPaths.find(p => {
-    try { return Boolean(p && fs.existsSync(p)); } catch { return false; }
-  }) || path.join(__dirname, 'preload.cjs');
-
+  const preloadPath = path.join(__dirname, 'preload.cjs');
   const possibleIcons = [
     path.join(__dirname, '../../assets/icon.ico'),
     path.join(__dirname, '../renderer/assets/logo-icon.png'),
-    path.join(mainDir, '../renderer/assets/logo-icon.png'),
-    path.join(mainDir, '../../assets/icon.ico'),
-    path.join(mainDir, '../../assets/logo.png'),
-    path.join(process.resourcesPath || '', 'assets/icon.ico'),
-    path.join(process.resourcesPath || '', 'assets/logo.png'),
   ];
   const appIcon = possibleIcons.find(p => {
-    try { return Boolean(p && fs.existsSync(p)); } catch { return false; }
+    try { return fs.existsSync(p); } catch { return false; }
   });
 
   mainWindow = new BrowserWindow({
@@ -578,7 +562,8 @@ function createWindow(): void {
     icon: appIcon,
     backgroundColor: '#09090b',
     autoHideMenuBar: true,
-    show: false,
+    show: true,
+    center: true,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
@@ -586,33 +571,6 @@ function createWindow(): void {
       sandbox: false,
       spellcheck: false,
     },
-  });
-
-  mainWindow.once('ready-to-show', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
-  });
-
-  // Failsafe: guarantee window visibility after 400ms across all Windows environments
-  setTimeout(() => {
-    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
-  }, 400);
-
-  // Crash recovery listeners
-  mainWindow.webContents.on('render-process-gone', (event, details) => {
-    console.error('[Renderer Crash]', details);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.reload();
-    }
-  });
-
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    console.error(`[Renderer] Failed to load URL: ${validatedURL}, error: ${errorDescription} (${errorCode})`);
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -634,19 +592,8 @@ function createWindow(): void {
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    const possibleHtmlPaths = [
-      path.join(__dirname, '../renderer/index.html'),
-      path.join(mainDir, '../renderer/index.html'),
-      path.join(process.resourcesPath || '', 'app.asar', 'out', 'renderer', 'index.html'),
-      path.join(process.resourcesPath || '', 'out', 'renderer', 'index.html'),
-    ];
-    const htmlPath = possibleHtmlPaths.find(p => {
-      try { return Boolean(p && fs.existsSync(p)); } catch { return false; }
-    }) || path.join(__dirname, '../renderer/index.html');
-
-    mainWindow.loadFile(htmlPath).catch((err) => {
-      console.error('[Window] loadFile error, retrying fallback:', err);
-      mainWindow?.loadFile(path.join(__dirname, '../renderer/index.html')).catch(() => {});
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html')).catch((err) => {
+      console.error('[Window] loadFile error:', err);
     });
   }
 
