@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   BookOpen, ExternalLink, FileText, Code2, ChevronRight,
-  X, Sparkles, Search, Building, ArrowUpRight, Flame
+  X, Sparkles, Search, Building, ArrowUpRight, Flame,
+  Youtube, Globe, CheckCircle2, ShieldCheck, Play
 } from 'lucide-react';
 import {
   VAULT_TEXTBOOKS, VAULT_CHEATSHEETS,
@@ -45,6 +46,7 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
 }) => {
   const [activeVaultSection, setActiveVaultSection] = useState<'questions' | 'textbooks' | 'cheatsheets'>('questions');
   const [selectedTextbook, setSelectedTextbook] = useState<VaultTextbook | null>(null);
+  const [selectedProblem, setSelectedProblem] = useState<CompanyProblem | null>(null);
   
   // Company-Wise Questions State
   const [selectedCompany, setSelectedCompany] = useState<string>('Google');
@@ -54,27 +56,14 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
 
   const isFree = !currentUser?.tier || currentUser?.tier === 'free';
 
-  const handleOpenLeetCodeAll = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    const url = 'https://leetcode.com/problemset/all/';
+  const handleOpenExternal = (url: string, logMsg?: string) => {
     const api = getApi();
     if (api && api.openExternalUrl) {
       api.openExternalUrl(url);
     } else {
       window.open(url, '_blank');
     }
-    onLog?.('[Resource Vault] Opened All LeetCode Questions in browser.');
-  };
-
-  const handleOpenProblem = (link: string, title: string, e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    const api = getApi();
-    if (api && api.openExternalUrl) {
-      api.openExternalUrl(link);
-    } else {
-      window.open(link, '_blank');
-    }
-    onLog?.(`[Resource Vault] Opened LeetCode problem: "${title}"`);
+    if (logMsg) onLog?.(logMsg);
   };
 
   const allCompanyNames = useMemo(() => {
@@ -110,6 +99,14 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
     return list;
   }, [activeCompanyData, difficultyFilter, problemSearch]);
 
+  const getProblemSlug = (link: string, title: string) => {
+    try {
+      const parts = link.split('/problems/')[1]?.split('/')[0];
+      if (parts) return parts;
+    } catch {}
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  };
+
   return (
     <div className="space-y-6 font-sans max-w-6xl mx-auto pb-20">
       
@@ -129,7 +126,7 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleOpenLeetCodeAll}
+              onClick={() => handleOpenExternal('https://leetcode.com/problemset/all/', '[Resource Vault] Opened All LeetCode Questions in browser.')}
               className="px-4 py-2 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
             >
               <span>All LeetCode Questions</span>
@@ -301,7 +298,7 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
               return (
                 <div
                   key={idx}
-                  onClick={(e) => handleOpenProblem(prob.link, prob.title, e)}
+                  onClick={() => setSelectedProblem(prob)}
                   className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 rounded-2xl p-4 shadow-xs hover:shadow-sm transition flex flex-col justify-between gap-3 cursor-pointer group"
                 >
                   <div className="space-y-1.5">
@@ -335,7 +332,7 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                     </span>
 
                     <span className="text-slate-900 dark:text-white font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform text-xs">
-                      <span>Solve Problem</span>
+                      <span>Solve &amp; Free Solution</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
                     </span>
                   </div>
@@ -453,6 +450,122 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── MODAL: PROBLEM ACCESS & FREE SOLUTION MIRROR (BYPASS PREMIUM) ──── */}
+      {selectedProblem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-in fade-in duration-200 font-sans">
+            
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-[10px] font-mono font-bold mb-1 text-slate-800 dark:text-zinc-200">
+                  <span>{selectedCompany} Problem Portal</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                  {selectedProblem.title}
+                </h3>
+                <div className="text-xs text-slate-500 font-mono mt-0.5">
+                  Difficulty: <strong className={selectedProblem.difficulty.toUpperCase() === 'HARD' ? 'text-rose-500' : selectedProblem.difficulty.toUpperCase() === 'MEDIUM' ? 'text-amber-500' : 'text-emerald-500'}>{selectedProblem.difficulty}</strong> · Frequency: {selectedProblem.frequency || '95.0'}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedProblem(null)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600 dark:text-zinc-400 leading-relaxed">
+                If this question is locked under <strong>LeetCode Premium</strong> on leetcode.com, you can view the complete problem description, test cases, and clean solutions for free via our mirrors:
+              </p>
+
+              <div className="space-y-2 pt-1">
+                {/* 1. Official LeetCode */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenExternal(selectedProblem.link, `[Resource Vault] Opened Official LeetCode link: ${selectedProblem.title}`)}
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/60 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center justify-between transition group shadow-2xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Code2 className="w-4 h-4 text-amber-500" />
+                    <div className="text-left">
+                      <div className="font-bold text-slate-900 dark:text-zinc-100">Solve on LeetCode (Official)</div>
+                      <div className="text-[10px] text-slate-400">Direct portal link to problem on leetcode.com</div>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white" />
+                </button>
+
+                {/* 2. Free WalkCCC / LeetCode.ca Solution Mirror (No Paywall) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const slug = getProblemSlug(selectedProblem.link, selectedProblem.title);
+                    handleOpenExternal(`https://walkccc.me/LeetCode/problems/${slug}/`, `[Resource Vault] Opened Free Solution Mirror for: ${selectedProblem.title}`);
+                  }}
+                  className="w-full p-3 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/70 dark:bg-emerald-950/40 hover:bg-emerald-100/70 text-emerald-950 dark:text-emerald-200 flex items-center justify-between transition group shadow-2xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="text-left">
+                      <div className="font-bold">Free Solution &amp; Editorial (No Paywall)</div>
+                      <div className="text-[10px] opacity-80">Full problem statement, Java/Python/C++ code, and complexity analysis</div>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* 3. YouTube Video Explanation */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenExternal(`https://www.youtube.com/results?search_query=leetcode+${encodeURIComponent(selectedProblem.title)}`, `[Resource Vault] Opened YouTube Solution for: ${selectedProblem.title}`)}
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/60 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center justify-between transition group shadow-2xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Youtube className="w-4 h-4 text-rose-500" />
+                    <div className="text-left">
+                      <div className="font-bold text-slate-900 dark:text-zinc-100">Video Walkthrough (YouTube)</div>
+                      <div className="text-[10px] text-slate-400">Step-by-step intuition, whiteboard diagrams, and code</div>
+                    </div>
+                  </div>
+                  <Play className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-500" />
+                </button>
+
+                {/* 4. Google Discussions */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenExternal(`https://www.google.com/search?q=leetcode+${encodeURIComponent(selectedProblem.title)}+solution`, `[Resource Vault] Opened Google Discussions for: ${selectedProblem.title}`)}
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/60 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center justify-between transition group shadow-2xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Globe className="w-4 h-4 text-blue-500" />
+                    <div className="text-left">
+                      <div className="font-bold text-slate-900 dark:text-zinc-100">Discussions &amp; Alternative Approaches</div>
+                      <div className="text-[10px] text-slate-400">Community forums, edge cases, and optimal algorithms</div>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-slate-400">Nomadic Free Access Vault</span>
+              <button
+                type="button"
+                onClick={() => setSelectedProblem(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
