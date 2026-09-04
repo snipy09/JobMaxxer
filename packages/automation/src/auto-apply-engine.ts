@@ -162,7 +162,7 @@ export class AutoApplyEngine {
       await page.bringToFront().catch(() => {});
 
       // Inject floating overlay
-      await AutoApplyEngine.injectOverlay(page, '⚡ JobMaxxer Bot: Autonomous Engine Active');
+      await AutoApplyEngine.injectOverlay(page, '⚡ Nomadic: Autonomous Engine Active');
 
       // Detect CAPTCHA barriers
       const captchaDetected = await AutoApplyEngine.detectCaptcha(page);
@@ -180,6 +180,38 @@ export class AutoApplyEngine {
           captchaDetected: true,
           error: 'CAPTCHA challenge encountered (open in Chrome)',
         };
+      }
+
+      // Detect Login / Authentication Gate
+      const loginRequired = await AutoApplyEngine.detectLoginRequired(page);
+      if (loginRequired) {
+        await page.bringToFront().catch(() => {});
+        await AutoApplyEngine.injectOverlay(
+          page,
+          '🔐 Sign-In Required — Please log in on this page (Autopilot will resume automatically)',
+          '#f59e0b'
+        );
+        onProgress?.(`[Autonomous] 🔐 Sign-in required for ${url}. Waiting for user login in browser...`);
+
+        const loggedIn = await AutoApplyEngine.waitForLoginComplete(page, onProgress);
+        if (loggedIn) {
+          await AutoApplyEngine.injectOverlay(
+            page,
+            '✓ Sign-In Verified! Resuming autonomous autofill...',
+            '#22c55e'
+          );
+          onProgress?.(`[Autonomous] ✓ User signed in at ${url}. Resuming application filling...`);
+          await page.waitForTimeout(1500);
+        } else {
+          onProgress?.(`[Autonomous] Sign-in timed out for ${url}. Left open in browser.`);
+          return {
+            url,
+            success: false,
+            submitted: false,
+            captchaDetected: false,
+            error: 'Sign-in timed out (left open for manual login in Chrome)',
+          };
+        }
       }
 
       // Expand form if required
@@ -557,6 +589,70 @@ export class AutoApplyEngine {
       }
     } catch {}
     return false;
+  }
+
+  private static async detectLoginRequired(page: Page): Promise<boolean> {
+    try {
+      const url = page.url().toLowerCase();
+      if (
+        url.includes('/login') ||
+        url.includes('/signin') ||
+        url.includes('/auth') ||
+        url.includes('accounts.google.com') ||
+        url.includes('linkedin.com/checkpoint') ||
+        url.includes('login.microsoftonline.com')
+      ) {
+        return true;
+      }
+
+      const loginSelectors = [
+        'input[type="password"]',
+        'form[action*="login" i]',
+        'form[action*="signin" i]',
+        'button:has-text("Sign in with Google")',
+        'button:has-text("Log in to Apply")',
+        'a:has-text("Sign In to Apply")',
+        'a:has-text("Log in to apply")',
+      ];
+
+      for (const sel of loginSelectors) {
+        const el = await page.$(sel);
+        if (el) {
+          const isVisible = await el.isVisible().catch(() => false);
+          if (isVisible) return true;
+        }
+      }
+    } catch {}
+    return false;
+  }
+
+  private static async waitForLoginComplete(
+    page: Page,
+    onProgress?: (msg: string) => void,
+    maxWaitMs: number = 90000
+  ): Promise<boolean> {
+    const startTime = Date.now();
+    let lastNotifiedSec = 0;
+
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const isStillLogin = await AutoApplyEngine.detectLoginRequired(page);
+        if (!isStillLogin) {
+          return true;
+        }
+
+        const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+        if (elapsedSec > 0 && elapsedSec % 10 === 0 && elapsedSec !== lastNotifiedSec) {
+          lastNotifiedSec = elapsedSec;
+          onProgress?.(`[Autonomous] Waiting for user to complete login in Chrome (${elapsedSec}s / 90s)...`);
+        }
+
+        await page.waitForTimeout(2000);
+      } catch {
+        break;
+      }
+    }
+    return !(await AutoApplyEngine.detectLoginRequired(page));
   }
 
   private static async getLabelForInput(page: Page, el: any): Promise<string> {
