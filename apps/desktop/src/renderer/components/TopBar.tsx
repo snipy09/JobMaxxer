@@ -115,14 +115,24 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          <button
-            onClick={onOpenUpgrade}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
-            title="View Subscription Plans"
-          >
-            <Zap className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 fill-current" />
-            <span>Upgrade</span>
-          </button>
+          {/* Upgrade CTA: Hidden if user is already on Seeker Max or Lifetime */}
+          {!Boolean(
+            currentUser?.tier === 'seeker_max' ||
+            currentUser?.tier === 'max' ||
+            currentUser?.tier === 'lifetime' ||
+            currentUser?.subscription_tier === 'seeker_max' ||
+            currentUser?.subscription_tier === 'max' ||
+            currentUser?.subscription_tier === 'lifetime'
+          ) && (
+            <button
+              onClick={onOpenUpgrade}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+              title="View Subscription Plans"
+            >
+              <Zap className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600 fill-current" />
+              <span>Upgrade</span>
+            </button>
+          )}
         </div>
 
       </header>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, Check, ShieldCheck, ExternalLink, X, RefreshCw, Laptop, Shield, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Check, ShieldCheck, ExternalLink, X, MessageSquare, Sparkles } from 'lucide-react';
 import { AppUser, getApi } from '../types';
 
 interface UpgradeModalProps {
@@ -10,6 +10,9 @@ interface UpgradeModalProps {
   triggerFeature?: string;
 }
 
+const WHATSAPP_NUMBER = '919493833632';
+const DISPLAY_WHATSAPP = '+91 94938 33632';
+
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   isOpen,
   onClose,
@@ -17,40 +20,36 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   onUpgradeSuccess,
   triggerFeature
 }) => {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | '3month'>('monthly');
-  const [checkingSync, setCheckingSync] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
   if (!isOpen) return null;
   const api = getApi();
 
-  const handleRazorpayCheckout = (planKey: string) => {
-    const userId = currentUser?.id || 'demo-user';
-    const email = encodeURIComponent(currentUser?.email || 'student@example.com');
-    // Direct Razorpay payment link integration
-    const paymentUrl = `https://rzp.io/l/hirestack-${planKey}?notes[user_id]=${userId}&notes[email]=${email}&notes[plan]=${planKey}`;
+  const handleWhatsAppUpgrade = (planName: string, price: string) => {
+    const userEmail = currentUser?.email || 'my-account@example.com';
+    const message = encodeURIComponent(
+      `Hi, I want to upgrade to Nomadic ${planName} (${price}).\nMy account email is: ${userEmail}`
+    );
+    const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+    
     if (api && api.openExternalUrl) {
-      api.openExternalUrl(paymentUrl);
+      api.openExternalUrl(waUrl);
     } else {
-      window.open(paymentUrl, '_blank');
+      window.open(waUrl, '_blank');
     }
   };
 
   const handleSimulateUpgrade = (tier: string) => {
-    setCheckingSync(true);
+    setSyncFeedback(`✓ Upgraded successfully to ${tier.toUpperCase()} plan! (Dev Mode)`);
+    if (currentUser) {
+      const updated = { ...currentUser, subscription_tier: tier, tier };
+      localStorage.setItem('nomadic_user', JSON.stringify(updated));
+      localStorage.setItem('hirestack_user', JSON.stringify(updated));
+    }
+    onUpgradeSuccess?.();
     setTimeout(() => {
-      setSyncFeedback(`✓ Upgraded successfully to ${tier.toUpperCase()} plan! (Razorpay Test Mode Verified)`);
-      if (currentUser) {
-        const updated = { ...currentUser, subscription_tier: tier };
-        localStorage.setItem('nomadic_user', JSON.stringify(updated));
-        localStorage.setItem('hirestack_user', JSON.stringify(updated));
-      }
-      onUpgradeSuccess?.();
-      setTimeout(() => {
-        setCheckingSync(false);
-        onClose();
-      }, 1200);
-    }, 800);
+      onClose();
+    }, 1200);
   };
 
   return (
@@ -68,15 +67,23 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
         <div className="text-center space-y-2 max-w-lg mx-auto">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-[11px] font-bold text-slate-900 dark:text-white">
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-            {triggerFeature ? `Unlock ${triggerFeature}` : 'Nomadic Subscription Plans'}
+            {triggerFeature ? `Unlock ${triggerFeature}` : 'Nomadic Membership Plans'}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-950 dark:text-white tracking-tight">Accelerate Your Career with Nomadic</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Instant activation via Razorpay UPI (GPay, PhonePe, Paytm, CRED), Netbanking, and Cards.
+            Instant activation &amp; license setup directly via WhatsApp at{' '}
+            <a
+              href={`https://wa.me/${WHATSAPP_NUMBER}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-emerald-600 dark:text-emerald-400 underline underline-offset-2 hover:opacity-80 inline-flex items-center gap-1"
+            >
+              {DISPLAY_WHATSAPP} <ExternalLink className="w-3 h-3" />
+            </a>
           </p>
         </div>
 
-        {/* 4-Tier Plan Grid */}
+        {/* 3-Tier Plan Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
           
           {/* Plan 1: Learner Pro (₹79) */}
@@ -92,21 +99,22 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               </div>
 
               <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700 pt-3">
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Full Duolingo-style skill trees</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Day-by-day scheduler (1h/3h/5h daily)</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Interactive code drills &amp; quizzes</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>GitHub-style activity streak heatmap</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>1-Click Skill Transfer to Seeker</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>Complete Learner Track</strong> access</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Unlimited AI custom career roadmaps</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>All 12+ technical textbooks &amp; system sheets</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>52-Week activity streak heatmap</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>Complete 1,000+ Job Board</strong> access</span></li>
               </ul>
             </div>
 
             <div className="space-y-2 pt-2">
               <button
                 type="button"
-                onClick={() => handleRazorpayCheckout('learner-pro')}
-                className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                onClick={() => handleWhatsAppUpgrade('Learner Pro', '₹79/mo')}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
               >
-                Get Learner Pro (₹79)
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Upgrade via WhatsApp (₹79)</span>
               </button>
               <button
                 type="button"
@@ -131,21 +139,22 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               </div>
 
               <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700 pt-3">
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>Complete Learner Pro</strong> included</span></li>
                 <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>1,000+ source ATS radar (Anti-ghost)</span></li>
                 <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Semi-Auto Apply (up to 50 apps/week)</span></li>
                 <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>25 Verified HR / Recruiter leads/week</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Smart ATS match scoring (0–100%)</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Cloud sync &amp; automated backups</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Multi-Resume library (up to 5 resumes)</span></li>
               </ul>
             </div>
 
             <div className="space-y-2 pt-2">
               <button
                 type="button"
-                onClick={() => handleRazorpayCheckout('seeker-pro')}
-                className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                onClick={() => handleWhatsAppUpgrade('Seeker Pro', '₹149/mo')}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
               >
-                Get Seeker Pro (₹149)
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Upgrade via WhatsApp (₹149)</span>
               </button>
               <button
                 type="button"
@@ -185,10 +194,11 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             <div className="space-y-2 pt-2">
               <button
                 type="button"
-                onClick={() => handleRazorpayCheckout('seeker-max')}
-                className="w-full py-2.5 bg-white hover:bg-slate-100 text-slate-950 dark:bg-slate-950 dark:hover:bg-slate-800 dark:text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+                onClick={() => handleWhatsAppUpgrade('Seeker Max', '₹299/mo')}
+                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
               >
-                Get Seeker Max (₹299)
+                <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                <span>Upgrade via WhatsApp (₹299)</span>
               </button>
               <button
                 type="button"
@@ -208,15 +218,15 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
           </div>
         )}
 
-        {/* Trust Badges Footer */}
+        {/* WhatsApp direct support footer */}
         <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-slate-400">
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>Secure 256-Bit Razorpay Payments (UPI / Cards / Netbanking)</span>
+            <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>Direct WhatsApp Support &amp; Activations: <strong className="text-emerald-600 dark:text-emerald-400">{DISPLAY_WHATSAPP}</strong></span>
           </div>
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0" />
-            <span>Encrypted Cloud Sync</span>
+            <span>Single-Device Hardware Lock Protected</span>
           </div>
         </div>
       </div>

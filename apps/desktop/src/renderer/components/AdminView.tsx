@@ -959,10 +959,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                   onChange={(e) => setSelectedPlanTier(e.target.value as any)}
                   className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none"
                 >
-                  <option value="trial">Trial (7 Days, 10 apps/day)</option>
-                  <option value="pro">Pro Plan (₹149/mo, 100 apps/day)</option>
-                  <option value="max">Max Plan (₹299/mo, 200 apps/day)</option>
-                  <option value="lifetime">Lifetime License (₹999, Permanent)</option>
+                  <option value="free">Free Plan (Default, 1 Preview Track + Top 10 Jobs)</option>
+                  <option value="learner_pro">Learner Pro (₹79/mo, Complete Learner Track + Full Job Board)</option>
+                  <option value="seeker_pro">Seeker Pro (₹149/mo, Learner Pro + 50 Auto-Applies/wk + 25 Leads)</option>
+                  <option value="seeker_max">Seeker Max (₹299/mo, 100% Autonomous Autopilot, Unlimited Everything)</option>
+                  <option value="lifetime">Lifetime VIP (Permanent VIP Access)</option>
                 </select>
               </div>
 
@@ -1052,10 +1053,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                     onChange={e => setNewTier(e.target.value as any)}
                     className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none font-medium"
                   >
-                    <option value="trial">Trial (7 Days Validity + Renewal)</option>
-                    <option value="pro">Pro Plan ($49/mo)</option>
-                    <option value="max">Max Plan ($99/mo)</option>
-                    <option value="lifetime">Lifetime License ($299)</option>
+                    <option value="free">Free Plan (Default)</option>
+                    <option value="learner_pro">Learner Pro (₹79/mo)</option>
+                    <option value="seeker_pro">Seeker Pro (₹149/mo)</option>
+                    <option value="seeker_max">Seeker Max (₹299/mo)</option>
+                    <option value="lifetime">Lifetime License (Permanent VIP)</option>
                   </select>
                 </div>
 
