@@ -94,21 +94,23 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient('jobmaxxer');
 }
 
-// Resilient instance management: never let orphan background processes block new window launches
-try {
-  const gotTheLock = app.requestSingleInstanceLock();
-  if (gotTheLock) {
-    app.on('second-instance', (event, commandLine) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.show();
-        mainWindow.focus();
-        const url = commandLine.find(arg => arg.startsWith('nomadic://') || arg.startsWith('hirestack://') || arg.startsWith('jobmaxxer://'));
-        if (url) handleProtocolUrl(url);
-      }
-    });
-  }
-} catch {}
+// Resilient single-instance lock handling
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.exit(0);
+} else {
+  app.on('second-instance', (event, commandLine) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      const url = commandLine.find(arg => arg.startsWith('nomadic://') || arg.startsWith('hirestack://') || arg.startsWith('jobmaxxer://'));
+      if (url) handleProtocolUrl(url);
+    } else {
+      createWindow();
+    }
+  });
+}
 
 app.on('open-url', (event, url) => {
   event.preventDefault();
@@ -724,8 +726,28 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (heartbeatInterval) clearInterval(heartbeatInterval);
-  if (process.platform !== 'darwin') app.quit();
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  if (oauthServer) {
+    try { oauthServer.close(); } catch {}
+    oauthServer = null;
+  }
+  if (process.platform !== 'darwin') {
+    app.exit(0);
+  }
+});
+
+app.on('before-quit', () => {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  if (oauthServer) {
+    try { oauthServer.close(); } catch {}
+    oauthServer = null;
+  }
 });
 
 // ── IPC: System Dependencies & Health ────────────────────────────────────

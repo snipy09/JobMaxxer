@@ -28,6 +28,7 @@
     ],
     "win": {
       "icon": "assets/icon.ico",
+      "executableName": "NomadicOS",
       "target": [
         "nsis",
         "portable"
@@ -42,11 +43,11 @@
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
       "shortcutName": "Nomadic",
-      "artifactName": "Nomadic Setup ${version}.exe",
-      "uninstallDisplayName": "Nomadic ${version}"
+      "artifactName": "Nomadic Setup 1.0.0.exe",
+      "uninstallDisplayName": "Nomadic 1.0.0"
     },
     "portable": {
-      "artifactName": "Nomadic ${version}.exe",
+      "artifactName": "Nomadic 1.0.0.exe",
       "requestExecutionLevel": "user"
     },
     "mac": {
