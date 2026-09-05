@@ -533,12 +533,12 @@ function hashLogin(email: string, password: string): string {
     .digest('hex');
 }
 
-// The DB allows a legacy 'enterprise' tier; the UI models only these four.
-function normalizeTier(t: unknown): 'trial' | 'pro' | 'max' | 'lifetime' {
-  const s = String(t ?? 'pro');
-  if (s === 'trial' || s === 'pro' || s === 'max' || s === 'lifetime') return s;
-  if (s === 'enterprise') return 'max';
-  return 'pro';
+// Normalize and preserve all Nomadic subscription tiers
+function normalizeTier(t: unknown): string {
+  const s = String(t ?? 'free').toLowerCase();
+  if (['free', 'learner_pro', 'seeker_pro', 'seeker_max', 'lifetime', 'trial', 'pro', 'max'].includes(s)) return s;
+  if (s === 'enterprise') return 'seeker_max';
+  return 'free';
 }
 
 const ADMIN_NO_SERVICE_ERR =

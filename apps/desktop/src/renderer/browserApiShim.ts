@@ -40,9 +40,9 @@ export function createBrowserApiShim(): ElectronAPI {
   // client because RLS (migration 002) restricts it to reading the public job
   // feed + calling the auth RPC. Never hardcode keys in source.
   const _env = ((import.meta as unknown as { env?: Record<string, string> }).env) ?? {};
-  const SUPABASE_URL_BASE = String(_env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '');
-  const SUPABASE_REST_URL = SUPABASE_URL_BASE ? `${SUPABASE_URL_BASE}/rest/v1` : '';
-  const SUPABASE_ANON_KEY = String(_env.VITE_SUPABASE_ANON_KEY ?? '');
+  const SUPABASE_URL_BASE = String(_env.VITE_SUPABASE_URL ?? 'https://jympejesevicwleptfzq.supabase.co').replace(/\/$/, '');
+  const SUPABASE_REST_URL = `${SUPABASE_URL_BASE}/rest/v1`;
+  const SUPABASE_ANON_KEY = String(_env.VITE_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5bXBlamVzZXZpY3dsZXB0ZnpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczOTU5NzQsImV4cCI6MjEwMjk3MTk3NH0.1b6XFrIxH1hLVdjp2arHLdJ4fkiKV-0gb6yNZ7eMbPA');
 
   const fetchLiveDatabaseJobs = async (): Promise<Job[]> => {
     if (!SUPABASE_REST_URL || !SUPABASE_ANON_KEY) return [];
@@ -704,7 +704,37 @@ export function createBrowserApiShim(): ElectronAPI {
       }
     },
 
-    adminGetUsers: async () => getStoredUsers(),
+    adminGetUsers: async () => {
+      if (SUPABASE_REST_URL && SUPABASE_ANON_KEY) {
+        try {
+          const res = await fetch(`${SUPABASE_REST_URL}/users_profile?select=*&order=created_at.desc`, {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              return data.map((u: any) => ({
+                id: String(u.id || u.email),
+                email: String(u.email),
+                fullName: String(u.full_name || u.email.split('@')[0]),
+                role: u.role === 'admin' ? 'admin' : 'user',
+                tier: u.subscription_tier || 'free',
+                licenseKey: String(u.license_key || ''),
+                status: u.status === 'suspended' ? 'suspended' : 'active',
+                appsCount: Number(u.apps_count || 0),
+                createdAt: String(u.created_at || new Date().toISOString()),
+                expiresAt: u.expires_at ? String(u.expires_at) : undefined,
+                lastLogin: u.last_login ? String(u.last_login) : undefined,
+              }));
+            }
+          }
+        } catch {}
+      }
+      return getStoredUsers();
+    },
 
     adminCreateUser: async (user) => {
       const users = getStoredUsers();
@@ -770,6 +800,23 @@ export function createBrowserApiShim(): ElectronAPI {
     },
 
     adminAssignPlan: async (data) => {
+      if (SUPABASE_REST_URL && SUPABASE_ANON_KEY && data.email) {
+        try {
+          await fetch(`${SUPABASE_REST_URL}/users_profile?email=eq.${encodeURIComponent(data.email.toLowerCase())}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              subscription_tier: data.planTier,
+              updated_at: new Date().toISOString(),
+            }),
+          });
+        } catch {}
+      }
+
       const users = getStoredUsers();
       const updated = users.map(u => {
         if (u.id === data.userId || String(u.id) === String(data.userId) || (data.email && u.email.toLowerCase() === data.email.toLowerCase())) {
