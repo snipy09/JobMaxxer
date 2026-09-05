@@ -22,7 +22,7 @@ export interface AtsBoardConfig {
 }
 
 export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
-  // Top Indian Tech & India Hubs
+  // Top Indian Tech & Local Startups / Unicorns
   { name: 'Postman', type: 'greenhouse', boardId: 'postman' },
   { name: 'Razorpay', type: 'lever', boardId: 'razorpay' },
   { name: 'BrowserStack', type: 'greenhouse', boardId: 'browserstack' },
@@ -38,35 +38,40 @@ export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
   { name: 'Meesho', type: 'greenhouse', boardId: 'meesho' },
   { name: 'Groww', type: 'greenhouse', boardId: 'groww' },
   { name: 'Urban Company', type: 'greenhouse', boardId: 'urbancompany' },
+  { name: 'Sprinto', type: 'lever', boardId: 'sprinto' },
+  { name: 'Darwinbox', type: 'greenhouse', boardId: 'darwinbox' },
+  { name: 'Whatfix', type: 'greenhouse', boardId: 'whatfix' },
+  { name: 'MoEngage', type: 'greenhouse', boardId: 'moengage' },
+  { name: 'SigNoz', type: 'ashby', boardId: 'signoz' },
+  { name: 'Appwrite', type: 'ashby', boardId: 'appwrite' },
+  { name: 'Khatabook', type: 'greenhouse', boardId: 'khatabook' },
 
-  // Global MNC India Centers & Global Remote
-  { name: 'Stripe', type: 'greenhouse', boardId: 'stripe' },
-  { name: 'Anthropic', type: 'greenhouse', boardId: 'anthropic' },
-  { name: 'Datadog', type: 'greenhouse', boardId: 'datadog' },
-  { name: 'Cloudflare', type: 'greenhouse', boardId: 'cloudflare' },
-  { name: 'Brex', type: 'greenhouse', boardId: 'brex' },
-  { name: 'Scale AI', type: 'greenhouse', boardId: 'scaleai' },
-  { name: 'Affirm', type: 'greenhouse', boardId: 'affirm' },
-  { name: 'GitLab', type: 'greenhouse', boardId: 'gitlab' },
-  { name: 'Coinbase', type: 'greenhouse', boardId: 'coinbase' },
-  { name: 'Flexport', type: 'greenhouse', boardId: 'flexport' },
-  { name: 'Figma', type: 'greenhouse', boardId: 'figma' },
-  { name: 'Reddit', type: 'greenhouse', boardId: 'reddit' },
-  { name: 'Gusto', type: 'greenhouse', boardId: 'gusto' },
-  { name: 'Vercel', type: 'greenhouse', boardId: 'vercel' },
-  { name: 'Discord', type: 'greenhouse', boardId: 'discord' },
-  { name: 'Checkr', type: 'greenhouse', boardId: 'checkr' },
-  { name: 'Webflow', type: 'greenhouse', boardId: 'webflow' },
-
-  // Ashby Boards
-  { name: 'Ramp', type: 'ashby', boardId: 'ramp' },
-  { name: 'Cursor', type: 'ashby', boardId: 'cursor' },
-  { name: 'Perplexity', type: 'ashby', boardId: 'perplexity' },
-  { name: 'Replit', type: 'ashby', boardId: 'replit' },
+  // Fast-Growing YC & Global Tech Scaleups
   { name: 'Supabase', type: 'ashby', boardId: 'supabase' },
   { name: 'Linear', type: 'ashby', boardId: 'linear' },
   { name: 'Modal', type: 'ashby', boardId: 'modal' },
   { name: 'Resend', type: 'ashby', boardId: 'resend' },
+  { name: 'Cursor', type: 'ashby', boardId: 'cursor' },
+  { name: 'Perplexity', type: 'ashby', boardId: 'perplexity' },
+  { name: 'Replit', type: 'ashby', boardId: 'replit' },
+  { name: 'Ramp', type: 'ashby', boardId: 'ramp' },
+  { name: 'Brex', type: 'greenhouse', boardId: 'brex' },
+  { name: 'Scale AI', type: 'greenhouse', boardId: 'scaleai' },
+  { name: 'Vercel', type: 'greenhouse', boardId: 'vercel' },
+  { name: 'Discord', type: 'greenhouse', boardId: 'discord' },
+  { name: 'Checkr', type: 'greenhouse', boardId: 'checkr' },
+  { name: 'Webflow', type: 'greenhouse', boardId: 'webflow' },
+  { name: 'Figma', type: 'greenhouse', boardId: 'figma' },
+  { name: 'Reddit', type: 'greenhouse', boardId: 'reddit' },
+  { name: 'Gusto', type: 'greenhouse', boardId: 'gusto' },
+  { name: 'Stripe', type: 'greenhouse', boardId: 'stripe' },
+  { name: 'Anthropic', type: 'greenhouse', boardId: 'anthropic' },
+  { name: 'Datadog', type: 'greenhouse', boardId: 'datadog' },
+  { name: 'Cloudflare', type: 'greenhouse', boardId: 'cloudflare' },
+  { name: 'GitLab', type: 'greenhouse', boardId: 'gitlab' },
+  { name: 'Coinbase', type: 'greenhouse', boardId: 'coinbase' },
+  { name: 'Flexport', type: 'greenhouse', boardId: 'flexport' },
+  { name: 'Affirm', type: 'greenhouse', boardId: 'affirm' },
 ];
 
 export async function scrapeAtsApis(
