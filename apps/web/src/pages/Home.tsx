@@ -723,8 +723,213 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 7. Section: Learning */}
-      <section id="learning" className="py-20 px-4 sm:px-6 bg-white border-b border-[#E5E5E5]">
+      {/* 7. Section: Pricing */}
+      <section id="pricing" className="py-20 px-4 sm:px-6 bg-white border-b border-[#E5E5E5]">
+        <div className="max-w-6xl mx-auto space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <span className="text-[11px] font-mono font-bold text-[#888888] uppercase tracking-wider">Pricing</span>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#0A0A0A]">
+              Simple, transparent pricing
+            </h2>
+            <p className="text-sm text-[#555555]">
+              Start with a free 3-day trial. Upgrade as your job search expands.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Free Trial */}
+            <div className="p-6 rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Free Trial</h3>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹0</span>
+                    <span className="text-xs text-[#777777]">/ 3 days</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-2 text-xs text-[#555555]">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>3-day trial</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Standard career roadmaps</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Curated job feed</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Local data storage</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Direct application links</span>
+                  </li>
+                </ul>
+              </div>
+
+              <a
+                href="#/download"
+                className="w-full text-center py-2 px-3 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] text-xs font-semibold text-[#0A0A0A] transition-colors block"
+              >
+                Download Free Trial
+              </a>
+            </div>
+
+            {/* Learner Pro */}
+            <div className="p-6 rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Learner Pro</h3>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹79</span>
+                    <span className="text-xs text-[#777777]">/ mo</span>
+                  </div>
+                  <p className="text-xs text-[#666666] mt-1">Complete Learner Track + Full Job Board.</p>
+                </div>
+
+                <ul className="space-y-2 text-xs text-[#555555]">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span><strong>Complete Learner Track</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span><strong>428+ Company LeetCode Question Bank</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Unlimited AI custom roadmaps</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>All 12+ textbooks &amp; sheets</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>52-Week activity streak heatmap</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span><strong>Full 1,000+ Job Board Feed</strong></span>
+                  </li>
+                </ul>
+              </div>
+
+              <a
+                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Learner%20Pro%20(%E2%82%B979%2Fmo)."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-center py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block"
+              >
+                Upgrade via WhatsApp (₹79)
+              </a>
+            </div>
+
+            {/* Seeker Pro */}
+            <div className="p-6 rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Seeker Pro</h3>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹149</span>
+                    <span className="text-xs text-[#777777]">/ mo</span>
+                  </div>
+                  <p className="text-xs text-[#666666] mt-1">For active applicants &amp; job hunters.</p>
+                </div>
+
+                <ul className="space-y-2 text-xs text-[#555555]">
+                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span><strong>Complete Learner Pro</strong> included</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Expanded 1,000+ source ATS feed</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Semi-Auto Apply (50 apps/wk)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>25 Verified HR leads/wk</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Multi-Resume library (up to 5)</span>
+                  </li>
+                </ul>
+              </div>
+
+              <a
+                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Seeker%20Pro%20(%E2%82%B9149%2Fmo)."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-center py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block"
+              >
+                Upgrade via WhatsApp (₹149)
+              </a>
+            </div>
+
+            {/* Seeker Max (Highlighted as complete product) */}
+            <div className="p-6 rounded-xl border-2 border-[#0A0A0A] bg-white flex flex-col justify-between space-y-6 shadow-sm relative">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Seeker Max</h3>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#0A0A0A] text-white">Full Autopilot</span>
+                </div>
+                <div>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹299</span>
+                    <span className="text-xs text-[#777777]">/ mo</span>
+                  </div>
+                  <p className="text-xs text-[#666666] mt-1">Full suite: 100% Autonomous Autopilot.</p>
+                </div>
+
+                <ul className="space-y-2 text-xs text-[#555555]">
+                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span><strong>Complete Learner Pro</strong> included</span>
+                  </li>
+                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span><strong>100% Autonomous Auto-Apply</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Automated 0%-bounce HR email drip</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Priority 15-min ATS ingest</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                    <span>Hardware lock security</span>
+                  </li>
+                </ul>
+              </div>
+
+              <a
+                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Seeker%20Max%20(%E2%82%B9299%2Fmo)."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-center py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block"
+              >
+                Upgrade via WhatsApp (₹299)
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. Section: Learning */}
+      <section id="learning" className="py-20 px-4 sm:px-6 bg-[#FAFAFA] border-b border-[#E5E5E5]">
         <div className="max-w-5xl mx-auto space-y-10">
           <div className="max-w-2xl space-y-3">
             <span className="text-[11px] font-mono font-bold text-[#888888] uppercase tracking-wider">Career Roadmap</span>
@@ -1127,211 +1332,6 @@ export default function Home() {
               <p className="text-xs text-[#888888] leading-relaxed">
                 Engineered natively for Windows, macOS and Linux.
               </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 14. Section: Pricing */}
-      <section id="pricing" className="py-20 px-4 sm:px-6 bg-white border-b border-[#E5E5E5]">
-        <div className="max-w-6xl mx-auto space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <span className="text-[11px] font-mono font-bold text-[#888888] uppercase tracking-wider">Pricing</span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#0A0A0A]">
-              Simple, transparent pricing
-            </h2>
-            <p className="text-sm text-[#555555]">
-              Start with a free 3-day trial. Upgrade as your job search expands.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Free Trial */}
-            <div className="p-6 rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Free Trial</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹0</span>
-                    <span className="text-xs text-[#777777]">/ 3 days</span>
-                  </div>
-                </div>
-
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>3-day trial</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Standard career roadmaps</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Curated job feed</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Local data storage</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Direct application links</span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href="#/download"
-                className="w-full text-center py-2 px-3 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] text-xs font-semibold text-[#0A0A0A] transition-colors block"
-              >
-                Download Free Trial
-              </a>
-            </div>
-
-            {/* Learner Pro */}
-            <div className="p-6 rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Learner Pro</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹79</span>
-                    <span className="text-xs text-[#777777]">/ mo</span>
-                  </div>
-                  <p className="text-xs text-[#666666] mt-1">Complete Learner Track + Full Job Board.</p>
-                </div>
-
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>Complete Learner Track</strong></span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>428+ Company LeetCode Question Bank</strong></span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Unlimited AI custom roadmaps</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>All 12+ textbooks &amp; sheets</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>52-Week activity streak heatmap</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>Full 1,000+ Job Board Feed</strong></span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Learner%20Pro%20(%E2%82%B979%2Fmo)."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full text-center py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block"
-              >
-                Upgrade via WhatsApp (₹79)
-              </a>
-            </div>
-
-            {/* Seeker Pro */}
-            <div className="p-6 rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Seeker Pro</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹149</span>
-                    <span className="text-xs text-[#777777]">/ mo</span>
-                  </div>
-                  <p className="text-xs text-[#666666] mt-1">For active applicants &amp; job hunters.</p>
-                </div>
-
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>Complete Learner Pro</strong> included</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Expanded 1,000+ source ATS feed</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Semi-Auto Apply (50 apps/wk)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>25 Verified HR leads/wk</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Multi-Resume library (up to 5)</span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Seeker%20Pro%20(%E2%82%B9149%2Fmo)."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full text-center py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block"
-              >
-                Upgrade via WhatsApp (₹149)
-              </a>
-            </div>
-
-            {/* Seeker Max (Highlighted as complete product) */}
-            <div className="p-6 rounded-xl border-2 border-[#0A0A0A] bg-white flex flex-col justify-between space-y-6 shadow-sm relative">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Seeker Max</h3>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#0A0A0A] text-white">Full Autopilot</span>
-                </div>
-                <div>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹299</span>
-                    <span className="text-xs text-[#777777]">/ mo</span>
-                  </div>
-                  <p className="text-xs text-[#666666] mt-1">Full suite: 100% Autonomous Autopilot.</p>
-                </div>
-
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>Complete Learner Pro</strong> included</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>100% Autonomous Auto-Apply</strong></span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Automated 0%-bounce HR email drip</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Priority 15-min ATS ingest</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Hardware lock security</span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Seeker%20Max%20(%E2%82%B9299%2Fmo)."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full text-center py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block"
-              >
-                Upgrade via WhatsApp (₹299)
-              </a>
             </div>
           </div>
         </div>
