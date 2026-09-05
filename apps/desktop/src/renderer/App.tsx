@@ -282,38 +282,43 @@ export default function App() {
     addLog('[Auth] Signed out.');
   };
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = async (updatedProfile?: MasterProfile): Promise<boolean> => {
     const api = getApi();
-    if (!api) return;
+    const profToSave = updatedProfile || profile;
     setSavingProfile(true);
+    setProfile(profToSave);
     try {
       localStorage.setItem('nomadic_master_profile', JSON.stringify({
-        ...profile,
+        ...profToSave,
         onboardingCompleted: true,
       }));
     } catch {}
     try {
-      await api.saveMasterProfile({
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        email: profile.email,
-        phone: profile.phone,
-        linkedin: profile.linkedin,
-        github: profile.github,
-        sponsorship: profile.sponsorship,
-        desiredSalary: profile.desiredSalary,
-        noticePeriod: profile.noticePeriod,
-        groqApiKey: profile.groqApiKey,
-        smtpPassword: profile.smtpPassword,
-        resumeText: profile.resumeText,
-        desiredTitle: profile.desiredTitle,
-        techStack: profile.techStack,
-        customAnswersJson: JSON.stringify(profile.customAnswers || {}),
-        onboarding_completed: 1,
-      });
+      if (api && api.saveMasterProfile) {
+        await api.saveMasterProfile({
+          firstName: profToSave.firstName,
+          lastName: profToSave.lastName,
+          email: profToSave.email,
+          phone: profToSave.phone,
+          linkedin: profToSave.linkedin,
+          github: profToSave.github,
+          sponsorship: profToSave.sponsorship,
+          desiredSalary: profToSave.desiredSalary,
+          noticePeriod: profToSave.noticePeriod,
+          groqApiKey: profToSave.groqApiKey,
+          smtpPassword: profToSave.smtpPassword,
+          resumeText: profToSave.resumeText,
+          desiredTitle: profToSave.desiredTitle,
+          techStack: profToSave.techStack,
+          customAnswersJson: JSON.stringify(profToSave.customAnswers || {}),
+          onboarding_completed: 1,
+        });
+      }
       addLog('[Profile] Master candidate profile saved.');
+      return true;
     } catch (err: any) {
       addLog(`[Profile] Failed to save profile: ${err?.message || String(err)}`);
+      return false;
     } finally {
       setSavingProfile(false);
     }
@@ -524,14 +529,12 @@ export default function App() {
             {(activeTab === 'profile' || activeTab === 'settings') && (
               <ProfileView
                 profile={profile}
-                setProfile={setProfile}
+                onSaveProfile={handleSaveProfile}
                 onSave={handleSaveProfile}
                 saving={savingProfile}
                 onLog={addLog}
-                logs={logs}
-                onClearLogs={() => setLogs([])}
-                heartbeat={heartbeat}
                 currentUser={currentUser}
+                onNavigateTab={handleNavigate}
                 onLogout={handleLogout}
                 onRerunOnboarding={() => setShowOnboarding(true)}
               />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   User, FileText, CheckCircle2, Shield,
   Save, AlertCircle, RefreshCw, Key, Database,
@@ -6,52 +6,109 @@ import {
 } from 'lucide-react';
 import { MasterProfile, getApi, AppUser } from '../types';
 
+interface ProfileFormData {
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  location: string;
+  linkedin: string;
+  github: string;
+  portfolio: string;
+  currentRole: string;
+  targetRole: string;
+  yearsOfExperience: number;
+  skills: string[];
+  workExperience: any[];
+  education: any[];
+  preferredJobTypes: string[];
+  expectedSalaryMin: number;
+  expectedSalaryMax: number;
+  salaryCurrency: string;
+  willingToRelocate: boolean;
+  authorizedToWorkInUS: boolean;
+  requiresSponsorship: boolean;
+  answers: Record<string, any>;
+  resumes: Array<{ id: string; name: string; filePath?: string }>;
+  defaultResumeId?: string;
+  onboardingCompleted: boolean;
+}
+
 interface ProfileViewProps {
   profile: MasterProfile | null;
-  onSaveProfile: (profile: MasterProfile) => Promise<boolean>;
+  onSaveProfile?: (profile: MasterProfile) => Promise<boolean>;
+  onSave?: (profile: MasterProfile) => Promise<boolean | void>;
   onLog?: (msg: string) => void;
   currentUser?: AppUser | null;
   onNavigateTab?: (tab: string) => void;
+  onLogout?: () => void;
+  onRerunOnboarding?: () => void;
+  saving?: boolean;
 }
 
 type SettingsSection = 'profile' | 'resumes' | 'answers' | 'automation' | 'account';
 
+/**
+ * Normalizes any partial, legacy, or undefined profile structure into a guaranteed typed contract.
+ */
+function normalizeProfileToFormData(profile: MasterProfile | null, currentUser?: AppUser | null): ProfileFormData {
+  const p = profile || ({} as any);
+
+  const fName = p.firstName || (currentUser?.fullName ? currentUser.fullName.split(' ')[0] : '');
+  const lName = p.lastName || (currentUser?.fullName ? currentUser.fullName.split(' ').slice(1).join(' ') : '');
+  const fullName = p.firstName || p.lastName
+    ? `${p.firstName || ''} ${p.lastName || ''}`.trim()
+    : (p.fullName || currentUser?.fullName || '');
+
+  // Parse skills: prioritize explicit array, fallback to comma-separated techStack string
+  let skillsArr: string[] = [];
+  if (Array.isArray(p.skills)) {
+    skillsArr = p.skills.filter((s: any) => typeof s === 'string' && s.trim().length > 0);
+  } else if (typeof p.techStack === 'string' && p.techStack.trim().length > 0) {
+    skillsArr = p.techStack.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }
+
+  return {
+    fullName,
+    firstName: fName,
+    lastName: lName,
+    email: p.email || currentUser?.email || '',
+    phone: p.phone || '',
+    location: p.location || '',
+    linkedin: p.linkedin || p.linkedin_url || '',
+    github: p.github || p.github_url || '',
+    portfolio: p.portfolio || '',
+    currentRole: p.currentRole || '',
+    targetRole: p.targetRole || p.desiredTitle || 'Software Engineer',
+    yearsOfExperience: typeof p.yearsOfExperience === 'number' ? p.yearsOfExperience : 2,
+    skills: skillsArr,
+    workExperience: Array.isArray(p.workExperience) ? p.workExperience : [],
+    education: Array.isArray(p.education) ? p.education : [],
+    preferredJobTypes: Array.isArray(p.preferredJobTypes) ? p.preferredJobTypes : ['full-time', 'remote'],
+    expectedSalaryMin: typeof p.expectedSalaryMin === 'number' ? p.expectedSalaryMin : 80000,
+    expectedSalaryMax: typeof p.expectedSalaryMax === 'number' ? p.expectedSalaryMax : 130000,
+    salaryCurrency: p.salaryCurrency || 'USD',
+    willingToRelocate: Boolean(p.willingToRelocate),
+    authorizedToWorkInUS: p.sponsorship ? p.sponsorship.toLowerCase() === 'no' : (p.authorizedToWorkInUS ?? true),
+    requiresSponsorship: p.sponsorship ? p.sponsorship.toLowerCase() === 'yes' : (p.requiresSponsorship ?? false),
+    answers: p.answers || p.customAnswers || {},
+    resumes: Array.isArray(p.resumes) ? p.resumes : [],
+    defaultResumeId: p.defaultResumeId,
+    onboardingCompleted: p.onboardingCompleted ?? true,
+  };
+}
+
 export const ProfileView: React.FC<ProfileViewProps> = ({
   profile,
   onSaveProfile,
+  onSave,
   onLog,
   currentUser,
   onNavigateTab,
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
-  const [formData, setFormData] = useState<MasterProfile>(() => {
-    return profile || {
-      fullName: currentUser?.fullName || '',
-      email: currentUser?.email || '',
-      phone: '',
-      location: '',
-      linkedin: '',
-      github: '',
-      portfolio: '',
-      currentRole: '',
-      targetRole: 'Software Engineer',
-      yearsOfExperience: 2,
-      skills: [],
-      workExperience: [],
-      education: [],
-      preferredJobTypes: ['full-time', 'remote'],
-      expectedSalaryMin: 80000,
-      expectedSalaryMax: 130000,
-      salaryCurrency: 'USD',
-      willingToRelocate: false,
-      authorizedToWorkInUS: true,
-      requiresSponsorship: false,
-      answers: {},
-      resumes: [],
-      defaultResumeId: undefined,
-      onboardingCompleted: true,
-    };
-  });
+  const [formData, setFormData] = useState<ProfileFormData>(() => normalizeProfileToFormData(profile, currentUser));
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -73,11 +130,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     } catch {}
   }, []);
 
+  // Update form data whenever profile or currentUser changes, always through normalizer
   useEffect(() => {
     if (profile) {
-      setFormData(profile);
+      setFormData(normalizeProfileToFormData(profile, currentUser));
     }
-  }, [profile]);
+  }, [profile, currentUser]);
 
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -85,7 +143,56 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setSaveSuccess(false);
 
     try {
-      const ok = await onSaveProfile(formData);
+      const names = (formData.fullName || '').trim().split(' ');
+      const firstName = names[0] || formData.firstName || '';
+      const lastName = names.slice(1).join(' ') || formData.lastName || '';
+      const safeSkills = Array.isArray(formData.skills) ? formData.skills : [];
+      const techStack = safeSkills.join(', ');
+
+      const updatedProfile: MasterProfile = {
+        ...(profile || {}),
+        firstName,
+        lastName,
+        email: formData.email,
+        phone: formData.phone,
+        linkedin: formData.linkedin,
+        github: formData.github,
+        desiredTitle: formData.targetRole,
+        techStack,
+        sponsorship: formData.requiresSponsorship ? 'Yes' : 'No',
+        customAnswers: { ...(profile?.customAnswers || {}), ...(formData.answers || {}) },
+        onboardingCompleted: true,
+      };
+
+      // Call parent callback if available
+      let ok = true;
+      if (onSaveProfile) {
+        ok = await onSaveProfile(updatedProfile);
+      } else if (onSave) {
+        const res = await onSave(updatedProfile);
+        ok = res !== false;
+      }
+
+      // Sync to desktop API
+      const api = getApi();
+      if (api && api.saveMasterProfile) {
+        await api.saveMasterProfile({
+          firstName,
+          lastName,
+          email: formData.email,
+          phone: formData.phone,
+          linkedin: formData.linkedin,
+          github: formData.github,
+          sponsorship: formData.requiresSponsorship ? 'Yes' : 'No',
+          desiredSalary: `${formData.expectedSalaryMin || 80000}`,
+          noticePeriod: '2 weeks',
+          desiredTitle: formData.targetRole,
+          techStack,
+          customAnswersJson: JSON.stringify(formData.answers || {}),
+          onboarding_completed: 1,
+        });
+      }
+
       if (ok) {
         setSaveSuccess(true);
         onLog?.('[Settings] Profile settings saved successfully');
@@ -102,10 +209,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     if (e.key === 'Enter' && skillInput.trim()) {
       e.preventDefault();
       const newSkill = skillInput.trim();
-      if (!formData.skills.includes(newSkill)) {
+      const currentSkills = Array.isArray(formData.skills) ? formData.skills : [];
+      if (!currentSkills.includes(newSkill)) {
         setFormData((prev) => ({
           ...prev,
-          skills: [...prev.skills, newSkill],
+          skills: [...(Array.isArray(prev.skills) ? prev.skills : []), newSkill],
         }));
       }
       setSkillInput('');
@@ -115,7 +223,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const handleRemoveSkill = (skillToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      skills: prev.skills.filter((s) => s !== skillToRemove),
+      skills: (Array.isArray(prev.skills) ? prev.skills : []).filter((s) => s !== skillToRemove),
     }));
   };
 
@@ -131,16 +239,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setTimeout(() => setCalibrationSuccess(false), 4000);
   };
 
-  // Calculate completeness
-  const completenessChecks = [
-    Boolean(formData.fullName?.trim()),
+  // Safely calculate profile completeness
+  const safeSkillsList = Array.isArray(formData.skills) ? formData.skills : [];
+  const safeResumesList = Array.isArray(formData.resumes) ? formData.resumes : [];
+
+  const completenessChecks = useMemo(() => [
+    Boolean(formData.fullName?.trim() || `${formData.firstName || ''} ${formData.lastName || ''}`.trim()),
     Boolean(formData.email?.trim()),
     Boolean(formData.targetRole?.trim()),
-    formData.skills.length > 0,
+    safeSkillsList.length > 0,
     Boolean(formData.linkedin?.trim() || formData.github?.trim()),
-  ];
+  ], [formData.fullName, formData.firstName, formData.lastName, formData.email, formData.targetRole, safeSkillsList.length, formData.linkedin, formData.github]);
+
   const completenessPercent = Math.round(
-    (completenessChecks.filter(Boolean).length / completenessChecks.length) * 100
+    (completenessChecks.filter(Boolean).length / Math.max(1, completenessChecks.length)) * 100
   );
 
   return (
@@ -150,7 +262,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-950 dark:text-white">
-            Settings & Control
+            Settings &amp; Control
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Manage your candidate profile, application automation, and platform preferences.
@@ -183,12 +295,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="flex-1 flex overflow-hidden">
         
         {/* Internal Settings Navigation Sidebar */}
-        <aside className="w-60 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 space-y-6">
+        <aside className="w-60 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 space-y-6 shrink-0">
           
           {/* Section 1: Profile & Identity */}
           <div className="space-y-1">
             <div className="px-3 text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">
-              PROFILE & ASSETS
+              PROFILE &amp; ASSETS
             </div>
             <div className="space-y-0.5">
               <button
@@ -218,9 +330,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 <div className="flex items-center gap-2.5">
                   <FileText className="w-3.5 h-3.5" />
-                  <span>Resumes & CVs</span>
+                  <span>Resumes &amp; CVs</span>
                 </div>
-                <span className="text-[10px] font-mono">{formData.resumes?.length || 0}</span>
+                <span className="text-[10px] font-mono">{safeResumesList.length}</span>
               </button>
 
               <button
@@ -243,7 +355,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {/* Section 2: Automation & AI */}
           <div className="space-y-1">
             <div className="px-3 text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">
-              AUTOMATION & SYSTEM
+              AUTOMATION &amp; SYSTEM
             </div>
             <div className="space-y-0.5">
               <button
@@ -257,7 +369,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 <div className="flex items-center gap-2.5">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>AI & Automation</span>
+                  <span>AI &amp; Automation</span>
                 </div>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               </button>
@@ -273,7 +385,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 <div className="flex items-center gap-2.5">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Account & Storage</span>
+                  <span>Account &amp; Storage</span>
                 </div>
               </button>
             </div>
@@ -440,7 +552,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
                   />
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
-                    {formData.skills.map((skill) => (
+                    {safeSkillsList.map((skill) => (
                       <span
                         key={skill}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200/60 dark:border-slate-700"
@@ -462,7 +574,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               {/* Online Profiles / Links */}
               <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <h3 className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase">
-                  Links & Social
+                  Links &amp; Social
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -501,16 +613,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-base font-bold text-slate-950 dark:text-white">
-                  Resumes & Multi-CVs
+                  Resumes &amp; Multi-CVs
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Nomadic matches your attached resumes to ATS portals during auto-apply.
                 </p>
               </div>
 
-              {formData.resumes && formData.resumes.length > 0 ? (
+              {safeResumesList.length > 0 ? (
                 <div className="space-y-3">
-                  {formData.resumes.map((res) => (
+                  {safeResumesList.map((res) => (
                     <div
                       key={res.id}
                       className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between shadow-2xs"
@@ -637,7 +749,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-base font-bold text-slate-950 dark:text-white">
-                  Automation & System Engine
+                  Automation &amp; System Engine
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Real-time status of the local automation runner and career intelligence backends.
@@ -683,7 +795,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-base font-bold text-slate-950 dark:text-white">
-                  Account & Storage
+                  Account &amp; Storage
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Hardware-anchored local database and authentication details.
