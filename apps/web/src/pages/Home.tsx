@@ -290,16 +290,16 @@ export default function Home() {
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#f0f7ff] text-[#0369a1] border border-[#bae2fd]/70 shadow-2xs">
             <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7]" />
-            <span>Universal Career OS</span>
+            <span>AI Career Accelerator &amp; Application Autopilot</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-[#0A0A0A] leading-[1.1]">
-            Build your career.<br />
-            Automate the busywork.
+            Master skills faster.<br />
+            Land opportunities on autopilot.
           </h1>
 
           <p className="text-base sm:text-lg text-[#555555] max-w-2xl mx-auto leading-relaxed font-normal">
-            Nomadic brings career learning, job discovery, application automation, and application tracking into one focused desktop workspace.
+            Personalized AI roadmaps, 428+ company LeetCode problem sets, real-time ATS job radar, and 1-click autonomous applications — all in one focused desktop workspace.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
