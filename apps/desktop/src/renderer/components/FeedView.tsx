@@ -34,6 +34,27 @@ const DEMO_TEST_JOB: Job = {
   createdAt: new Date().toISOString(),
 };
 
+// Canonical Job Deduplication Helper
+function deduplicateJobList(jobList: Job[]): Job[] {
+  const seenKeys = new Set<string>();
+  const unique: Job[] = [];
+
+  for (const j of jobList) {
+    if (!j) continue;
+    const cleanUrl = (j.applyUrl || '').split('?')[0].toLowerCase().trim();
+    const cleanCompany = (j.company || '').toLowerCase().trim();
+    const cleanTitle = (j.title || '').toLowerCase().trim();
+    const key = j.jobHash || `${cleanCompany}|${cleanTitle}|${cleanUrl}`;
+
+    if (!seenKeys.has(key) && (!cleanUrl || !seenKeys.has(cleanUrl))) {
+      seenKeys.add(key);
+      if (cleanUrl && cleanUrl.length > 5) seenKeys.add(cleanUrl);
+      unique.push(j);
+    }
+  }
+  return unique;
+}
+
 export const FeedView: React.FC<FeedViewProps> = ({
   profile,
   onUpdateProfile,
@@ -100,14 +121,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
       }
       const res = await api.getCloudFeed('candidate');
       if (res && res.success && res.jobs && res.jobs.length > 0) {
-        const combined = [DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)];
+        const combined = deduplicateJobList([DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
         setJobs(combined);
         saveJobsToLocalStorage(combined);
         setFeedNotification({
           type: 'success',
-          message: `Refreshed ${res.jobs.length} opportunities from live feeds.`
+          message: `Refreshed ${combined.length} verified opportunities from live feeds.`
         });
-        onLog(`[Job Board] Feed updated with ${res.jobs.length} positions.`);
+        onLog(`[Job Board] Feed updated with ${combined.length} unique positions.`);
       } else {
         await fetchCloudJobs();
         setFeedNotification({
@@ -134,10 +155,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
     try {
       const res = await api.getCloudFeed('candidate');
       if (res.success && res.jobs && res.jobs.length > 0) {
-        const combined = [DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)];
+        const combined = deduplicateJobList([DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
         setJobs(combined);
         saveJobsToLocalStorage(combined);
-        onLog(`[Feed] Stream synced ${res.jobs.length} opportunities.`);
+        onLog(`[Feed] Stream synced ${combined.length} unique opportunities.`);
       }
       const saved = await api.getSavedJobs();
       setSavedJobs(saved || []);

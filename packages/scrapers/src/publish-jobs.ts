@@ -60,6 +60,18 @@ async function publishJobsLocally() {
       }
     }
 
+    // 3. Itemized Synced Jobs Report Preview
+    console.log('\n────────────────────────────────────────────────────────────────────────');
+    console.log('📋 LATEST VERIFIED JOBS SYNCED TO RADAR (SAMPLE PREVIEW):');
+    console.log('────────────────────────────────────────────────────────────────────────');
+    const sampleJobs = jobs.slice(0, 15);
+    sampleJobs.forEach((j, idx) => {
+      console.log(`  ${(idx + 1).toString().padStart(2, ' ')}. [${j.company.padEnd(16, ' ')}] ${j.title} (${j.location || 'Remote'}) — ${j.source}`);
+    });
+    if (jobs.length > 15) {
+      console.log(`  ... and ${jobs.length - 15} more verified live listings.`);
+    }
+
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log('\n========================================================================');
     console.log(`✓ JOB SCRAPER COMPLETE in ${elapsed}s`);

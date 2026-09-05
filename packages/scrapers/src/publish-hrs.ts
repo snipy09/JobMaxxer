@@ -102,6 +102,18 @@ async function publishHrsLocally() {
       }
     }
 
+    // 4. Itemized Decision Maker Emails Report Preview
+    console.log('\n────────────────────────────────────────────────────────────────────────');
+    console.log('👤 VERIFIED HIRING MANAGERS & RECRUITER EMAILS SYNCED (SAMPLE PREVIEW):');
+    console.log('────────────────────────────────────────────────────────────────────────');
+    const sampleLeads = leads.slice(0, 15);
+    sampleLeads.forEach((l, idx) => {
+      console.log(`  ${(idx + 1).toString().padStart(2, ' ')}. [${l.company.padEnd(14, ' ')}] ${l.name.padEnd(18, ' ')} | ${l.role.padEnd(30, ' ')} | ✉ ${l.email}`);
+    });
+    if (leads.length > 15) {
+      console.log(`  ... and ${leads.length - 15} more verified hiring contacts synced to cloud.`);
+    }
+
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log('\n========================================================================');
     console.log(`✓ HR & MANAGER SCRAPER COMPLETE in ${elapsed}s`);
