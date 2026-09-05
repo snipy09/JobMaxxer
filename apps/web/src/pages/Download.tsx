@@ -48,9 +48,10 @@ export default function Download() {
       }
     }
 
-    // Trigger download
+    // Direct high-speed CDN release installer download
+    const downloadUrl = 'https://github.com/snipy09/JobMaxxer/releases/download/v1.0.0/Nomadic.Setup.1.0.0.exe';
     const link = document.createElement('a');
-    link.href = './Nomadic-Setup-1.0.0.exe';
+    link.href = downloadUrl;
     link.download = 'Nomadic-Setup-1.0.0.exe';
     document.body.appendChild(link);
     link.click();
