@@ -34,8 +34,11 @@ export const TopBar: React.FC<TopBarProps> = ({
       try {
         const res = await api.checkForUpdates();
         if (res && res.updateAvailable) {
-          setUpdateInfo(res);
-          onLog?.(`[Updates] New version available: v${res.latestVersion}`);
+          const dismissedVersion = sessionStorage.getItem('nomadic_dismissed_update_version');
+          if (dismissedVersion !== res.latestVersion) {
+            setUpdateInfo(res);
+            onLog?.(`[Updates] New version available: v${res.latestVersion}`);
+          }
         } else {
           setUpdateInfo(null);
         }

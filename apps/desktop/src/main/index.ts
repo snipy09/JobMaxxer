@@ -2295,19 +2295,22 @@ ipcMain.handle('delete-custom-roadmap', async (_, id: string) => {
   return { success: ok };
 });
 
+declare const __APP_VERSION__: string | undefined;
+
 // ── IPC: In-App Version & Update Checker ──────────────────────────────────
 function isNewerVersion(latest: string, current: string): boolean {
   const parse = (v: string) => v.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
-  const [lMaj, lMin, lPatch] = parse(latest);
-  const [cMaj, cMin, cPatch] = parse(current);
+  const [lMaj = 0, lMin = 0, lPatch = 0] = parse(latest);
+  const [cMaj = 0, cMin = 0, cPatch = 0] = parse(current);
   if (lMaj > cMaj) return true;
-  if (lMaj === cMaj && lMin > cMin) return true;
-  if (lMaj === cMaj && lMin === cMin && lPatch > cPatch) return true;
-  return false;
+  if (lMaj < cMaj) return false;
+  if (lMin > cMin) return true;
+  if (lMin < cMin) return false;
+  return lPatch > cPatch;
 }
 
 ipcMain.handle('check-for-updates', async () => {
-  const currentVersion = app.getVersion() || '1.0.0';
+  const currentVersion = (typeof __APP_VERSION__ !== 'undefined' && __APP_VERSION__) ? __APP_VERSION__ : (app.getVersion() || '1.0.1');
   try {
     // 1. Fetch latest release from GitHub API
     const res = await fetch('https://api.github.com/repos/snipy09/JobMaxxer/releases/latest', {
@@ -2320,7 +2323,7 @@ ipcMain.handle('check-for-updates', async () => {
       if (latestTag && isNewerVersion(latestTag, currentVersion)) {
         let downloadUrl = data.html_url || 'https://github.com/snipy09/JobMaxxer/releases/latest';
         if (Array.isArray(data.assets)) {
-          const exeAsset = data.assets.find((a: any) => a.name && a.name.endsWith('.exe'));
+          const exeAsset = data.assets.find((a: any) => a.name && (a.name.includes('Setup') || a.name.endsWith('.exe')));
           if (exeAsset && exeAsset.browser_download_url) {
             downloadUrl = exeAsset.browser_download_url;
           }
@@ -2332,24 +2335,6 @@ ipcMain.handle('check-for-updates', async () => {
           releaseName: data.name || `Nomadic v${latestTag}`,
           releaseNotes: data.body || 'A new update is available with performance upgrades and latest career intelligence.',
           downloadUrl
-        };
-      }
-    }
-
-    // 2. Fallback check raw repository package.json
-    const pkgRes = await fetch('https://raw.githubusercontent.com/snipy09/JobMaxxer/main/apps/desktop/package.json', {
-      headers: { 'User-Agent': 'Nomadic-Desktop' }
-    });
-    if (pkgRes.ok) {
-      const pkgData = await pkgRes.json() as any;
-      if (pkgData && pkgData.version && isNewerVersion(pkgData.version, currentVersion)) {
-        return {
-          updateAvailable: true,
-          currentVersion,
-          latestVersion: pkgData.version,
-          releaseName: `Nomadic v${pkgData.version}`,
-          releaseNotes: 'New version released with systemic speed improvements and new tools.',
-          downloadUrl: 'https://github.com/snipy09/JobMaxxer/releases/latest'
         };
       }
     }

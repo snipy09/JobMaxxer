@@ -18,7 +18,12 @@ async function build() {
   const googleIdParts = ['762160653751', 'u9gnn1sm9frqpjke4ajuhqcni569nplf', 'apps.googleusercontent.com'];
   const googleSecParts = ['GOCSPX', '9FxM3VXFYGeE2kd', 'F-FnQ2WlTAzQ'];
   const decodeB64 = (s) => Buffer.from(s, 'base64').toString('utf8');
+
+  const pkgJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8'));
+  const appVersion = pkgJson.version || '1.0.1';
+
   const define = {
+    '__APP_VERSION__': JSON.stringify(appVersion),
     'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL),
     'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY),
     'process.env.GOOGLE_CLIENT_ID': JSON.stringify(process.env.GOOGLE_CLIENT_ID || (googleIdParts[0] + '-' + googleIdParts[1] + '.' + googleIdParts[2])),
