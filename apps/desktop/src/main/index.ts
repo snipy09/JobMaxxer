@@ -1559,6 +1559,16 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
               mode: 'autonomous',
             });
             skipped++;
+          } else if (result.requiresLogin) {
+            log(`[Auto-Apply] Sign-in required on portal for ${jobCompany} — left open in browser.`);
+            logAndSyncApplication({
+              company: jobCompany,
+              title: jobTitle,
+              apply_url: url,
+              status: 'requires_login',
+              mode: 'autonomous',
+            });
+            skipped++;
           } else if (result.submitted) {
             logAndSyncApplication({
               company: jobCompany,
@@ -1569,7 +1579,7 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
             });
             applied++;
             log(`[Auto-Apply] ✓ Verified application submitted for ${jobCompany} (${totalProcessed}/${jobUrls.length})`);
-          } else if (result.prefilled || result.success) {
+          } else if (result.prefilled && (result.fieldsFilledCount ?? 0) > 0) {
             logAndSyncApplication({
               company: jobCompany,
               title: jobTitle,
@@ -1578,7 +1588,7 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
               mode: 'autonomous',
             });
             skipped++;
-            log(`[Auto-Apply] Pre-filled application for ${jobCompany} (left open in browser for 1-click review)`);
+            log(`[Auto-Apply] Pre-filled ${result.fieldsFilledCount} fields for ${jobCompany} (left open for review)`);
           } else {
             logAndSyncApplication({
               company: jobCompany,

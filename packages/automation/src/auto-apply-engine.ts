@@ -1,32 +1,26 @@
-import { Page } from 'playwright';
-import { launchExternalStealthBrowser, BrowserSession } from './chrome-manager.ts';
-import { ATS_FIELD_ALIASES } from './alias-dictionary.ts';
-import { answerCustomQuestion } from './groq-ai.ts';
+import { chromium, type BrowserContext, type Page } from 'playwright';
+import path from 'path';
 import fs from 'fs';
-
-export interface ResumeItem {
-  name: string;
-  targetRole: string;
-  filePath: string;
-  isDefault?: boolean;
-}
+import os from 'os';
+import { generateStructuredAIContent } from './groq-ai.js';
 
 export interface MasterProfile {
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  linkedin: string;
-  github: string;
-  sponsorship: string;
-  salary: string;
-  noticePeriod: string;
+  linkedin?: string;
+  github?: string;
+  sponsorship?: string;
+  salary?: string;
+  noticePeriod?: string;
   groqApiKey?: string;
-  summaryText: string;
+  geminiApiKey?: string;
+  summaryText?: string;
   desiredTitle?: string;
   techStack?: string;
   resumeFilePath?: string;
-  resumes?: ResumeItem[];
+  resumes?: Array<{ name: string; targetRole: string; filePath: string; isDefault: boolean }>;
   customAnswers?: Record<string, string>;
   cachedAnswers?: Record<string, string>;
   onAnswerResolved?: (question: string, answer: string) => void;
@@ -36,100 +30,140 @@ export interface ApplyResult {
   url: string;
   success: boolean;
   submitted: boolean;
-  prefilled?: boolean;
+  prefilled: boolean;
   captchaDetected: boolean;
+  requiresLogin?: boolean;
+  fieldsFilledCount?: number;
   error?: string;
-  note?: string;
 }
 
-let persistentBrowserSession: BrowserSession | null = null;
+export interface ExternalBrowserSession {
+  context: BrowserContext;
+  userDataDir: string;
+  isHeadless: boolean;
+}
 
-async function getOrLaunchExternalSession(): Promise<BrowserSession> {
-  if (persistentBrowserSession) {
+const ATS_FIELD_ALIASES: Record<string, string[]> = {
+  firstName: ['first_name', 'firstname', 'first-name', 'fname', 'first', 'given_name', 'given-name', 'first name'],
+  lastName: ['last_name', 'lastname', 'last-name', 'lname', 'last', 'family_name', 'family-name', 'surname', 'last name'],
+  fullName: ['full_name', 'fullname', 'full-name', 'name', 'candidate_name', 'candidate-name', 'applicant_name', 'applicant-name', 'full name'],
+  email: ['email', 'email_address', 'email-address', 'e-mail', 'mail', 'email address'],
+  phone: ['phone', 'phone_number', 'phone-number', 'mobile', 'cell', 'telephone', 'tel', 'contact_number', 'phone number'],
+  linkedin: ['linkedin', 'linkedin_url', 'linkedin-url', 'linkedin_profile', 'linkedin-profile', 'linkedin url'],
+  github: ['github', 'github_url', 'github-url', 'github_profile', 'github-profile', 'portfolio', 'website', 'personal_url', 'website url'],
+  salary: ['salary', 'expected_salary', 'desired_salary', 'compensation', 'target_comp', 'ctc', 'expected ctc'],
+  noticePeriod: ['notice', 'notice_period', 'availability', 'earliest_start_date', 'start_date', 'when can you start'],
+};
+
+let activeSession: ExternalBrowserSession | null = null;
+
+async function getOrLaunchExternalSession(): Promise<ExternalBrowserSession> {
+  if (activeSession) {
     try {
-      if (persistentBrowserSession.browser.isConnected()) {
-        return persistentBrowserSession;
-      }
+      activeSession.context.pages();
+      return activeSession;
     } catch {
-      persistentBrowserSession = null;
+      activeSession = null;
     }
   }
 
-  persistentBrowserSession = await launchExternalStealthBrowser({
-    headless: false,
-    slowMo: 50,
-  });
+  const userDataDir = path.join(os.homedir(), 'AppData', 'Roaming', 'Nomadic', 'browser_session');
+  try {
+    fs.mkdirSync(userDataDir, { recursive: true });
+  } catch {}
 
-  return persistentBrowserSession;
+  let context: BrowserContext;
+  if (typeof (chromium as any).launchPersistentContext === 'function') {
+    context = await (chromium as any).launchPersistentContext(userDataDir, {
+      headless: false,
+      channel: 'chrome',
+      viewport: { width: 1280, height: 850 },
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-infobars',
+        '--window-size=1280,850',
+      ],
+      ignoreDefaultArgs: ['--enable-automation'],
+    }).catch(async () => {
+      return await (chromium as any).launchPersistentContext(userDataDir, {
+        headless: false,
+        viewport: { width: 1280, height: 850 },
+        args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
+        ignoreDefaultArgs: ['--enable-automation'],
+      });
+    });
+  } else {
+    const browser = await chromium.launch({ headless: false });
+    context = await browser.newContext();
+  }
+
+  activeSession = {
+    context,
+    userDataDir,
+    isHeadless: false,
+  };
+
+  return activeSession;
 }
 
 export class AutoApplyEngine {
   /**
-   * Semi-Auto Review Mode: Opens tabs in a controlled RAM-safe FIFO queue
-   * in external Chrome, auto-fills all ATS fields, evaluates questions,
-   * attaches resume, and leaves tabs open for 1-click review.
+   * Alias for backward compatibility with prefillParallelTabs tests.
    */
   public static async prefillParallelTabs(
     jobUrls: string[],
     profile: MasterProfile,
-    concurrencyLimit: number = 3,
-    onProgress?: (msg: string) => void
+    onProgressOrLimit?: ((msg: string) => void) | number,
+    limit: number = 3
   ): Promise<void> {
     if (!jobUrls || jobUrls.length === 0) return;
+    const onProgress = typeof onProgressOrLimit === 'function' ? onProgressOrLimit : undefined;
+    const finalLimit = typeof onProgressOrLimit === 'number' ? onProgressOrLimit : limit;
+    return AutoApplyEngine.runAutonomousApply(jobUrls, profile, onProgress, finalLimit);
+  }
 
-    const limit = Math.max(1, Math.min(concurrencyLimit, 5));
-    onProgress?.(`Starting prefill queue for ${jobUrls.length} positions (${limit} parallel workers)...`);
+  /**
+   * Semi-Autonomous (Review) Mode: Opens jobs, pre-fills forms, leaves tabs ready for user 1-click review.
+   */
+  public static async runAutonomousApply(
+    jobUrls: string[],
+    profile: MasterProfile,
+    onProgress?: (msg: string) => void,
+    limit: number = 3
+  ): Promise<void> {
+    const progressCallback = typeof onProgress === 'function' ? onProgress : () => {};
     const session = await getOrLaunchExternalSession();
 
-    let nextIndex = 0;
     const worker = async (workerId: number) => {
-      while (nextIndex < jobUrls.length) {
-        const idx = nextIndex++;
-        const url = jobUrls[idx];
+      while (jobUrls.length > 0) {
+        const url = jobUrls.shift();
+        if (!url) break;
+
         let page: Page | null = null;
         try {
           page = await session.context.newPage();
-          onProgress?.(`[Slot ${workerId} | Tab ${idx + 1}/${jobUrls.length}] Navigating to: ${url}`);
+          progressCallback(`[Worker ${workerId}] Opening: ${url}`);
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
           await page.bringToFront().catch(() => {});
 
-          // 1. Inject overlay
           await AutoApplyEngine.injectOverlay(page, '⚡ Nomadic: Auto-filling details...');
-
-          // 2. Expand form if collapsed
           await AutoApplyEngine.openApplicationFormIfRequired(page);
-
-          // 3. Fill standard ATS inputs
-          await AutoApplyEngine.fillStandardFields(page, profile);
-
-          // 4. Fill select dropdowns & radios
+          const fieldsFilled = await AutoApplyEngine.fillStandardFields(page, profile);
           await AutoApplyEngine.fillSelectDropdowns(page, profile);
-
-          // 5. Answer custom open-ended questions
           await AutoApplyEngine.answerOpenEndedFields(page, profile);
-
-          // 6. Attach matching resume
           await AutoApplyEngine.uploadResumeIfPresent(page, profile);
-
-          // 7. Check consent and required checkboxes
           await AutoApplyEngine.fillConsentAndRequiredCheckboxes(page);
 
-          // 8. Update overlay to ready state
           await AutoApplyEngine.injectOverlay(
             page,
-            '✓ Auto-filled! Ready for 1-Click Review & Submit',
-            '#22c55e'
+            fieldsFilled > 0 ? '✓ Auto-filled! Ready for 1-Click Review & Submit' : 'Nomadic: Review application details',
+            fieldsFilled > 0 ? '#22c55e' : '#38bdf8'
           );
-          onProgress?.(`[Tab ${idx + 1}/${jobUrls.length}] Ready for review: ${url}`);
+          progressCallback(`[Ready for Review] ${url} (${fieldsFilled} fields filled)`);
         } catch (err: any) {
-          onProgress?.(`[Tab ${idx + 1}/${jobUrls.length}] Note on ${url}: ${err?.message}`);
-          if (page) {
-            await AutoApplyEngine.injectOverlay(
-              page,
-              'Nomadic: Review manually',
-              '#f59e0b'
-            ).catch(() => {});
-          }
+          progressCallback(`[Notice] ${url}: ${err?.message}`);
         }
       }
     };
@@ -137,12 +171,11 @@ export class AutoApplyEngine {
     const workerCount = Math.min(limit, jobUrls.length);
     const workers = Array.from({ length: workerCount }, (_, i) => worker(i + 1));
     await Promise.all(workers);
-    onProgress?.(`All ${jobUrls.length} review tabs ready in external Chrome.`);
   }
 
   /**
-   * 100% Autonomous Mode: Navigates to job in external Chrome, auto-fills all fields,
-   * handles questions, uploads resume, clicks submit, and strictly verifies confirmation.
+   * 100% Targeted Autonomous Mode: Navigates to job in external browser, fills all candidate fields,
+   * uploads resume, clicks submit, and strictly verifies confirmation.
    */
   public static async submitApplication(
     url: string,
@@ -150,7 +183,7 @@ export class AutoApplyEngine {
     onProgress?: (msg: string) => void
   ): Promise<ApplyResult> {
     if (!url || !url.trim()) {
-      return { url: '', success: false, submitted: false, prefilled: false, captchaDetected: false, error: 'Invalid URL' };
+      return { url: '', success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0, error: 'Invalid URL' };
     }
 
     let page: Page | null = null;
@@ -162,37 +195,38 @@ export class AutoApplyEngine {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.bringToFront().catch(() => {});
 
-      // Inject floating overlay
+      // 1. Inject floating status overlay
       await AutoApplyEngine.injectOverlay(page, '⚡ Nomadic: Auto-Apply Engine Active');
 
-      // Detect CAPTCHA barriers
+      // 2. Detect CAPTCHA barriers
       const captchaDetected = await AutoApplyEngine.detectCaptcha(page);
       if (captchaDetected) {
         await AutoApplyEngine.injectOverlay(
           page,
-          '⚠️ CAPTCHA Detected — Complete challenge to proceed',
+          '⚠️ CAPTCHA Challenge Detected — Solve to proceed',
           '#f59e0b'
         );
-        onProgress?.(`[Autonomous] CAPTCHA barrier detected at ${url}`);
+        onProgress?.(`[Autonomous] CAPTCHA detected at ${url}. Left open in browser for candidate.`);
         return {
           url,
-          success: true,
+          success: false,
           submitted: false,
           prefilled: false,
           captchaDetected: true,
-          error: 'CAPTCHA barrier detected (left open in Chrome for candidate)',
+          fieldsFilledCount: 0,
+          error: 'CAPTCHA challenge detected (left open in browser)',
         };
       }
 
-      // Detect Login / Authentication Wall
+      // 3. Detect Login / Authentication Wall
       const isLoginRequired = await AutoApplyEngine.detectLoginRequired(page);
       if (isLoginRequired) {
         await AutoApplyEngine.injectOverlay(
           page,
-          '🔐 Sign-In Required — Please log in (Autopilot will resume automatically)',
+          '🔐 Sign-In Required — Please log in to your account',
           '#f59e0b'
         );
-        onProgress?.(`[Autonomous] 🔐 Sign-in required for ${url}. Waiting for user login in browser...`);
+        onProgress?.(`[Autonomous] 🔐 Sign-in required for ${url}. Waiting for candidate authentication...`);
         const loggedIn = await AutoApplyEngine.waitForLoginComplete(page, onProgress);
         if (loggedIn) {
           await AutoApplyEngine.injectOverlay(
@@ -200,58 +234,83 @@ export class AutoApplyEngine {
             '✓ Sign-In Verified! Resuming auto-fill...',
             '#22c55e'
           );
-          onProgress?.(`[Autonomous] ✓ User signed in at ${url}. Resuming application filling...`);
+          onProgress?.(`[Autonomous] ✓ User authenticated at ${url}. Resuming application filling...`);
         } else {
-          onProgress?.(`[Autonomous] Sign-in timed out for ${url}. Left open in browser.`);
+          onProgress?.(`[Autonomous] Sign-in required for ${url}. Left open in browser.`);
           return {
             url,
             success: false,
             submitted: false,
             prefilled: false,
             captchaDetected: false,
-            error: 'Sign-in timed out (left open for manual login in Chrome)',
+            requiresLogin: true,
+            fieldsFilledCount: 0,
+            error: 'Sign-in required on job portal (left open in browser)',
           };
         }
       }
 
-      // Expand form if required
+      // 4. Expand application form if collapsed
       await AutoApplyEngine.openApplicationFormIfRequired(page);
 
-      // Auto-fill standard candidate fields
+      // 5. Fill candidate text fields & measure count
       await AutoApplyEngine.injectOverlay(page, 'Typing candidate credentials...');
-      await AutoApplyEngine.fillStandardFields(page, profile);
+      const standardFieldsFilled = await AutoApplyEngine.fillStandardFields(page, profile);
 
-      // Fill select dropdowns & radio buttons
-      await AutoApplyEngine.fillSelectDropdowns(page, profile);
+      // 6. Fill select dropdowns & radio buttons
+      const dropdownsFilled = await AutoApplyEngine.fillSelectDropdowns(page, profile);
 
-      // Answer dynamic questions with in-house AI solver
+      // 7. Answer dynamic questions with in-house AI solver
       await AutoApplyEngine.injectOverlay(page, 'Auto-answering application questions...');
-      await AutoApplyEngine.answerOpenEndedFields(page, profile);
+      const questionsAnswered = await AutoApplyEngine.answerOpenEndedFields(page, profile);
 
-      // Attach tailored resume
+      // 8. Attach matching resume
       await AutoApplyEngine.injectOverlay(page, 'Attaching matching resume...');
-      await AutoApplyEngine.uploadResumeIfPresent(page, profile);
+      const resumeUploaded = await AutoApplyEngine.uploadResumeIfPresent(page, profile);
 
-      // Check consent and required checkboxes
-      await AutoApplyEngine.fillConsentAndRequiredCheckboxes(page);
+      // 9. Check consent & required checkboxes
+      const checkboxesChecked = await AutoApplyEngine.fillConsentAndRequiredCheckboxes(page);
+
+      const totalFieldsFilled = standardFieldsFilled + dropdownsFilled + questionsAnswered + (resumeUploaded ? 1 : 0) + checkboxesChecked;
+
+      // Check if page actually had an application form
+      if (totalFieldsFilled === 0) {
+        onProgress?.(`[Autonomous] No fillable application form found at ${url}.`);
+        return {
+          url,
+          success: false,
+          submitted: false,
+          prefilled: false,
+          captchaDetected: false,
+          fieldsFilledCount: 0,
+          error: 'No application form detected on page',
+        };
+      }
 
       await page.waitForTimeout(1000);
 
-      // Submit application
+      // 10. Submit application form
       await AutoApplyEngine.injectOverlay(page, 'Submitting application form...', '#38bdf8');
       const submitClicked = await AutoApplyEngine.submitForm(page);
 
       if (!submitClicked) {
         await AutoApplyEngine.injectOverlay(
           page,
-          '✓ Pre-filled successfully! 1-Click submit ready',
+          `✓ Pre-filled ${totalFieldsFilled} fields! Ready for 1-Click Submit`,
           '#22c55e'
         );
-        onProgress?.(`[Autonomous] Form prefilled (ready for submit) for ${url}`);
-        return { url, success: true, submitted: false, prefilled: true, captchaDetected: false };
+        onProgress?.(`[Autonomous] Pre-filled ${totalFieldsFilled} fields at ${url}. Ready for review.`);
+        return {
+          url,
+          success: true,
+          submitted: false,
+          prefilled: true,
+          captchaDetected: false,
+          fieldsFilledCount: totalFieldsFilled,
+        };
       }
 
-      // Check confirmation strictly
+      // 11. Strictly verify submission confirmation
       const confirmed = await AutoApplyEngine.waitForConfirmation(page);
       if (confirmed) {
         await AutoApplyEngine.injectOverlay(
@@ -260,22 +319,29 @@ export class AutoApplyEngine {
           '#22c55e'
         );
         onProgress?.(`[Autonomous] Confirmed submitted successfully: ${url} ✓`);
-        return { url, success: true, submitted: true, prefilled: true, captchaDetected: false };
+        return {
+          url,
+          success: true,
+          submitted: true,
+          prefilled: true,
+          captchaDetected: false,
+          fieldsFilledCount: totalFieldsFilled,
+        };
       } else {
-        // Submission was clicked, but confirmation wasn't verified
         await AutoApplyEngine.injectOverlay(
           page,
           '✓ Details Pre-filled — Please review and click submit in browser',
           '#38bdf8'
         );
-        onProgress?.(`[Autonomous] Form pre-filled for ${url} (left open in browser for 1-click review & submit)`);
+        onProgress?.(`[Autonomous] Form pre-filled for ${url} (left open in browser for 1-click review)`);
         return {
           url,
           success: true,
           submitted: false,
           prefilled: true,
           captchaDetected: false,
-          error: 'Pre-filled, left open for 1-click review & submit'
+          fieldsFilledCount: totalFieldsFilled,
+          error: 'Pre-filled, left open for 1-click review & submit',
         };
       }
     } catch (err: any) {
@@ -286,6 +352,7 @@ export class AutoApplyEngine {
         submitted: false,
         prefilled: false,
         captchaDetected: false,
+        fieldsFilledCount: 0,
         error: err?.message || String(err),
       };
     }
@@ -332,21 +399,15 @@ export class AutoApplyEngine {
   private static async openApplicationFormIfRequired(page: Page): Promise<void> {
     try {
       const existingInputs = await page.$$(
-        'input[name*="name" i], input[id*="name" i], input[name*="email" i], input[id*="email" i]'
+        'input[type="text"], input[name*="name" i], input[name*="email" i], input[type="email"]'
       );
       if (existingInputs.length > 0) return;
 
       const triggerSelectors = [
         'a:has-text("Apply for this job")',
-        'button:has-text("Apply for this job")',
         'a:has-text("Apply Now")',
+        'button:has-text("Apply for this job")',
         'button:has-text("Apply Now")',
-        'a:has-text("Apply for position")',
-        'button:has-text("Apply for position")',
-        'a:has-text("Apply to Job")',
-        'button:has-text("Apply to Job")',
-        'a:has-text("Quick Apply")',
-        'button:has-text("Quick Apply")',
         'a:has-text("Apply")',
         'button:has-text("Apply")',
         '[data-qa="btn-apply"]',
@@ -369,7 +430,8 @@ export class AutoApplyEngine {
     } catch {}
   }
 
-  private static async fillStandardFields(page: Page, profile: MasterProfile): Promise<void> {
+  private static async fillStandardFields(page: Page, profile: MasterProfile): Promise<number> {
+    let filledCount = 0;
     const profileMap: Record<string, string> = {
       firstName: profile.firstName ?? '',
       lastName: profile.lastName ?? '',
@@ -403,6 +465,7 @@ export class AutoApplyEngine {
               await input.fill(val);
               await input.dispatchEvent('input').catch(() => {});
               await input.dispatchEvent('change').catch(() => {});
+              filledCount++;
               await page.waitForTimeout(50);
               break;
             }
@@ -422,12 +485,16 @@ export class AutoApplyEngine {
         if (radio) {
           await radio.scrollIntoViewIfNeeded().catch(() => {});
           await radio.click().catch(() => {});
+          filledCount++;
         }
       } catch {}
     }
+
+    return filledCount;
   }
 
-  private static async fillSelectDropdowns(page: Page, profile: MasterProfile): Promise<void> {
+  private static async fillSelectDropdowns(page: Page, profile: MasterProfile): Promise<number> {
+    let filledCount = 0;
     try {
       const selects = await page.$$('select');
       for (const select of selects) {
@@ -452,6 +519,7 @@ export class AutoApplyEngine {
             const matchingOpt = options.find(o => isNo ? o.text.startsWith('no') : o.text.startsWith('yes'));
             if (matchingOpt && matchingOpt.value) {
               await select.selectOption(matchingOpt.value).catch(() => {});
+              filledCount++;
               continue;
             }
           }
@@ -461,6 +529,7 @@ export class AutoApplyEngine {
             const matchingOpt = options.find(o => o.text.startsWith('yes'));
             if (matchingOpt && matchingOpt.value) {
               await select.selectOption(matchingOpt.value).catch(() => {});
+              filledCount++;
               continue;
             }
           }
@@ -482,6 +551,7 @@ export class AutoApplyEngine {
             );
             if (declineOpt && declineOpt.value) {
               await select.selectOption(declineOpt.value).catch(() => {});
+              filledCount++;
               continue;
             }
           }
@@ -496,6 +566,7 @@ export class AutoApplyEngine {
             );
             if (sourceOpt && sourceOpt.value) {
               await select.selectOption(sourceOpt.value).catch(() => {});
+              filledCount++;
               continue;
             }
           }
@@ -507,14 +578,17 @@ export class AutoApplyEngine {
             const firstValid = options.find(o => o.value && o.value !== '' && !o.text.includes('select'));
             if (firstValid) {
               await select.selectOption(firstValid.value).catch(() => {});
+              filledCount++;
             }
           }
         } catch {}
       }
     } catch {}
+    return filledCount;
   }
 
-  private static async fillConsentAndRequiredCheckboxes(page: Page): Promise<void> {
+  private static async fillConsentAndRequiredCheckboxes(page: Page): Promise<number> {
+    let checkedCount = 0;
     try {
       const checkboxes = await page.$$('input[type="checkbox"]');
       for (const cb of checkboxes) {
@@ -542,14 +616,17 @@ export class AutoApplyEngine {
           if (isConsent) {
             await cb.scrollIntoViewIfNeeded().catch(() => {});
             await cb.click().catch(() => {});
+            checkedCount++;
             await page.waitForTimeout(50);
           }
         } catch {}
       }
     } catch {}
+    return checkedCount;
   }
 
-  private static async answerOpenEndedFields(page: Page, profile: MasterProfile): Promise<void> {
+  private static async answerOpenEndedFields(page: Page, profile: MasterProfile): Promise<number> {
+    let answeredCount = 0;
     try {
       const candidateSummary = [
         `Candidate: ${profile.firstName} ${profile.lastName}`,
@@ -570,154 +647,135 @@ export class AutoApplyEngine {
           const isVisible = await ta.isVisible().catch(() => false);
           if (!isVisible) continue;
 
-          const placeholder = (await ta.getAttribute('placeholder')) || '';
-          const name = (await ta.getAttribute('name')) || '';
-          const label = await AutoApplyEngine.getLabelForInput(page, ta);
-          const questionText = label || placeholder || name;
+          const currentValue = await ta.inputValue().catch(() => '');
+          if (currentValue && currentValue.trim().length > 0) continue;
 
-          if (!questionText || questionText.length < 3) continue;
+          const questionText = await AutoApplyEngine.getLabelForInput(page, ta);
+          if (!questionText || questionText.length < 4) continue;
 
-          // 1. Check custom user Q&A dictionary first
-          let answer: string | null = null;
+          const normalizedQuestion = questionText.toLowerCase().trim();
+
+          // 1. Check custom answers
           if (profile.customAnswers) {
-            for (const [qKey, customVal] of Object.entries(profile.customAnswers)) {
-              if (questionText.toLowerCase().includes(qKey.toLowerCase())) {
-                answer = customVal;
-                break;
-              }
+            const matchedKey = Object.keys(profile.customAnswers).find(k =>
+              normalizedQuestion.includes(k.toLowerCase())
+            );
+            if (matchedKey && profile.customAnswers[matchedKey]) {
+              await ta.fill(profile.customAnswers[matchedKey]);
+              answeredCount++;
+              continue;
             }
           }
 
-          // 2. Check local cached answers
-          if (!answer && profile.cachedAnswers) {
-            for (const [cKey, cachedVal] of Object.entries(profile.cachedAnswers)) {
-              if (questionText.toLowerCase().includes(cKey.toLowerCase()) || cKey.toLowerCase().includes(questionText.toLowerCase())) {
-                answer = cachedVal;
-                break;
-              }
-            }
+          // 2. Check cached answers
+          if (profile.cachedAnswers && profile.cachedAnswers[normalizedQuestion]) {
+            await ta.fill(profile.cachedAnswers[normalizedQuestion]);
+            answeredCount++;
+            continue;
           }
 
-          // 3. Use AI solver if no cached answer found
-          if (!answer) {
-            try {
-              answer = await answerCustomQuestion(
-                profile.groqApiKey || '',
-                questionText,
-                candidateSummary
-              );
-              if (answer) {
-                profile.onAnswerResolved?.(questionText, answer);
-              }
-            } catch {}
-          }
+          // 3. Fallback to in-house AI Answer Generator
+          const prompt = `You are a professional software engineer candidate applying for a job.
+Candidate profile:
+${candidateSummary}
 
-          if (answer) {
-            await ta.scrollIntoViewIfNeeded().catch(() => {});
-            await ta.evaluate((el: any) => {
-              el.style.outline = '2px solid #22c55e';
-              el.style.boxShadow = '0 0 10px rgba(34,197,94,0.4)';
-            }).catch(() => {});
-            await ta.fill(answer);
-            await ta.dispatchEvent('input').catch(() => {});
-            await ta.dispatchEvent('change').catch(() => {});
+Application Question:
+"${questionText}"
+
+Write a concise, compelling, highly professional answer directly from the candidate's perspective (2 to 4 sentences). Do not include placeholders, greetings, or fluff.`;
+
+          const aiAnswer = await generateStructuredAIContent<string>(
+            prompt,
+            'You are an expert candidate application assistant. Write concise, accurate, first-person candidate responses.',
+            { groqKey: profile.groqApiKey, geminiKey: profile.geminiApiKey }
+          );
+
+          if (aiAnswer && typeof aiAnswer === 'string' && aiAnswer.trim().length > 0) {
+            await ta.fill(aiAnswer.trim());
+            profile.onAnswerResolved?.(normalizedQuestion, aiAnswer.trim());
+            answeredCount++;
           }
         } catch {}
       }
     } catch {}
+    return answeredCount;
   }
 
-  private static async uploadResumeIfPresent(page: Page, profile: MasterProfile): Promise<void> {
+  private static async uploadResumeIfPresent(page: Page, profile: MasterProfile): Promise<boolean> {
     try {
-      let targetFile = profile.resumeFilePath;
+      let targetResumePath = profile.resumeFilePath;
 
-      if (!targetFile && profile.resumes && profile.resumes.length > 0) {
+      if (!targetResumePath && Array.isArray(profile.resumes) && profile.resumes.length > 0) {
         const defaultResume = profile.resumes.find(r => r.isDefault) || profile.resumes[0];
-        targetFile = defaultResume.filePath;
+        targetResumePath = defaultResume.filePath;
       }
 
-      if (!targetFile || !fs.existsSync(targetFile)) return;
+      if (!targetResumePath || !fs.existsSync(targetResumePath)) {
+        return false;
+      }
 
       const fileInputs = await page.$$('input[type="file"]');
-      for (const fi of fileInputs) {
+      for (const input of fileInputs) {
         try {
-          const name = (await fi.getAttribute('name')) || '';
-          const id = (await fi.getAttribute('id')) || '';
-          const accept = (await fi.getAttribute('accept')) || '';
+          const name = ((await input.getAttribute('name')) || '').toLowerCase();
+          const id = ((await input.getAttribute('id')) || '').toLowerCase();
+          const accept = ((await input.getAttribute('accept')) || '').toLowerCase();
 
-          if (
-            name.toLowerCase().includes('resume') ||
-            name.toLowerCase().includes('cv') ||
-            id.toLowerCase().includes('resume') ||
-            id.toLowerCase().includes('cv') ||
-            accept.includes('pdf') ||
-            fileInputs.length === 1
-          ) {
-            await fi.setInputFiles(targetFile);
-            await page.waitForTimeout(800);
-            break;
+          const isResumeField =
+            name.includes('resume') ||
+            name.includes('cv') ||
+            id.includes('resume') ||
+            id.includes('cv') ||
+            accept.includes('.pdf') ||
+            accept.includes('.doc') ||
+            fileInputs.length === 1;
+
+          if (isResumeField) {
+            await input.setInputFiles(targetResumePath);
+            await page.waitForTimeout(500);
+            return true;
           }
         } catch {}
       }
     } catch {}
-  }
-
-  private static async submitForm(page: Page): Promise<boolean> {
-    const submitSelectors = [
-      'button[type="submit"]',
-      'input[type="submit"]',
-      'button#submit_app',
-      'input#submit_app',
-      'button:has-text("Submit Application")',
-      'button:has-text("Submit Application Form")',
-      'button:has-text("Submit application")',
-      'button:has-text("Submit")',
-      'button:has-text("Send Application")',
-      'button:has-text("Complete Application")',
-      'button:has-text("Apply Now")',
-      '[data-qa="btn-submit"]',
-      '[data-qa="submit-button"]',
-      'button.template-btn-submit',
-      'button[aria-label*="Submit" i]'
-    ];
-
-    for (const sel of submitSelectors) {
-      try {
-        const btn = await page.$(sel);
-        if (btn) {
-          const isVisible = await btn.isVisible().catch(() => false);
-          if (isVisible) {
-            await btn.scrollIntoViewIfNeeded().catch(() => {});
-            await btn.click().catch(() => {});
-            return true;
-          }
-        }
-      } catch {}
-    }
     return false;
   }
 
-  private static async waitForConfirmation(page: Page): Promise<boolean> {
-    const confirmationTexts = [
-      'thank you for applying',
-      'thank you for your application',
-      'application submitted',
-      'application received',
-      'we have received your application',
-      'we\'ve received your application',
-      'successfully applied',
-      'application complete',
-      'your application was submitted',
-      'thanks for applying',
-      'application has been sent',
-      'we will review your application',
-      'submission confirmed',
-      'has been submitted',
-    ];
+  private static async submitForm(page: Page): Promise<boolean> {
+    try {
+      const submitSelectors = [
+        'button[type="submit"]',
+        'input[type="submit"]',
+        'button:has-text("Submit Application")',
+        'button:has-text("Submit application")',
+        'button:has-text("Submit")',
+        'a:has-text("Submit Application")',
+        '#submit_app',
+        '[data-qa="btn-submit"]',
+        '.submit-btn',
+      ];
 
-    for (let i = 0; i < 6; i++) {
+      for (const sel of submitSelectors) {
+        const btn = await page.$(sel);
+        if (btn) {
+          const isVisible = await btn.isVisible().catch(() => false);
+          const isEnabled = await btn.isEnabled().catch(() => false);
+          if (isVisible && isEnabled) {
+            await btn.scrollIntoViewIfNeeded().catch(() => {});
+            await btn.click().catch(() => {});
+            await page.waitForTimeout(2000);
+            return true;
+          }
+        }
+      }
+    } catch {}
+    return false;
+  }
+
+  private static async waitForConfirmation(page: Page, timeoutMs: number = 8000): Promise<boolean> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeoutMs) {
       try {
-        // 1. Check URL indicator
         const currentUrl = page.url().toLowerCase();
         if (
           currentUrl.includes('/confirmation') ||
@@ -726,29 +784,31 @@ export class AutoApplyEngine {
           currentUrl.includes('/applied') ||
           currentUrl.includes('/submitted') ||
           currentUrl.includes('/success') ||
-          currentUrl.includes('submitted=true')
+          currentUrl.includes('status=complete')
         ) {
           return true;
         }
 
-        // 2. Check DOM text
-        const bodyText = await page.innerText('body').catch(() => '');
-        const lower = bodyText.toLowerCase();
-        for (const ct of confirmationTexts) {
-          if (lower.includes(ct)) return true;
+        const confirmationTextFound = await page.evaluate(() => {
+          const bodyText = (document.body?.innerText || '').toLowerCase();
+          const positiveKeywords = [
+            'thank you for applying',
+            'application received',
+            'we have received your application',
+            'application submitted',
+            'your application has been submitted',
+            'thanks for applying',
+            'application successful',
+            'we received your resume',
+          ];
+          return positiveKeywords.some(kw => bodyText.includes(kw));
+        });
+
+        if (confirmationTextFound) {
+          return true;
         }
 
-        // 3. Check for validation errors remaining
-        const hasFormErrors = await page.evaluate(() => {
-          const errs = document.querySelectorAll('.error, [aria-invalid="true"], .field-error, .form-error, input:invalid');
-          return errs.length > 0;
-        }).catch(() => false);
-
-        if (hasFormErrors && i >= 2) {
-          return false;
-        }
-
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(500);
       } catch {
         break;
       }
@@ -761,12 +821,13 @@ export class AutoApplyEngine {
       const captchaSelectors = [
         'iframe[src*="recaptcha"]',
         'iframe[src*="hcaptcha"]',
+        'iframe[src*="turnstile"]',
         'iframe[src*="cloudflare"]',
-        '#cf-challenge-running',
-        '.cf-browser-verification',
         '.g-recaptcha',
         '.h-captcha',
+        '#cf-challenge-running',
       ];
+
       for (const sel of captchaSelectors) {
         const el = await page.$(sel);
         if (el) {
@@ -785,6 +846,8 @@ export class AutoApplyEngine {
         url.includes('/login') ||
         url.includes('/signin') ||
         url.includes('/auth') ||
+        url.includes('naukri.com/nlogin') ||
+        url.includes('in.indeed.com/account') ||
         url.includes('accounts.google.com') ||
         url.includes('linkedin.com/checkpoint') ||
         url.includes('login.microsoftonline.com')
@@ -796,6 +859,7 @@ export class AutoApplyEngine {
         'input[type="password"]',
         'form[action*="login" i]',
         'form[action*="signin" i]',
+        '.login-layer',
         'button:has-text("Sign in with Google")',
         'button:has-text("Log in to Apply")',
         'a:has-text("Sign In to Apply")',
@@ -831,7 +895,7 @@ export class AutoApplyEngine {
         const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
         if (elapsedSec > 0 && elapsedSec % 10 === 0 && elapsedSec !== lastNotifiedSec) {
           lastNotifiedSec = elapsedSec;
-          onProgress?.(`[Autonomous] Waiting for user to complete login in Chrome (${elapsedSec}s / 90s)...`);
+          onProgress?.(`[Autonomous] Waiting for login in browser (${elapsedSec}s / 90s)...`);
         }
 
         await page.waitForTimeout(2000);

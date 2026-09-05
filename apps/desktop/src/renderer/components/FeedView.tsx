@@ -88,6 +88,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [executingAutoApply, setExecutingAutoApply] = useState<boolean>(false);
   const [autoApplyLogs, setAutoApplyLogs] = useState<string[]>([]);
   const [autoApplyProgress, setAutoApplyProgress] = useState<number>(0);
+  const [activeJobTarget, setActiveJobTarget] = useState<{ company: string; title: string } | null>(null);
   const [viewingJob, setViewingJob] = useState<Job | null>(null);
 
   // Profile completion gatekeeper modal state
@@ -335,7 +336,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
   };
 
   // Pre-Apply Gatekeeper Check
-  const checkProfileAndRun = async (urls: string[]) => {
+  const checkProfileAndRun = async (urls: string[], singleTarget?: { company: string; title: string }) => {
+    setActiveJobTarget(singleTarget || null);
     const isFreeOrLearner = !currentUser?.tier || currentUser?.tier === 'free' || currentUser?.tier === 'learner_pro';
     if (isFreeOrLearner) {
       onOpenUpgrade?.('100% Autonomous Auto-Apply Engine (Seeker Pro / Max)');
@@ -362,14 +364,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
       return;
     }
 
-    handleTriggerAutonomousApply(urls);
+    handleTriggerAutonomousApply(urls, singleTarget);
   };
 
   const handleProfileModalCompleted = () => {
     if (pendingApplyAction) {
       const { urls } = pendingApplyAction;
       setPendingApplyAction(null);
-      handleTriggerAutonomousApply(urls);
+      handleTriggerAutonomousApply(urls, activeJobTarget || undefined);
     }
   };
 
@@ -387,17 +389,19 @@ export const FeedView: React.FC<FeedViewProps> = ({
     setTimeout(() => {
       setExecutingAutoApply(false);
       setIsCancelingApply(false);
+      setActiveJobTarget(null);
     }, 600);
   };
 
   // 100% Autonomous Background Auto-Apply Engine
-  const handleTriggerAutonomousApply = async (targetUrls: string[]) => {
+  const handleTriggerAutonomousApply = async (targetUrls: string[], singleTarget?: { company: string; title: string }) => {
     if (!targetUrls || targetUrls.length === 0) return;
     setIsCancelingApply(false);
     setExecutingAutoApply(true);
+    const targetLabel = singleTarget ? `${singleTarget.title} at ${singleTarget.company}` : `${targetUrls.length} positions`;
     setAutoApplyLogs([
-      `[Init] Starting automated application queue for ${targetUrls.length} positions...`,
-      `[Info] Processing sequentially with automated form filling...`
+      `[Init] Target: ${targetLabel}...`,
+      `[Info] Processing with automatic form fill and resume submission...`
     ]);
     setAutoApplyProgress(5);
 
@@ -682,8 +686,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     </div>
 
                     <button
-                      onClick={() => checkProfileAndRun([job.applyUrl])}
+                      onClick={() => checkProfileAndRun([job.applyUrl], { company: job.company, title: job.title })}
                       className="px-3.5 py-1.5 bg-black hover:opacity-90 text-white dark:bg-white dark:text-black rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                      title={`Auto-apply specifically for ${job.title} at ${job.company}`}
                     >
                       <Zap className="w-3 h-3 text-emerald-400 fill-current" />
                       <span>Apply</span>
@@ -960,21 +965,41 @@ export const FeedView: React.FC<FeedViewProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
               <span className="text-[10px] font-mono text-slate-400">
-                {isCancelingApply ? 'Stopping auto-apply...' : 'Running in background Chrome window'}
+                {isCancelingApply ? 'Stopping auto-apply...' : 'Running in browser window'}
               </span>
               <button
                 type="button"
                 onClick={handleCancelAutoApply}
                 disabled={isCancelingApply}
-                className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                className="px-6 py-2 rounded-full bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 text-xs font-bold transition shadow-xs flex items-center gap-2 active:scale-95"
               >
                 <X className="w-3.5 h-3.5" />
-                <span>{isCancelingApply ? 'Canceling...' : 'Cancel Auto-Apply'}</span>
+                <span>{isCancelingApply ? 'Stopping Auto-Apply...' : 'Cancel Auto-Apply'}</span>
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Pill Cancel Indicator */}
+      {executingAutoApply && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] animate-fade-up">
+          <button
+            type="button"
+            onClick={handleCancelAutoApply}
+            disabled={isCancelingApply}
+            className="px-5 py-2.5 rounded-full bg-slate-950 text-white dark:bg-white dark:text-slate-950 border border-slate-700 dark:border-slate-300 text-xs font-bold shadow-2xl flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Auto-Apply ({autoApplyProgress}%)</span>
+            <div className="h-3 w-px bg-slate-700 dark:bg-slate-300 mx-1" />
+            <span className="text-rose-400 dark:text-rose-600 flex items-center gap-1 font-bold">
+              <X className="w-3.5 h-3.5" />
+              Cancel
+            </span>
+          </button>
         </div>
       )}
 
