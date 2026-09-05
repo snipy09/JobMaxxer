@@ -49,10 +49,10 @@ export default function Download() {
     }
 
     // Direct high-speed CDN release installer download
-    const downloadUrl = 'https://github.com/snipy09/JobMaxxer/releases/download/v1.0.1/Nomadic.Setup.1.0.1.exe';
+    const downloadUrl = 'https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.Setup.1.0.2.exe';
     const link = document.createElement('a');
     link.href = downloadUrl;
-    link.download = 'Nomadic-Setup-1.0.1.exe';
+    link.download = 'Nomadic-Setup-1.0.2.exe';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -69,7 +69,7 @@ export default function Download() {
       {/* Top Announcement */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-[11px] sm:text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950 shrink-0" />
-        <span>Official Download Portal · Nomadic v1.0.1 Windows x64 Native Installer</span>
+        <span>Official Download Portal · Nomadic v1.0.2 Windows x64 Native Installer</span>
       </div>
 
       {/* Main Navigation */}
@@ -164,7 +164,7 @@ export default function Download() {
 
             <div className="space-y-3 pt-4 border-t border-ink-100">
               <a
-                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.1/Nomadic.Setup.1.0.1.exe"
+                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.Setup.1.0.2.exe"
                 onClick={() => setDownloadStarted(true)}
                 className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95 text-center"
               >
@@ -173,7 +173,7 @@ export default function Download() {
               </a>
 
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
-                <span>File: Nomadic.Setup.1.0.1.exe</span>
+                <span>File: Nomadic.Setup.1.0.2.exe</span>
                 <span>SHA-256 Verified · 92.8 MB</span>
               </div>
             </div>

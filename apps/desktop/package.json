@@ -1,6 +1,6 @@
 {
   "name": "@nomadic/desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Nomadic — Desktop Job Search & Application Automation Platform",
   "author": "Nomadic",
   "main": "out/main/index.cjs",
