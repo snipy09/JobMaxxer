@@ -434,11 +434,11 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
-                  {t.description}
+                  {t.summary || t.description}
                 </p>
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs font-mono text-slate-500">
-                  <span>{t.pages} Pages</span>
+                  <span>{t.chapters?.length || 4} Core Chapters</span>
                   <span className="text-slate-900 dark:text-white font-semibold flex items-center gap-1">
                     <span>{isLocked ? 'Unlock Textbook' : 'Read Handbook'}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -461,15 +461,24 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                 onClick={() => {
                   if (isLocked) {
                     onOpenUpgrade?.('Architecture Reference Sheets (Learner Pro)');
+                  } else if (c.viewUrl) {
+                    handleOpenExternal(c.viewUrl, `[Resource Vault] Opened Reference Sheet: ${c.title}`);
                   }
                 }}
-                className={`bg-white dark:bg-zinc-900 border rounded-2xl p-5 shadow-xs space-y-3 relative ${
-                  isLocked ? 'cursor-pointer border-slate-200 dark:border-zinc-800 opacity-80 hover:border-emerald-400' : 'border-slate-200/80 dark:border-zinc-800'
+                className={`bg-white dark:bg-zinc-900 border rounded-2xl p-5 shadow-xs space-y-3 relative transition-all ${
+                  isLocked
+                    ? 'cursor-pointer border-slate-200 dark:border-zinc-800 opacity-80 hover:border-emerald-400'
+                    : 'border-slate-200/80 dark:border-zinc-800 hover:border-powder-400 cursor-pointer hover:shadow-sm'
                 }`}
               >
-                {isLocked && (
+                {isLocked ? (
                   <div className="absolute top-4 right-4 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-[10px] font-mono font-bold text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
                     🔒 Learner Pro
+                  </div>
+                ) : (
+                  <div className="absolute top-4 right-4 flex items-center gap-1 text-[11px] font-mono text-powder-600 dark:text-powder-400 font-bold">
+                    <span>View Sheet</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
                   </div>
                 )}
                 <div className="flex items-start justify-between gap-3">
@@ -485,13 +494,13 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
                 </div>
 
                 <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
-                  {c.summary}
+                  {c.description}
                 </p>
 
                 <div className="space-y-1.5 pt-1">
                   <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Key Architectural Sections:</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {c.keyTopics.map((k, kIdx) => (
+                    {(c.highlights || []).map((k, kIdx) => (
                       <span key={kIdx} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300">
                         {k}
                       </span>
@@ -647,16 +656,28 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
               <div>
                 <span className="font-bold text-slate-900 dark:text-zinc-100">Overview:</span>
                 <p className="text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">
-                  {selectedTextbook.description}
+                  {selectedTextbook.summary || selectedTextbook.description}
                 </p>
+              </div>
+
+              <div>
+                <span className="font-bold text-slate-900 dark:text-zinc-100">Key Takeaways &amp; Principles:</span>
+                <ul className="mt-2 space-y-1.5 text-slate-700 dark:text-zinc-300 font-mono">
+                  {(selectedTextbook.keyTakeaways || []).map((k, idx) => (
+                    <li key={idx} className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-powder-500 shrink-0" />
+                      <span>{k}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               <div>
                 <span className="font-bold text-slate-900 dark:text-zinc-100">Core Chapters &amp; Topics:</span>
                 <ul className="mt-2 space-y-1.5 text-slate-700 dark:text-zinc-300 font-mono">
-                  {selectedTextbook.chapters.map((ch, idx) => (
+                  {(selectedTextbook.chapters || []).map((ch, idx) => (
                     <li key={idx} className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
                       <span>{ch}</span>
                     </li>
                   ))}
