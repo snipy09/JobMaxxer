@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Home from './pages/Home';
 import Download from './pages/Download';
 import Legal from './pages/Legal';
@@ -12,11 +13,21 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  if (route.startsWith('#/download')) return <Download />;
-  if (route.startsWith('#/terms')) return <Legal type="terms" />;
-  if (route.startsWith('#/privacy')) return <Legal type="privacy" />;
+  let content = <Home />;
+  if (route.startsWith('#/download')) {
+    content = <Download />;
+  } else if (route.startsWith('#/terms')) {
+    content = <Legal type="terms" />;
+  } else if (route.startsWith('#/privacy')) {
+    content = <Legal type="privacy" />;
+  }
 
-  return <Home />;
+  return (
+    <>
+      {content}
+      <Analytics />
+    </>
+  );
 }
 
 export default App;
