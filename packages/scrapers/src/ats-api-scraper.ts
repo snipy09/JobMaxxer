@@ -9,6 +9,10 @@ export interface RawJob {
   source: string;
   jobHash: string;
   salary?: string;
+  employmentType?: 'job' | 'internship';
+  workplaceType?: 'remote' | 'hybrid' | 'onsite';
+  experienceLevel?: 'entry' | 'mid' | 'senior';
+  createdAt?: string;
 }
 
 export interface AtsBoardConfig {
@@ -18,7 +22,24 @@ export interface AtsBoardConfig {
 }
 
 export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
-  // Greenhouse Verified Boards
+  // Top Indian Tech & India Hubs
+  { name: 'Postman', type: 'greenhouse', boardId: 'postman' },
+  { name: 'Razorpay', type: 'lever', boardId: 'razorpay' },
+  { name: 'BrowserStack', type: 'greenhouse', boardId: 'browserstack' },
+  { name: 'Hasura', type: 'greenhouse', boardId: 'hasura' },
+  { name: 'Freshworks', type: 'greenhouse', boardId: 'freshworks' },
+  { name: 'CleverTap', type: 'greenhouse', boardId: 'clevertap' },
+  { name: 'Juspay', type: 'greenhouse', boardId: 'juspay' },
+  { name: 'Zeta', type: 'greenhouse', boardId: 'zeta' },
+  { name: 'InMobi', type: 'greenhouse', boardId: 'inmobi' },
+  { name: 'Swiggy', type: 'lever', boardId: 'swiggy' },
+  { name: 'Zomato', type: 'greenhouse', boardId: 'zomato' },
+  { name: 'CRED', type: 'greenhouse', boardId: 'cred' },
+  { name: 'Meesho', type: 'greenhouse', boardId: 'meesho' },
+  { name: 'Groww', type: 'greenhouse', boardId: 'groww' },
+  { name: 'Urban Company', type: 'greenhouse', boardId: 'urbancompany' },
+
+  // Global MNC India Centers & Global Remote
   { name: 'Stripe', type: 'greenhouse', boardId: 'stripe' },
   { name: 'Anthropic', type: 'greenhouse', boardId: 'anthropic' },
   { name: 'Datadog', type: 'greenhouse', boardId: 'datadog' },
@@ -31,14 +52,13 @@ export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
   { name: 'Flexport', type: 'greenhouse', boardId: 'flexport' },
   { name: 'Figma', type: 'greenhouse', boardId: 'figma' },
   { name: 'Reddit', type: 'greenhouse', boardId: 'reddit' },
-  { name: 'Postman', type: 'greenhouse', boardId: 'postman' },
   { name: 'Gusto', type: 'greenhouse', boardId: 'gusto' },
   { name: 'Vercel', type: 'greenhouse', boardId: 'vercel' },
   { name: 'Discord', type: 'greenhouse', boardId: 'discord' },
   { name: 'Checkr', type: 'greenhouse', boardId: 'checkr' },
   { name: 'Webflow', type: 'greenhouse', boardId: 'webflow' },
 
-  // Ashby Verified Boards
+  // Ashby Boards
   { name: 'Ramp', type: 'ashby', boardId: 'ramp' },
   { name: 'Cursor', type: 'ashby', boardId: 'cursor' },
   { name: 'Perplexity', type: 'ashby', boardId: 'perplexity' },
@@ -65,14 +85,21 @@ export async function scrapeAtsApis(
               const applyUrl = item.absolute_url;
               if (!applyUrl || typeof applyUrl !== 'string') continue;
               const hash = computeJobHash(board.name, item.title, applyUrl);
+              const loc = item.location?.name || 'Remote / Unspecified';
+              const titleLower = item.title.toLowerCase();
+              const isIntern = titleLower.includes('intern') || titleLower.includes('trainee');
+              const isRemote = loc.toLowerCase().includes('remote') || titleLower.includes('remote');
+
               jobs.push({
                 company: board.name,
                 title: item.title,
-                location: item.location?.name || 'Remote / Unspecified',
+                location: loc,
                 description: item.content || '',
                 applyUrl,
                 source: 'Greenhouse API',
                 jobHash: hash,
+                employmentType: isIntern ? 'internship' : 'job',
+                workplaceType: isRemote ? 'remote' : 'hybrid',
               });
             }
           }
@@ -86,14 +113,21 @@ export async function scrapeAtsApis(
               const applyUrl = item.applyUrl || item.hostedUrl;
               if (!applyUrl || typeof applyUrl !== 'string') continue;
               const hash = computeJobHash(board.name, item.text, applyUrl);
+              const loc = item.categories?.location || 'Remote / Unspecified';
+              const titleLower = item.text.toLowerCase();
+              const isIntern = titleLower.includes('intern') || titleLower.includes('trainee');
+              const isRemote = loc.toLowerCase().includes('remote') || titleLower.includes('remote');
+
               jobs.push({
                 company: board.name,
                 title: item.text,
-                location: item.categories?.location || 'Remote / Unspecified',
+                location: loc,
                 description: item.descriptionPlain || item.description || '',
                 applyUrl,
                 source: 'Lever API',
                 jobHash: hash,
+                employmentType: isIntern ? 'internship' : 'job',
+                workplaceType: isRemote ? 'remote' : 'hybrid',
               });
             }
           }
@@ -107,14 +141,21 @@ export async function scrapeAtsApis(
               const applyUrl = item.jobUrl || `https://jobs.ashbyhq.com/${board.boardId}/${item.id}`;
               if (!applyUrl || typeof applyUrl !== 'string') continue;
               const hash = computeJobHash(board.name, item.title, applyUrl);
+              const loc = item.location || 'Remote / Unspecified';
+              const titleLower = item.title.toLowerCase();
+              const isIntern = titleLower.includes('intern') || titleLower.includes('trainee');
+              const isRemote = loc.toLowerCase().includes('remote') || titleLower.includes('remote');
+
               jobs.push({
                 company: board.name,
                 title: item.title,
-                location: item.location || 'Remote / Unspecified',
+                location: loc,
                 description: item.descriptionPlain || '',
                 applyUrl,
                 source: 'Ashby API',
                 jobHash: hash,
+                employmentType: isIntern ? 'internship' : 'job',
+                workplaceType: isRemote ? 'remote' : 'hybrid',
               });
             }
           }

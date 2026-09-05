@@ -242,17 +242,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
       }
       return true;
     }).sort((a, b) => {
-      if (filterTab === 'latest') {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return timeB - timeA;
-      }
-      // Default: Highest Match Score then Recent
-      const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
-      if (scoreDiff !== 0) return scoreDiff;
+      // Default: Latest to Oldest
       const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return timeB - timeA;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.score ?? 0) - (a.score ?? 0);
     });
   }, [scoredJobPool, filterTab, searchQuery]);
 
