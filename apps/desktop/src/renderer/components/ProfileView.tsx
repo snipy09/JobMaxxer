@@ -46,6 +46,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [testingGroq, setTestingGroq] = useState<boolean>(false);
   const [groqTestResult, setGroqTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [calibrationCooldownMsg, setCalibrationCooldownMsg] = useState<string | null>(null);
 
   // Custom Answers
   const [newFragment, setNewFragment] = useState<string>('');
@@ -86,6 +87,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     await onSave();
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
+  };
+
+  const handleCalibrateClick = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const lastCalibratedDate = localStorage.getItem('nomadic_last_calibrated_date');
+
+    if (lastCalibratedDate && lastCalibratedDate === todayStr) {
+      setCalibrationCooldownMsg('Role calibration is limited to 1 time per day. Available again tomorrow.');
+      setTimeout(() => setCalibrationCooldownMsg(null), 4000);
+      return;
+    }
+
+    if (onRerunOnboarding) {
+      onRerunOnboarding();
+    }
   };
 
   const handleTestGroq = async () => {
@@ -244,9 +260,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           {onRerunOnboarding && (
             <button
               type="button"
-              onClick={onRerunOnboarding}
+              onClick={handleCalibrateClick}
               className="px-3 py-2 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 transition-colors"
-              title="Re-run career onboarding to re-calibrate target role and tech stack"
+              title="Re-run career onboarding to re-calibrate target role and tech stack (1 time / day)"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>Calibrate Role</span>
@@ -278,6 +294,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </button>
         </div>
       </div>
+
+      {calibrationCooldownMsg && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 font-semibold flex items-center justify-between animate-fade-up">
+          <span>{calibrationCooldownMsg}</span>
+          <button
+            type="button"
+            onClick={() => setCalibrationCooldownMsg(null)}
+            className="text-amber-500 hover:text-amber-800 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* ── APPLE-STYLE SEGMENTED CONTROL BAR ─────────────────────────────── */}
       <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800/70 p-1 rounded-xl overflow-x-auto border border-slate-200/60 dark:border-zinc-700/60">

@@ -349,6 +349,7 @@ export default function App() {
           try {
             localStorage.setItem('nomadic_onboarding_done', 'true');
             localStorage.setItem('hirestack_onboarding_done', 'true');
+            localStorage.setItem('nomadic_last_calibrated_date', new Date().toISOString().split('T')[0]);
             if (currentUser) {
               const updated = { ...currentUser, onboardingCompleted: true };
               setCurrentUser(updated);

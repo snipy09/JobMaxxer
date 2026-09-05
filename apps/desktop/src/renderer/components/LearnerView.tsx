@@ -124,6 +124,14 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         }
       }
 
+      // If user deleted all roadmaps or none in DB, keep empty
+      const userDeletedAll = localStorage.getItem('nomadic_user_deleted_all_roadmaps') === 'true';
+      if (userDeletedAll) {
+        setCustomRoadmaps([]);
+        setActiveRoadmapId('');
+        return;
+      }
+
       // If we already have a cached roadmap in memory or state, do not auto-synthesize
       if (customRoadmaps.length > 0) return;
 
@@ -309,6 +317,9 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
       });
 
       if (res && res.success && res.roadmap) {
+        try {
+          localStorage.removeItem('nomadic_user_deleted_all_roadmaps');
+        } catch {}
         await loadCustomRoadmaps();
         setActiveRoadmapId(res.roadmap.id);
         try {
@@ -364,6 +375,7 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
     if (!currentRoadmap) return;
     if (!window.confirm(`Delete roadmap track "${currentRoadmap.title}"?`)) return;
     const api = getApi();
+    const targetTitle = currentRoadmap.title;
     try {
       if (api && api.deleteCustomRoadmap) {
         await api.deleteCustomRoadmap(currentRoadmap.id);
@@ -375,8 +387,14 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         try {
           localStorage.setItem('nomadic_cached_roadmap', JSON.stringify(remaining[0]));
         } catch {}
+      } else {
+        setActiveRoadmapId('');
+        try {
+          localStorage.removeItem('nomadic_cached_roadmap');
+          localStorage.setItem('nomadic_user_deleted_all_roadmaps', 'true');
+        } catch {}
       }
-      onLog(`[Curriculum Engine] Removed roadmap track "${currentRoadmap.title}"`);
+      onLog(`[Curriculum Engine] Removed roadmap track "${targetTitle}" ✓`);
     } catch (err: any) {
       onLog(`[Curriculum Engine] Delete error: ${err?.message}`);
     }
@@ -502,25 +520,26 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             {/* Dynamic AI Roadmap Switcher */}
             {customRoadmaps.length > 1 && (
-              <div className="flex items-center gap-1">
-                <select
-                  value={activeRoadmapId}
-                  onChange={(e) => setActiveRoadmapId(e.target.value)}
-                  className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 font-medium focus:outline-none"
-                >
-                  {customRoadmaps.map(r => (
-                    <option key={r.id} value={r.id}>{r.title}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleDeleteCurrentTrack}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg border border-slate-200 dark:border-zinc-700 transition"
-                  title="Delete Track"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <select
+                value={activeRoadmapId}
+                onChange={(e) => setActiveRoadmapId(e.target.value)}
+                className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 font-medium focus:outline-none"
+              >
+                {customRoadmaps.map(r => (
+                  <option key={r.id} value={r.id}>{r.title}</option>
+                ))}
+              </select>
+            )}
+
+            {currentRoadmap && (
+              <button
+                type="button"
+                onClick={handleDeleteCurrentTrack}
+                className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg border border-slate-200 dark:border-zinc-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
+                title="Delete this Roadmap Track"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             )}
 
             <button
@@ -706,6 +725,28 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {!currentRoadmap && !isGeneratingRoadmap && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-12 text-center space-y-4 shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-slate-600 dark:text-zinc-400">
+            <Compass className="w-6 h-6" />
+          </div>
+          <div className="space-y-1 max-w-md mx-auto">
+            <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">No Active Learning Track</h3>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Create a personalized, milestone-driven curriculum for your target career role or technical specialty.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowGenerateModal(true)}
+            className="px-4 py-2.5 rounded-xl bg-black text-white dark:bg-white dark:text-black text-xs font-bold hover:opacity-90 inline-flex items-center gap-1.5 shadow-sm transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Custom Track</span>
+          </button>
         </div>
       )}
 
