@@ -1,17 +1,10 @@
-import fs from 'fs';
-import path from 'path';
-import { type Browser, type BrowserContext, type Page } from 'playwright';
+import { Page } from 'playwright';
+import { launchExternalStealthBrowser, BrowserSession } from './chrome-manager.ts';
 import { ATS_FIELD_ALIASES } from './alias-dictionary.ts';
-import { answerCustomQuestionWithGroq, answerCustomQuestion } from './groq-ai.ts';
-import {
-  findChromeExecutable,
-  launchExternalStealthBrowser,
-  ensureChromeForTesting,
-  type BrowserSession,
-} from './chrome-manager.ts';
+import { answerCustomQuestion } from './groq-ai.ts';
+import fs from 'fs';
 
 export interface ResumeItem {
-  id?: number;
   name: string;
   targetRole: string;
   filePath: string;
@@ -43,8 +36,10 @@ export interface ApplyResult {
   url: string;
   success: boolean;
   submitted: boolean;
+  prefilled?: boolean;
   captchaDetected: boolean;
   error?: string;
+  note?: string;
 }
 
 let persistentBrowserSession: BrowserSession | null = null;
@@ -71,8 +66,8 @@ async function getOrLaunchExternalSession(): Promise<BrowserSession> {
 export class AutoApplyEngine {
   /**
    * Semi-Auto Review Mode: Opens tabs in a controlled RAM-safe FIFO queue
-   * (3-5 parallel tabs max) in external Chrome, auto-fills all ATS fields,
-   * evaluates AI questions, attaches resume, and leaves tabs open for 1-click review.
+   * in external Chrome, auto-fills all ATS fields, evaluates questions,
+   * attaches resume, and leaves tabs open for 1-click review.
    */
   public static async prefillParallelTabs(
     jobUrls: string[],
@@ -83,7 +78,7 @@ export class AutoApplyEngine {
     if (!jobUrls || jobUrls.length === 0) return;
 
     const limit = Math.max(1, Math.min(concurrencyLimit, 5));
-    onProgress?.(`Starting RAM-safe prefill queue for ${jobUrls.length} positions (${limit} parallel workers)...`);
+    onProgress?.(`Starting prefill queue for ${jobUrls.length} positions (${limit} parallel workers)...`);
     const session = await getOrLaunchExternalSession();
 
     let nextIndex = 0;
@@ -107,13 +102,19 @@ export class AutoApplyEngine {
           // 3. Fill standard ATS inputs
           await AutoApplyEngine.fillStandardFields(page, profile);
 
-          // 4. Answer custom open-ended questions with Groq AI / cached answers
+          // 4. Fill select dropdowns & radios
+          await AutoApplyEngine.fillSelectDropdowns(page, profile);
+
+          // 5. Answer custom open-ended questions
           await AutoApplyEngine.answerOpenEndedFields(page, profile);
 
-          // 5. Attach matching resume
+          // 6. Attach matching resume
           await AutoApplyEngine.uploadResumeIfPresent(page, profile);
 
-          // 6. Update overlay to ready state
+          // 7. Check consent and required checkboxes
+          await AutoApplyEngine.fillConsentAndRequiredCheckboxes(page);
+
+          // 8. Update overlay to ready state
           await AutoApplyEngine.injectOverlay(
             page,
             '✓ Auto-filled! Ready for 1-Click Review & Submit',
@@ -141,7 +142,7 @@ export class AutoApplyEngine {
 
   /**
    * 100% Autonomous Mode: Navigates to job in external Chrome, auto-fills all fields,
-   * handles AI questions, uploads resume, clicks submit, and confirms completion.
+   * handles questions, uploads resume, clicks submit, and strictly verifies confirmation.
    */
   public static async submitApplication(
     url: string,
@@ -149,7 +150,7 @@ export class AutoApplyEngine {
     onProgress?: (msg: string) => void
   ): Promise<ApplyResult> {
     if (!url || !url.trim()) {
-      return { url: '', success: false, submitted: false, captchaDetected: false, error: 'Invalid URL' };
+      return { url: '', success: false, submitted: false, prefilled: false, captchaDetected: false, error: 'Invalid URL' };
     }
 
     let page: Page | null = null;
@@ -162,52 +163,51 @@ export class AutoApplyEngine {
       await page.bringToFront().catch(() => {});
 
       // Inject floating overlay
-      await AutoApplyEngine.injectOverlay(page, '⚡ Nomadic: Autonomous Engine Active');
+      await AutoApplyEngine.injectOverlay(page, '⚡ Nomadic: Auto-Apply Engine Active');
 
       // Detect CAPTCHA barriers
       const captchaDetected = await AutoApplyEngine.detectCaptcha(page);
       if (captchaDetected) {
         await AutoApplyEngine.injectOverlay(
           page,
-          '⚠️ CAPTCHA Detected — Left open for user verification',
+          '⚠️ CAPTCHA Detected — Complete challenge to proceed',
           '#f59e0b'
         );
         onProgress?.(`[Autonomous] CAPTCHA barrier detected at ${url}`);
         return {
           url,
-          success: false,
+          success: true,
           submitted: false,
+          prefilled: false,
           captchaDetected: true,
-          error: 'CAPTCHA challenge encountered (open in Chrome)',
+          error: 'CAPTCHA barrier detected (left open in Chrome for candidate)',
         };
       }
 
-      // Detect Login / Authentication Gate
-      const loginRequired = await AutoApplyEngine.detectLoginRequired(page);
-      if (loginRequired) {
-        await page.bringToFront().catch(() => {});
+      // Detect Login / Authentication Wall
+      const isLoginRequired = await AutoApplyEngine.detectLoginRequired(page);
+      if (isLoginRequired) {
         await AutoApplyEngine.injectOverlay(
           page,
-          '🔐 Sign-In Required — Please log in on this page (Autopilot will resume automatically)',
+          '🔐 Sign-In Required — Please log in (Autopilot will resume automatically)',
           '#f59e0b'
         );
         onProgress?.(`[Autonomous] 🔐 Sign-in required for ${url}. Waiting for user login in browser...`);
-
         const loggedIn = await AutoApplyEngine.waitForLoginComplete(page, onProgress);
         if (loggedIn) {
           await AutoApplyEngine.injectOverlay(
             page,
-            '✓ Sign-In Verified! Resuming autonomous autofill...',
+            '✓ Sign-In Verified! Resuming auto-fill...',
             '#22c55e'
           );
           onProgress?.(`[Autonomous] ✓ User signed in at ${url}. Resuming application filling...`);
-          await page.waitForTimeout(1500);
         } else {
           onProgress?.(`[Autonomous] Sign-in timed out for ${url}. Left open in browser.`);
           return {
             url,
             success: false,
             submitted: false,
+            prefilled: false,
             captchaDetected: false,
             error: 'Sign-in timed out (left open for manual login in Chrome)',
           };
@@ -221,6 +221,9 @@ export class AutoApplyEngine {
       await AutoApplyEngine.injectOverlay(page, 'Typing candidate credentials...');
       await AutoApplyEngine.fillStandardFields(page, profile);
 
+      // Fill select dropdowns & radio buttons
+      await AutoApplyEngine.fillSelectDropdowns(page, profile);
+
       // Answer dynamic questions with in-house AI solver
       await AutoApplyEngine.injectOverlay(page, 'Auto-answering application questions...');
       await AutoApplyEngine.answerOpenEndedFields(page, profile);
@@ -229,38 +232,59 @@ export class AutoApplyEngine {
       await AutoApplyEngine.injectOverlay(page, 'Attaching matching resume...');
       await AutoApplyEngine.uploadResumeIfPresent(page, profile);
 
+      // Check consent and required checkboxes
+      await AutoApplyEngine.fillConsentAndRequiredCheckboxes(page);
+
       await page.waitForTimeout(1000);
 
       // Submit application
       await AutoApplyEngine.injectOverlay(page, 'Submitting application form...', '#38bdf8');
-      const submitted = await AutoApplyEngine.submitForm(page);
+      const submitClicked = await AutoApplyEngine.submitForm(page);
 
-      if (!submitted) {
+      if (!submitClicked) {
         await AutoApplyEngine.injectOverlay(
           page,
           '✓ Pre-filled successfully! 1-Click submit ready',
           '#22c55e'
         );
-        onProgress?.(`[Autonomous] Form prefilled for ${url}`);
-        return { url, success: true, submitted: false, captchaDetected: false };
+        onProgress?.(`[Autonomous] Form prefilled (ready for submit) for ${url}`);
+        return { url, success: true, submitted: false, prefilled: true, captchaDetected: false };
       }
 
-      // Check confirmation
+      // Check confirmation strictly
       const confirmed = await AutoApplyEngine.waitForConfirmation(page);
-      await AutoApplyEngine.injectOverlay(
-        page,
-        confirmed ? '✓ Application Submitted & Confirmed!' : '✓ Application Submitted!',
-        '#22c55e'
-      );
-      onProgress?.(`[Autonomous] Submitted successfully: ${url}`);
-
-      return { url, success: true, submitted: true, captchaDetected: false };
+      if (confirmed) {
+        await AutoApplyEngine.injectOverlay(
+          page,
+          '✓ Application Submitted & Confirmed!',
+          '#22c55e'
+        );
+        onProgress?.(`[Autonomous] Confirmed submitted successfully: ${url} ✓`);
+        return { url, success: true, submitted: true, prefilled: true, captchaDetected: false };
+      } else {
+        // Submission was clicked, but confirmation wasn't verified
+        await AutoApplyEngine.injectOverlay(
+          page,
+          '✓ Details Pre-filled — Please review and click submit in browser',
+          '#38bdf8'
+        );
+        onProgress?.(`[Autonomous] Form pre-filled for ${url} (left open in browser for 1-click review & submit)`);
+        return {
+          url,
+          success: true,
+          submitted: false,
+          prefilled: true,
+          captchaDetected: false,
+          error: 'Pre-filled, left open for 1-click review & submit'
+        };
+      }
     } catch (err: any) {
       onProgress?.(`[Autonomous] Error on ${url}: ${err?.message}`);
       return {
         url,
         success: false,
         submitted: false,
+        prefilled: false,
         captchaDetected: false,
         error: err?.message || String(err),
       };
@@ -273,19 +297,19 @@ export class AutoApplyEngine {
     try {
       await page.evaluate(
         ({ text, color }: { text: string; color: string }) => {
-          let banner = document.getElementById('jobmaxxer-overlay');
+          let banner = document.getElementById('nomadic-overlay');
           if (!banner) {
             banner = document.createElement('div');
-            banner.id = 'jobmaxxer-overlay';
+            banner.id = 'nomadic-overlay';
             banner.style.position = 'fixed';
             banner.style.top = '16px';
             banner.style.left = '50%';
             banner.style.transform = 'translateX(-50%)';
             banner.style.zIndex = '2147483647';
-            banner.style.backgroundColor = '#0f172a';
+            banner.style.backgroundColor = '#09090b';
             banner.style.padding = '10px 24px';
             banner.style.borderRadius = '9999px';
-            banner.style.boxShadow = '0 10px 30px rgba(0,0,0,0.6), 0 0 20px rgba(56,189,248,0.4)';
+            banner.style.boxShadow = '0 10px 30px rgba(0,0,0,0.7), 0 0 20px rgba(56,189,248,0.4)';
             banner.style.fontFamily = 'system-ui, -apple-system, sans-serif';
             banner.style.fontSize = '13px';
             banner.style.fontWeight = '600';
@@ -333,11 +357,11 @@ export class AutoApplyEngine {
       for (const sel of triggerSelectors) {
         const btn = await page.$(sel);
         if (btn) {
-          const visible = await btn.isVisible().catch(() => false);
-          if (visible) {
+          const isVisible = await btn.isVisible().catch(() => false);
+          if (isVisible) {
             await btn.scrollIntoViewIfNeeded().catch(() => {});
             await btn.click().catch(() => {});
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(1000);
             break;
           }
         }
@@ -403,6 +427,128 @@ export class AutoApplyEngine {
     }
   }
 
+  private static async fillSelectDropdowns(page: Page, profile: MasterProfile): Promise<void> {
+    try {
+      const selects = await page.$$('select');
+      for (const select of selects) {
+        try {
+          const isVisible = await select.isVisible().catch(() => false);
+          if (!isVisible) continue;
+
+          const label = (await AutoApplyEngine.getLabelForInput(page, select)).toLowerCase();
+          const name = ((await select.getAttribute('name')) || '').toLowerCase();
+          const id = ((await select.getAttribute('id')) || '').toLowerCase();
+          const fieldDesc = `${label} ${name} ${id}`;
+
+          const options = await select.$$eval('option', (opts: any[]) =>
+            opts.map(o => ({ value: o.value, text: (o.textContent || '').trim().toLowerCase() }))
+          );
+
+          if (options.length <= 1) continue;
+
+          // 1. Sponsorship question
+          if (fieldDesc.includes('sponsorship') || fieldDesc.includes('visa')) {
+            const isNo = (profile.sponsorship || 'no').toLowerCase() === 'no';
+            const matchingOpt = options.find(o => isNo ? o.text.startsWith('no') : o.text.startsWith('yes'));
+            if (matchingOpt && matchingOpt.value) {
+              await select.selectOption(matchingOpt.value).catch(() => {});
+              continue;
+            }
+          }
+
+          // 2. Legally authorized to work
+          if (fieldDesc.includes('authorized') || fieldDesc.includes('legally')) {
+            const matchingOpt = options.find(o => o.text.startsWith('yes'));
+            if (matchingOpt && matchingOpt.value) {
+              await select.selectOption(matchingOpt.value).catch(() => {});
+              continue;
+            }
+          }
+
+          // 3. Gender / Demographic / EEOC / Disability / Veteran status
+          if (
+            fieldDesc.includes('gender') ||
+            fieldDesc.includes('race') ||
+            fieldDesc.includes('veteran') ||
+            fieldDesc.includes('disability') ||
+            fieldDesc.includes('ethnicity')
+          ) {
+            const declineOpt = options.find(o =>
+              o.text.includes('decline') ||
+              o.text.includes('prefer not') ||
+              o.text.includes('choose not') ||
+              o.text.includes('do not wish') ||
+              o.text.includes('no')
+            );
+            if (declineOpt && declineOpt.value) {
+              await select.selectOption(declineOpt.value).catch(() => {});
+              continue;
+            }
+          }
+
+          // 4. Source / How did you hear about us
+          if (fieldDesc.includes('hear') || fieldDesc.includes('source') || fieldDesc.includes('referral')) {
+            const sourceOpt = options.find(o =>
+              o.text.includes('linkedin') ||
+              o.text.includes('job board') ||
+              o.text.includes('other') ||
+              o.text.includes('company')
+            );
+            if (sourceOpt && sourceOpt.value) {
+              await select.selectOption(sourceOpt.value).catch(() => {});
+              continue;
+            }
+          }
+
+          // 5. Default fallback if required and currently empty
+          const isRequired = await select.getAttribute('required');
+          const currentValue = await select.evaluate((el: any) => el.value);
+          if (isRequired && (!currentValue || currentValue === '')) {
+            const firstValid = options.find(o => o.value && o.value !== '' && !o.text.includes('select'));
+            if (firstValid) {
+              await select.selectOption(firstValid.value).catch(() => {});
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  private static async fillConsentAndRequiredCheckboxes(page: Page): Promise<void> {
+    try {
+      const checkboxes = await page.$$('input[type="checkbox"]');
+      for (const cb of checkboxes) {
+        try {
+          const isVisible = await cb.isVisible().catch(() => false);
+          if (!isVisible) continue;
+
+          const isChecked = await cb.isChecked().catch(() => true);
+          if (isChecked) continue;
+
+          const name = ((await cb.getAttribute('name')) || '').toLowerCase();
+          const id = ((await cb.getAttribute('id')) || '').toLowerCase();
+          const label = (await AutoApplyEngine.getLabelForInput(page, cb)).toLowerCase();
+          const isRequired = Boolean(await cb.getAttribute('required'));
+
+          const consentKeywords = [
+            'consent', 'agree', 'terms', 'privacy', 'policy', 'acknowledge',
+            'certify', 'accurate', 'data', 'gdpr', 'processing', 'statement'
+          ];
+
+          const isConsent = isRequired || consentKeywords.some(kw =>
+            name.includes(kw) || id.includes(kw) || label.includes(kw)
+          );
+
+          if (isConsent) {
+            await cb.scrollIntoViewIfNeeded().catch(() => {});
+            await cb.click().catch(() => {});
+            await page.waitForTimeout(50);
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
   private static async answerOpenEndedFields(page: Page, profile: MasterProfile): Promise<void> {
     try {
       const candidateSummary = [
@@ -442,7 +588,7 @@ export class AutoApplyEngine {
             }
           }
 
-          // 2. Check local cached answers (0-cost repeat queries)
+          // 2. Check local cached answers
           if (!answer && profile.cachedAnswers) {
             for (const [cKey, cachedVal] of Object.entries(profile.cachedAnswers)) {
               if (questionText.toLowerCase().includes(cKey.toLowerCase()) || cKey.toLowerCase().includes(questionText.toLowerCase())) {
@@ -452,7 +598,7 @@ export class AutoApplyEngine {
             }
           }
 
-          // 3. Use AI (built-in Gemini 3.6 Flash or custom Groq) if no cached answer found
+          // 3. Use AI solver if no cached answer found
           if (!answer) {
             try {
               answer = await answerCustomQuestion(
@@ -469,8 +615,8 @@ export class AutoApplyEngine {
           if (answer) {
             await ta.scrollIntoViewIfNeeded().catch(() => {});
             await ta.evaluate((el: any) => {
-              el.style.outline = '2px solid #a855f7';
-              el.style.boxShadow = '0 0 10px rgba(168,85,247,0.4)';
+              el.style.outline = '2px solid #22c55e';
+              el.style.boxShadow = '0 0 10px rgba(34,197,94,0.4)';
             }).catch(() => {});
             await ta.fill(answer);
             await ta.dispatchEvent('input').catch(() => {});
@@ -520,12 +666,19 @@ export class AutoApplyEngine {
     const submitSelectors = [
       'button[type="submit"]',
       'input[type="submit"]',
+      'button#submit_app',
+      'input#submit_app',
       'button:has-text("Submit Application")',
       'button:has-text("Submit Application Form")',
+      'button:has-text("Submit application")',
       'button:has-text("Submit")',
       'button:has-text("Send Application")',
+      'button:has-text("Complete Application")',
+      'button:has-text("Apply Now")',
       '[data-qa="btn-submit"]',
-      '#submit_app',
+      '[data-qa="submit-button"]',
+      'button.template-btn-submit',
+      'button[aria-label*="Submit" i]'
     ];
 
     for (const sel of submitSelectors) {
@@ -547,20 +700,54 @@ export class AutoApplyEngine {
   private static async waitForConfirmation(page: Page): Promise<boolean> {
     const confirmationTexts = [
       'thank you for applying',
+      'thank you for your application',
       'application submitted',
       'application received',
       'we have received your application',
+      'we\'ve received your application',
       'successfully applied',
       'application complete',
+      'your application was submitted',
+      'thanks for applying',
+      'application has been sent',
+      'we will review your application',
+      'submission confirmed',
+      'has been submitted',
     ];
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       try {
+        // 1. Check URL indicator
+        const currentUrl = page.url().toLowerCase();
+        if (
+          currentUrl.includes('/confirmation') ||
+          currentUrl.includes('/thank_you') ||
+          currentUrl.includes('/thanks') ||
+          currentUrl.includes('/applied') ||
+          currentUrl.includes('/submitted') ||
+          currentUrl.includes('/success') ||
+          currentUrl.includes('submitted=true')
+        ) {
+          return true;
+        }
+
+        // 2. Check DOM text
         const bodyText = await page.innerText('body').catch(() => '');
         const lower = bodyText.toLowerCase();
         for (const ct of confirmationTexts) {
           if (lower.includes(ct)) return true;
         }
+
+        // 3. Check for validation errors remaining
+        const hasFormErrors = await page.evaluate(() => {
+          const errs = document.querySelectorAll('.error, [aria-invalid="true"], .field-error, .form-error, input:invalid');
+          return errs.length > 0;
+        }).catch(() => false);
+
+        if (hasFormErrors && i >= 2) {
+          return false;
+        }
+
         await page.waitForTimeout(1000);
       } catch {
         break;

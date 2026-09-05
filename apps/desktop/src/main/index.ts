@@ -1559,7 +1559,7 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
               mode: 'autonomous',
             });
             skipped++;
-          } else if (result.submitted || result.success) {
+          } else if (result.submitted) {
             logAndSyncApplication({
               company: jobCompany,
               title: jobTitle,
@@ -1568,7 +1568,17 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
               mode: 'autonomous',
             });
             applied++;
-            log(`[Auto-Apply] Successfully submitted ${totalProcessed}/${jobUrls.length} ✓`);
+            log(`[Auto-Apply] ✓ Verified application submitted for ${jobCompany} (${totalProcessed}/${jobUrls.length})`);
+          } else if (result.prefilled || result.success) {
+            logAndSyncApplication({
+              company: jobCompany,
+              title: jobTitle,
+              apply_url: url,
+              status: 'prefilled',
+              mode: 'autonomous',
+            });
+            skipped++;
+            log(`[Auto-Apply] Pre-filled application for ${jobCompany} (left open in browser for 1-click review)`);
           } else {
             logAndSyncApplication({
               company: jobCompany,
