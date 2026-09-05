@@ -2634,15 +2634,16 @@ async function handleOAuthToken(accessToken: string, refreshToken?: string): Pro
     activeUserId = userId;
     activeSessionToken = sessionToken;
 
+    const isAdminUser = email === 'sajalmishra0906@gmail.com' || email === 'admin@jobmaxxer.com';
     const appUser: ValidatedUser = {
       id: userId,
       email,
       fullName,
-      role: 'user',
-      tier: 'free',
-      licenseKey: `NOMADIC-GOOGLE-${userId.slice(0, 8).toUpperCase()}`,
+      role: isAdminUser ? 'admin' : 'user',
+      tier: isAdminUser ? 'lifetime' : 'free',
+      licenseKey: isAdminUser ? `NOMADIC-ADMIN-MASTER` : `NOMADIC-GOOGLE-${userId.slice(0, 8).toUpperCase()}`,
       status: 'active',
-      appsCount: 0,
+      appsCount: isAdminUser ? 9999 : 0,
       createdAt: userData.created_at || new Date().toISOString(),
       lastLogin: new Date().toISOString(),
     };
@@ -2732,15 +2733,16 @@ async function handleGoogleAuthCode(code: string): Promise<{ success: boolean; u
     activeUserId = userId;
     activeSessionToken = sessionToken;
 
+    const isAdminUser = email === 'sajalmishra0906@gmail.com' || email === 'admin@jobmaxxer.com';
     const appUser: ValidatedUser = {
       id: userId,
       email,
       fullName,
-      role: 'user',
-      tier: 'free',
-      licenseKey: `NOMADIC-GGL-${userId.slice(0, 8).toUpperCase()}`,
+      role: isAdminUser ? 'admin' : 'user',
+      tier: isAdminUser ? 'lifetime' : 'free',
+      licenseKey: isAdminUser ? `NOMADIC-ADMIN-MASTER` : `NOMADIC-GGL-${userId.slice(0, 8).toUpperCase()}`,
       status: 'active',
-      appsCount: 0,
+      appsCount: isAdminUser ? 9999 : 0,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
     };
