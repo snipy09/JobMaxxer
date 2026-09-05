@@ -575,8 +575,10 @@ export class AutoApplyEngine {
         '.apply-button',
         '#apply-button',
         '#btn-apply',
+        'a.postings-btn',
       ];
 
+      // 1. Check for immediate apply buttons
       for (const sel of triggerSelectors) {
         const btn = await page.$(sel);
         if (btn) {
@@ -586,6 +588,54 @@ export class AutoApplyEngine {
             await btn.click().catch(() => {});
             await page.waitForTimeout(1000);
             break;
+          }
+        }
+      }
+
+      // 2. If no standard form inputs are found, check if this is a job board listing or catalog page
+      const hasInputs = await page.$('input[type="text"], input[name*="name" i], input[type="email"], input[name*="email" i], input[type="tel"]');
+      if (!hasInputs) {
+        const listingSelectors = [
+          'a.posting-title',
+          'a.postings-btn',
+          '.posting a',
+          '.opening a',
+          'a[href*="/jobs/"]',
+          'a[href*="/detail/"]',
+          'a[href*="/job/"]',
+          'a[href*="/internship/detail/"]',
+          'a[href*="/internship/"]',
+          '.job-title a',
+          '.individual_internship a',
+          'a:has-text("View Job")',
+          'a:has-text("Apply")',
+        ];
+
+        for (const lSel of listingSelectors) {
+          const item = await page.$(lSel);
+          if (item) {
+            const isVisible = await item.isVisible().catch(() => false);
+            if (isVisible) {
+              const href = await item.getAttribute('href');
+              if (href) {
+                try {
+                  const resolved = new URL(href, page.url()).toString();
+                  await page.goto(resolved, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                  await page.waitForTimeout(1000);
+
+                  for (const sel of triggerSelectors) {
+                    const btn = await page.$(sel);
+                    if (btn && (await btn.isVisible().catch(() => false))) {
+                      await btn.scrollIntoViewIfNeeded().catch(() => {});
+                      await btn.click().catch(() => {});
+                      await page.waitForTimeout(1000);
+                      break;
+                    }
+                  }
+                  break;
+                } catch {}
+              }
+            }
           }
         }
       }
