@@ -163,18 +163,18 @@ export default function Download() {
             </div>
 
             <div className="space-y-3 pt-4 border-t border-ink-100">
-              <button
-                type="button"
-                onClick={handleDownloadClick}
-                className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95"
+              <a
+                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.0/Nomadic.Setup.1.0.0.exe"
+                onClick={() => setDownloadStarted(true)}
+                className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95 text-center"
               >
                 <DownloadIcon className="w-4 h-4" />
-                <span>Download for Windows (Setup.exe)</span>
-              </button>
+                <span>Download for Windows (Setup.exe — 92.8 MB)</span>
+              </a>
 
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
-                <span>File: Nomadic-Setup-1.0.0.exe</span>
-                <span>SHA-256 Verified</span>
+                <span>File: Nomadic.Setup.1.0.0.exe</span>
+                <span>SHA-256 Verified · 92.8 MB</span>
               </div>
             </div>
           </div>

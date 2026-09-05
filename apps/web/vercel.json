@@ -2,9 +2,26 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/download-setup",
+      "destination": "https://github.com/snipy09/JobMaxxer/releases/download/v1.0.0/Nomadic.Setup.1.0.0.exe",
+      "permanent": false
+    },
+    {
+      "source": "/Nomadic-Setup-1.0.0.exe",
+      "destination": "https://github.com/snipy09/JobMaxxer/releases/download/v1.0.0/Nomadic.Setup.1.0.0.exe",
+      "permanent": false
+    },
+    {
+      "source": "/Nomadic-1.0.0.exe",
+      "destination": "https://github.com/snipy09/JobMaxxer/releases/download/v1.0.0/Nomadic.1.0.0.exe",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets|logo|favicon|.*\\.(?:ico|png|svg|jpg|jpeg|gif|webp|exe|json)).*)",
       "destination": "/index.html"
     }
   ]
