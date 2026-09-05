@@ -1,6 +1,6 @@
 {
   "name": "@nomadic/desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Nomadic — Desktop Job Search & Application Automation Platform",
   "author": "Nomadic",
   "main": "out/main/index.cjs",
@@ -43,11 +43,11 @@
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
       "shortcutName": "Nomadic",
-      "artifactName": "Nomadic Setup 1.0.0.exe",
-      "uninstallDisplayName": "Nomadic 1.0.0"
+      "artifactName": "Nomadic Setup ${version}.exe",
+      "uninstallDisplayName": "Nomadic ${version}"
     },
     "portable": {
-      "artifactName": "Nomadic 1.0.0.exe",
+      "artifactName": "Nomadic ${version}.exe",
       "requestExecutionLevel": "user"
     },
     "mac": {
