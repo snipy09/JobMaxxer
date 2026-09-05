@@ -1,763 +1,724 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  User, Key, ShieldCheck, Terminal, Plus, Trash2,
-  CheckCircle2, AlertCircle, Loader2, ExternalLink,
-  Eye, EyeOff, Save, Lock, Sparkles, Check,
-  Cpu, SlidersHorizontal, Database, Download, RefreshCw,
-  Wifi, Copy, Layers, Building, Briefcase, FileText,
-  Upload, FileCheck, Star, Paperclip, LogOut, Laptop,
-  HelpCircle, ChevronRight, HardDrive, Shield, Zap
+  User, FileText, CheckCircle2, Shield,
+  Save, AlertCircle, RefreshCw, Key, Database,
+  ArrowRight, ExternalLink, Sparkles, Check, ChevronRight
 } from 'lucide-react';
-import { MasterProfile, DependencyStatus, HeartbeatStatus, ResumeRecord, AppUser, getApi } from '../types';
+import { MasterProfile, getApi, AppUser } from '../types';
 
 interface ProfileViewProps {
-  profile: MasterProfile;
-  setProfile: (p: MasterProfile) => void;
-  onSave: () => Promise<void>;
-  saving: boolean;
-  onLog: (msg: string) => void;
-  logs: string[];
-  onClearLogs: () => void;
-  heartbeat: HeartbeatStatus | null;
+  profile: MasterProfile | null;
+  onSaveProfile: (profile: MasterProfile) => Promise<boolean>;
+  onLog?: (msg: string) => void;
   currentUser?: AppUser | null;
-  onLogout?: () => void;
-  onRerunOnboarding?: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
+
+type SettingsSection = 'profile' | 'resumes' | 'answers' | 'automation' | 'account';
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
   profile,
-  setProfile,
-  onSave,
-  saving,
+  onSaveProfile,
   onLog,
-  logs,
-  onClearLogs,
-  heartbeat,
   currentUser,
-  onLogout,
-  onRerunOnboarding,
+  onNavigateTab,
 }) => {
-  // Navigation Segmented Tabs (Apple style)
-  const [activeSection, setActiveSection] = useState<'profile' | 'resumes' | 'automation' | 'diagnostics' | 'account'>('profile');
-
-  // Key visibility & testing
-  const [showGroqKey, setShowGroqKey] = useState<boolean>(false);
-  const [showSmtpPass, setShowSmtpPass] = useState<boolean>(false);
-  const [testingGroq, setTestingGroq] = useState<boolean>(false);
-  const [groqTestResult, setGroqTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
-  const [calibrationCooldownMsg, setCalibrationCooldownMsg] = useState<string | null>(null);
-
-  // Custom Answers
-  const [newFragment, setNewFragment] = useState<string>('');
-  const [newAnswer, setNewAnswer] = useState<string>('');
-
-  // Resumes
-  const [resumes, setResumes] = useState<ResumeRecord[]>([]);
-  const [newResumeName, setNewResumeName] = useState<string>('');
-  const [newResumeRole, setNewResumeRole] = useState<string>('');
-  const [newResumePath, setNewResumePath] = useState<string>('');
-  const [isPickingFile, setIsPickingFile] = useState<boolean>(false);
-  const [resumeSuccessMsg, setResumeSuccessMsg] = useState<string | null>(null);
-  const profileFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Diagnostics
-  const [depStatus, setDepStatus] = useState<DependencyStatus>({
-    sqliteReady: true,
-    playwrightInstalled: true,
-    internetOk: true,
-    allReady: true,
+  const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
+  const [formData, setFormData] = useState<MasterProfile>(() => {
+    return profile || {
+      fullName: currentUser?.fullName || '',
+      email: currentUser?.email || '',
+      phone: '',
+      location: '',
+      linkedin: '',
+      github: '',
+      portfolio: '',
+      currentRole: '',
+      targetRole: 'Software Engineer',
+      yearsOfExperience: 2,
+      skills: [],
+      workExperience: [],
+      education: [],
+      preferredJobTypes: ['full-time', 'remote'],
+      expectedSalaryMin: 80000,
+      expectedSalaryMax: 130000,
+      salaryCurrency: 'USD',
+      willingToRelocate: false,
+      authorizedToWorkInUS: true,
+      requiresSponsorship: false,
+      answers: {},
+      resumes: [],
+      defaultResumeId: undefined,
+      onboardingCompleted: true,
+    };
   });
-  const [checkingDeps, setCheckingDeps] = useState<boolean>(false);
 
-  const loadResumes = async () => {
-    const api = getApi();
-    if (!api) return;
-    try {
-      const res = await api.getResumes();
-      setResumes(res || []);
-    } catch {}
-  };
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [skillInput, setSkillInput] = useState('');
+
+  // Calibration rate limiting state
+  const [calibrationCooldown, setCalibrationCooldown] = useState<boolean>(false);
+  const [calibrationSuccess, setCalibrationSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    loadResumes();
+    try {
+      const lastCalibrated = localStorage.getItem('nomadic_last_calibrated_date');
+      if (lastCalibrated) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (lastCalibrated === todayStr) {
+          setCalibrationCooldown(true);
+        }
+      }
+    } catch {}
   }, []);
 
-  const handleSaveAll = async () => {
-    await onSave();
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2000);
-  };
-
-  const handleCalibrateClick = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const lastCalibratedDate = localStorage.getItem('nomadic_last_calibrated_date');
-
-    if (lastCalibratedDate && lastCalibratedDate === todayStr) {
-      setCalibrationCooldownMsg('Role calibration is limited to 1 time per day. Available again tomorrow.');
-      setTimeout(() => setCalibrationCooldownMsg(null), 4000);
-      return;
+  useEffect(() => {
+    if (profile) {
+      setFormData(profile);
     }
+  }, [profile]);
 
-    if (onRerunOnboarding) {
-      onRerunOnboarding();
-    }
-  };
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setSaving(true);
+    setSaveSuccess(false);
 
-  const handleTestGroq = async () => {
-    setTestingGroq(true);
-    setGroqTestResult(null);
     try {
-      const api = getApi();
-      const res = await api.testGroqKey(profile.groqApiKey || '');
-      if (res.success) {
-        setGroqTestResult({ success: true, message: '✓ Built-in Gemini 3.6 Flash Engine Verified (Latency: ~140ms)' });
-        onLog('[AI Engine] Built-in Gemini 3.6 Flash engine verified and active.');
-      } else {
-        setGroqTestResult({ success: false, message: res.error || 'Connection check failed.' });
-      }
-    } catch {
-      setGroqTestResult({ success: true, message: '✓ Built-in Gemini 3.6 Flash Engine Active.' });
-    } finally {
-      setTestingGroq(false);
-    }
-  };
-
-  const handleAddCustomAnswer = () => {
-    if (!newFragment.trim() || !newAnswer.trim()) return;
-    const current = profile.customAnswers || {};
-    const updated = { ...current, [newFragment.trim()]: newAnswer.trim() };
-    setProfile({ ...profile, customAnswers: updated });
-    setNewFragment('');
-    setNewAnswer('');
-  };
-
-  const handleRemoveCustomAnswer = (key: string) => {
-    const current = { ...(profile.customAnswers || {}) };
-    delete current[key];
-    setProfile({ ...profile, customAnswers: current });
-  };
-
-  const handlePickAndAddResume = async (e?: React.ChangeEvent<HTMLInputElement>) => {
-    const api = getApi();
-    setIsPickingFile(true);
-    setResumeSuccessMsg(null);
-    try {
-      let fileName = 'Resume.pdf';
-      let filePath = '';
-
-      if (e && e.target.files && e.target.files.length > 0) {
-        const f = e.target.files[0];
-        fileName = f.name;
-        filePath = (f as any).path || URL.createObjectURL(f);
-      } else if (api && api.pickResumeFile) {
-        const res = await api.pickResumeFile();
-        if (res.canceled || !res.filePath) {
-          setIsPickingFile(false);
-          return;
-        }
-        filePath = res.filePath;
-        fileName = res.fileName || res.filePath.split(/[/\\]/).pop() || 'Resume.pdf';
-      }
-
-      if (filePath) {
-        const role = profile.desiredTitle || 'General';
-        const isFirst = resumes.length === 0;
-        if (api && api.saveResume) {
-          await api.saveResume({
-            name: fileName,
-            targetRole: role,
-            filePath,
-            isDefault: isFirst,
-          });
-        }
-        await loadResumes();
-        setResumeSuccessMsg(`✓ Resume "${fileName}" uploaded successfully!`);
-        onLog(`[Resumes] Uploaded resume document: ${fileName}`);
+      const ok = await onSaveProfile(formData);
+      if (ok) {
+        setSaveSuccess(true);
+        onLog?.('[Settings] Profile settings saved successfully');
+        setTimeout(() => setSaveSuccess(false), 3000);
       }
     } catch (err: any) {
-      onLog(`[Resumes] Upload note: ${err?.message}`);
+      onLog?.(`[Settings Error] ${err?.message || 'Failed to save'}`);
     } finally {
-      setIsPickingFile(false);
-      if (profileFileInputRef.current) profileFileInputRef.current.value = '';
+      setSaving(false);
     }
   };
 
-  const handleAddResume = async () => {
-    if (!newResumeName.trim() || !newResumeRole.trim()) return;
-    const api = getApi();
-    if (!api) return;
-    const isFirst = resumes.length === 0;
-    await api.saveResume({
-      name: newResumeName.trim(),
-      targetRole: newResumeRole.trim(),
-      filePath: newResumePath.trim() || 'C:/Users/Documents/Resume.pdf',
-      isDefault: isFirst,
-    });
-    setNewResumeName('');
-    setNewResumeRole('');
-    setNewResumePath('');
-    await loadResumes();
+  const handleAddSkill = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && skillInput.trim()) {
+      e.preventDefault();
+      const newSkill = skillInput.trim();
+      if (!formData.skills.includes(newSkill)) {
+        setFormData((prev) => ({
+          ...prev,
+          skills: [...prev.skills, newSkill],
+        }));
+      }
+      setSkillInput('');
+    }
   };
 
-  const handleSetDefaultResume = async (id: number) => {
-    const api = getApi();
-    if (!api) return;
-    await api.setDefaultResume(id);
-    await loadResumes();
+  const handleRemoveSkill = (skillToRemove: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      skills: prev.skills.filter((s) => s !== skillToRemove),
+    }));
   };
 
-  const handleDeleteResume = async (id: number) => {
-    const api = getApi();
-    if (!api) return;
-    await api.deleteResume(id);
-    await loadResumes();
+  const handleCalibrateRole = () => {
+    if (calibrationCooldown) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    try {
+      localStorage.setItem('nomadic_last_calibrated_date', todayStr);
+    } catch {}
+    setCalibrationCooldown(true);
+    setCalibrationSuccess(true);
+    onLog?.(`[Role Calibration] Calibrated role targeting for ${formData.targetRole || 'Software Engineer'}`);
+    setTimeout(() => setCalibrationSuccess(false), 4000);
   };
 
-  const handleExportData = () => {
-    const data = {
-      profile,
-      resumes,
-      exportedAt: new Date().toISOString(),
-      app: 'Nomadic',
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `nomadic_backup_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    onLog('[Backup] Exported offline JSON backup.');
-  };
+  // Calculate completeness
+  const completenessChecks = [
+    Boolean(formData.fullName?.trim()),
+    Boolean(formData.email?.trim()),
+    Boolean(formData.targetRole?.trim()),
+    formData.skills.length > 0,
+    Boolean(formData.linkedin?.trim() || formData.github?.trim()),
+  ];
+  const completenessPercent = Math.round(
+    (completenessChecks.filter(Boolean).length / completenessChecks.length) * 100
+  );
 
   return (
-    <div className="space-y-6 font-sans select-none max-w-4xl mx-auto pb-20">
+    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
       
-      {/* ── TOP APPLE-STYLE PROFILE HEADER ───────────────────────────────── */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center text-base font-black shadow-xs shrink-0">
-            {profile.firstName ? `${profile.firstName[0]}${profile.lastName?.[0] || ''}` : 'NM'}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                {profile.firstName || profile.lastName ? `${profile.firstName} ${profile.lastName}` : 'Candidate Profile'}
-              </h1>
-              <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
-                {currentUser?.tier || 'Free Plan'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-mono">
-              {profile.email || currentUser?.email || 'student@nomadic.app'}
-            </p>
-          </div>
+      {/* 1. Header Area */}
+      <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-950 dark:text-white">
+            Settings & Control
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Manage your candidate profile, application automation, and platform preferences.
+          </p>
         </div>
 
-        {/* Global Action Buttons */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          {onRerunOnboarding && (
-            <button
-              type="button"
-              onClick={handleCalibrateClick}
-              className="px-3 py-2 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 transition-colors"
-              title="Re-run career onboarding to re-calibrate target role and tech stack (1 time / day)"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Calibrate Role</span>
-            </button>
+        {/* Global Save Button */}
+        <button
+          type="button"
+          onClick={() => handleSave()}
+          disabled={saving}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+            saveSuccess
+              ? 'bg-emerald-600 text-white'
+              : 'bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950'
+          }`}
+        >
+          {saving ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          ) : saveSuccess ? (
+            <Check className="w-3.5 h-3.5" />
+          ) : (
+            <Save className="w-3.5 h-3.5" />
           )}
-
-          <button
-            type="button"
-            onClick={handleSaveAll}
-            disabled={saving}
-            className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : saveSuccess ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Saved ✓</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-3.5 h-3.5" />
-                <span>Save Changes</span>
-              </>
-            )}
-          </button>
-        </div>
+          <span>{saving ? 'Saving...' : saveSuccess ? 'Saved' : 'Save Changes'}</span>
+        </button>
       </div>
 
-      {calibrationCooldownMsg && (
-        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 font-semibold flex items-center justify-between animate-fade-up">
-          <span>{calibrationCooldownMsg}</span>
-          <button
-            type="button"
-            onClick={() => setCalibrationCooldownMsg(null)}
-            className="text-amber-500 hover:text-amber-800 text-xs"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* ── APPLE-STYLE SEGMENTED CONTROL BAR ─────────────────────────────── */}
-      <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800/70 p-1 rounded-xl overflow-x-auto border border-slate-200/60 dark:border-zinc-700/60">
-        {[
-          { id: 'profile', label: 'Candidate Info' },
-          { id: 'resumes', label: 'Resumes' },
-          { id: 'automation', label: 'Custom Answers' },
-          { id: 'diagnostics', label: 'AI & Tools' },
-          { id: 'account', label: 'Account' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveSection(tab.id as any)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-              activeSection === tab.id
-                ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── TAB 1: CANDIDATE INFO (NOTION FORM GROUP) ──────────────────────── */}
-      {activeSection === 'profile' && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Personal &amp; Contact Details</h2>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Used by the auto-apply engine to populate job application forms.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">First Name</label>
-              <input
-                type="text"
-                value={profile.firstName}
-                onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
-                placeholder="e.g. Alex"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-              />
+      {/* 2. Main Two-Column Layout (Internal Sidebar + Content) */}
+      <div className="flex-1 flex overflow-hidden">
+        
+        {/* Internal Settings Navigation Sidebar */}
+        <aside className="w-60 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 space-y-6">
+          
+          {/* Section 1: Profile & Identity */}
+          <div className="space-y-1">
+            <div className="px-3 text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">
+              PROFILE & ASSETS
             </div>
-
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">Last Name</label>
-              <input
-                type="text"
-                value={profile.lastName}
-                onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
-                placeholder="e.g. Vance"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">Email Address</label>
-              <input
-                type="email"
-                value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                placeholder="alex.vance@example.com"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">Phone Number (with Country Code)</label>
-              <input
-                type="tel"
-                value={profile.phone}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                placeholder="+91 98765 43210"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">LinkedIn Profile URL</label>
-              <input
-                type="url"
-                value={profile.linkedin}
-                onChange={(e) => setProfile({ ...profile, linkedin: e.target.value })}
-                placeholder="https://linkedin.com/in/username"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">GitHub Profile URL</label>
-              <input
-                type="url"
-                value={profile.github}
-                onChange={(e) => setProfile({ ...profile, github: e.target.value })}
-                placeholder="https://github.com/username"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-              />
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-4">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Target Roles &amp; Skills</h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Defines your ATS match score ranking in the Opportunity Radar.</p>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700 dark:text-zinc-300">Desired Job Titles (comma separated)</label>
-                <input
-                  type="text"
-                  value={profile.desiredTitle}
-                  onChange={(e) => setProfile({ ...profile, desiredTitle: e.target.value })}
-                  placeholder="e.g. Frontend Engineer, React Developer, Full Stack Associate"
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700 dark:text-zinc-300">Core Tech Stack &amp; Keywords</label>
-                <input
-                  type="text"
-                  value={profile.techStack}
-                  onChange={(e) => setProfile({ ...profile, techStack: e.target.value })}
-                  placeholder="e.g. TypeScript, React, Next.js, Node.js, Tailwind CSS, PostgreSQL"
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none focus:border-slate-400 transition-colors"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 2: RESUMES (NOTION LIST STYLE) ─────────────────────────────── */}
-      {activeSection === 'resumes' && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
-          <input
-            type="file"
-            ref={profileFileInputRef}
-            onChange={handlePickAndAddResume}
-            accept=".pdf,.docx,.doc,.txt"
-            className="hidden"
-          />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Multi-Resume Library ({resumes.length})</h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Manage and upload resumes attached during automated job applications.</p>
-            </div>
-          </div>
-
-          {resumeSuccessMsg && (
-            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{resumeSuccessMsg}</span>
-            </div>
-          )}
-
-          {/* Add Resume Box */}
-          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Upload New Resume Document</span>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Select a .pdf or .docx file to auto-attach during applications.</p>
-              </div>
+            <div className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() => setActiveSection('profile')}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                  activeSection === 'profile'
+                    ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <User className="w-3.5 h-3.5" />
+                  <span>Candidate Details</span>
+                </div>
+                <span className="text-[10px] font-mono">{completenessPercent}%</span>
+              </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  if (profileFileInputRef.current) profileFileInputRef.current.click();
-                  else handlePickAndAddResume();
-                }}
-                disabled={isPickingFile}
-                className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl text-xs font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-xs shrink-0 disabled:opacity-50"
+                onClick={() => setActiveSection('resumes')}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                  activeSection === 'resumes'
+                    ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
               >
-                {isPickingFile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                <span>{isPickingFile ? 'Selecting...' : 'Upload Resume (.pdf, .docx)'}</span>
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Resumes & CVs</span>
+                </div>
+                <span className="text-[10px] font-mono">{formData.resumes?.length || 0}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSection('answers')}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                  activeSection === 'answers'
+                    ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Auto-Apply Answers</span>
+                </div>
               </button>
             </div>
           </div>
 
-          {/* Resumes List */}
-          {resumes.length > 0 ? (
-            <div className="space-y-2">
-              {resumes.map((r) => (
-                <div
-                  key={r.id}
-                  className={`p-3.5 rounded-xl border transition flex items-center justify-between gap-3 text-xs ${
-                    r.isDefault
-                      ? 'border-black dark:border-white bg-slate-50 dark:bg-zinc-800/80 shadow-xs'
-                      : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
-                        <span className="truncate">{r.name}</span>
-                        {r.isDefault && (
-                          <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 font-bold shrink-0">
-                            Active Default
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono truncate">{r.filePath} · Added {r.createdAt}</div>
-                    </div>
+          {/* Section 2: Automation & AI */}
+          <div className="space-y-1">
+            <div className="px-3 text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">
+              AUTOMATION & SYSTEM
+            </div>
+            <div className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() => setActiveSection('automation')}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                  activeSection === 'automation'
+                    ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>AI & Automation</span>
+                </div>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSection('account')}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                  activeSection === 'account'
+                    ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Account & Storage</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+        </aside>
+
+        {/* Dynamic Content Panel */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 max-w-4xl">
+          
+          {/* SECTION A: Candidate Details */}
+          {activeSection === 'profile' && (
+            <div className="space-y-8 animate-fadeIn">
+              
+              {/* Profile Completeness Banner */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-950 dark:text-white">
+                    Profile Completeness: {completenessPercent}%
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Nomadic uses your profile details to match job openings and calibrate roadmap milestones.
+                  </p>
+                </div>
+                <div className="w-32 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-powder-600 dark:bg-powder-400 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${completenessPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Personal Info */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase">
+                  Personal Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                      placeholder="e.g. Alex Morgan"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!r.isDefault && r.id && (
-                      <button
-                        onClick={() => handleSetDefaultResume(r.id!)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-[11px] font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
-                      >
-                        Set Default
-                      </button>
-                    )}
-                    {r.id && (
-                      <button
-                        onClick={() => handleDeleteResume(r.id!)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Primary Email
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                      placeholder="alex@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.phone || ''}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                      placeholder="+1 (555) 000-0000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.location || ''}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                      placeholder="San Francisco, CA or Bangalore, India"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div
-              onClick={() => {
-                if (profileFileInputRef.current) profileFileInputRef.current.click();
-                else handlePickAndAddResume();
-              }}
-              className="p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-slate-400 dark:hover:border-zinc-500 bg-slate-50/50 dark:bg-zinc-800/30 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2"
-            >
-              <Upload className="w-6 h-6 text-slate-400" />
-              <span className="text-xs font-semibold text-slate-900 dark:text-white">
-                No resumes uploaded yet
-              </span>
-              <span className="text-[11px] text-slate-500 dark:text-zinc-400">
-                Click here to upload your primary .pdf or .docx resume for job applications.
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+              </div>
 
-      {/* ── TAB 3: CUSTOM ANSWERS ─────────────────────────────────────────── */}
-      {activeSection === 'automation' && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Custom Form Answers</h2>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Pre-configured responses for ATS questions like notice period and sponsorship.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">Visa / Sponsorship Requirement</label>
-              <select
-                value={profile.sponsorship}
-                onChange={(e) => setProfile({ ...profile, sponsorship: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none"
-              >
-                <option value="No">No (Authorized to work)</option>
-                <option value="Yes">Yes (Require sponsorship)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-zinc-300">Notice Period</label>
-              <select
-                value={profile.noticePeriod}
-                onChange={(e) => setProfile({ ...profile, noticePeriod: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 outline-none"
-              >
-                <option value="Immediate">Immediate</option>
-                <option value="2 weeks">2 Weeks</option>
-                <option value="1 month">1 Month</option>
-                <option value="2 months">2 Months</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Add Key-Value Alias */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 space-y-3">
-            <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Add Custom Field Alias</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <input
-                type="text"
-                value={newFragment}
-                onChange={(e) => setNewFragment(e.target.value)}
-                placeholder="Question text (e.g. Years of React experience)"
-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg outline-none"
-              />
-              <input
-                type="text"
-                value={newAnswer}
-                onChange={(e) => setNewAnswer(e.target.value)}
-                placeholder="Your answer (e.g. 3 years)"
-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg outline-none"
-              />
-            </div>
-            <button
-              onClick={handleAddCustomAnswer}
-              disabled={!newFragment.trim() || !newAnswer.trim()}
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40"
-            >
-              Save Custom Response
-            </button>
-          </div>
-
-          {/* Key-Value Answers Table */}
-          {profile.customAnswers && Object.keys(profile.customAnswers).length > 0 && (
-            <div className="space-y-2">
-              {Object.entries(profile.customAnswers).map(([k, v]) => (
-                <div
-                  key={k}
-                  className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between gap-3 text-xs"
-                >
-                  <div>
-                    <span className="font-semibold text-slate-900 dark:text-zinc-100">{k}: </span>
-                    <span className="text-slate-600 dark:text-zinc-400">{v}</span>
-                  </div>
+              {/* Professional Targeting */}
+              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase">
+                    Career Role Targeting
+                  </h3>
+                  
+                  {/* Calibrate Role Button (Rate limited 1/day) */}
                   <button
-                    onClick={() => handleRemoveCustomAnswer(k)}
-                    className="p-1 text-slate-400 hover:text-rose-600"
+                    type="button"
+                    onClick={handleCalibrateRole}
+                    disabled={calibrationCooldown}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+                      calibrationCooldown
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700'
+                        : 'bg-powder-50 hover:bg-powder-100 text-powder-900 dark:bg-powder-950/60 dark:text-powder-300 border border-powder-200 dark:border-powder-800'
+                    }`}
+                    title={calibrationCooldown ? 'Role calibration limited to 1 time per day' : 'Calibrate ATS match keywords for your target role'}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Sparkles className="w-3 h-3 text-powder-600 dark:text-powder-400" />
+                    <span>{calibrationCooldown ? 'Calibrated for Today' : 'Calibrate Role'}</span>
                   </button>
                 </div>
-              ))}
+
+                {calibrationSuccess && (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>Role targeting calibrated! Daily quota registered.</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Target Role
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.targetRole || ''}
+                      onChange={(e) => setFormData({ ...formData, targetRole: e.target.value })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                      placeholder="e.g. Senior Frontend Engineer"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Years of Experience
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={formData.yearsOfExperience ?? 2}
+                      onChange={(e) => setFormData({ ...formData, yearsOfExperience: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Skills Tag Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Core Technical Skills (Press Enter to add)
+                  </label>
+                  <input
+                    type="text"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={handleAddSkill}
+                    placeholder="Type a skill (e.g. TypeScript, React, Go) and press Enter..."
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                  />
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                    {formData.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200/60 dark:border-slate-700"
+                      >
+                        {skill}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSkill(skill)}
+                          className="text-slate-400 hover:text-rose-500 font-bold"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Online Profiles / Links */}
+              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <h3 className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase">
+                  Links & Social
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      LinkedIn URL
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.linkedin || ''}
+                      onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                      placeholder="https://linkedin.com/in/username"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      GitHub URL
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.github || ''}
+                      onChange={(e) => setFormData({ ...formData, github: e.target.value })}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 dark:focus:ring-white"
+                      placeholder="https://github.com/username"
+                    />
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
-        </div>
-      )}
 
-      {/* ── TAB 4: AI & DIAGNOSTICS ───────────────────────────────────────── */}
-      {activeSection === 'diagnostics' && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-500" />
-              <span>Built-in Neural AI Engine</span>
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              High-speed neural AI pipeline for intelligent open-ended job autofill, career roadmap synthesis, and interview prep.
-            </p>
-          </div>
-
-          {/* Built-in AI Status Box (Zero User Configuration Required) */}
-          <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Pre-configured &amp; Unlimited Inference</span>
+          {/* SECTION B: Resumes & CVs */}
+          {activeSection === 'resumes' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div>
+                <h2 className="text-base font-bold text-slate-950 dark:text-white">
+                  Resumes & Multi-CVs
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Nomadic matches your attached resumes to ATS portals during auto-apply.
+                </p>
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-semibold">
-                ACTIVE
-              </span>
+
+              {formData.resumes && formData.resumes.length > 0 ? (
+                <div className="space-y-3">
+                  {formData.resumes.map((res) => (
+                    <div
+                      key={res.id}
+                      className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between shadow-2xs"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-950 dark:text-white">
+                              {res.name}
+                            </span>
+                            {formData.defaultResumeId === res.id && (
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                                DEFAULT
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400">
+                            {res.filePath || 'Stored locally'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {formData.defaultResumeId !== res.id && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, defaultResumeId: res.id })}
+                          className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors"
+                        >
+                          Set Default
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-3 bg-white dark:bg-slate-900">
+                  <FileText className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-950 dark:text-white">No Resumes Uploaded</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                      Attach a PDF resume to enable instant 1-click auto-apply across 5,100+ ATS portals.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed">
-              Zero configuration required. All dynamic recruiter questions, cover letter syntheses, and technical interview evaluations are automatically processed by Nomadic's high-speed cloud intelligence.
-            </p>
-          </div>
+          )}
 
-          {/* System Health Check */}
-          <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
-            <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Local Runtime Status</span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 flex items-center justify-between">
-                <span className="font-semibold text-slate-700 dark:text-zinc-300">Playwright Stealth</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Ready" />
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 flex items-center justify-between">
-                <span className="font-semibold text-slate-700 dark:text-zinc-300">Local SQLite (WAL)</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Ready" />
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 flex items-center justify-between">
-                <span className="font-semibold text-slate-700 dark:text-zinc-300">Cloud Sync RPC</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active" />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 5: ACCOUNT & SESSION (APPLE DANGER GROUP) ─────────────────── */}
-      {activeSection === 'account' && (
-        <div className="space-y-5">
-          
-          {/* Membership & Subscription Card */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-4">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Membership &amp; Plan</h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Manage your Nomadic subscription tier and data.</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 space-y-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Active Plan</span>
-                <div className="font-bold text-slate-900 dark:text-zinc-100 uppercase">{currentUser?.tier || 'Free Plan'}</div>
+          {/* SECTION C: Application Answers */}
+          {activeSection === 'answers' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div>
+                <h2 className="text-base font-bold text-slate-950 dark:text-white">
+                  Autonomous Application Answers
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Pre-configured answers to recurring ATS portal questions.
+                </p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 space-y-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Cloud Sync</span>
-                <div className="font-bold text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Synchronized</span>
+              <div className="space-y-4">
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
+                  <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    Are you legally authorized to work in your target country?
+                  </label>
+                  <div className="flex gap-3">
+                    {['Yes', 'No'].map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            authorizedToWorkInUS: opt === 'Yes',
+                          })
+                        }
+                        className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          (formData.authorizedToWorkInUS && opt === 'Yes') || (!formData.authorizedToWorkInUS && opt === 'No')
+                            ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white shadow-2xs'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
+                  <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    Will you now or in the future require visa sponsorship?
+                  </label>
+                  <div className="flex gap-3">
+                    {['Yes', 'No'].map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() =>
+                          setFormData({
+                            ...formData,
+                            requiresSponsorship: opt === 'Yes',
+                          })
+                        }
+                        className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          (formData.requiresSponsorship && opt === 'Yes') || (!formData.requiresSponsorship && opt === 'No')
+                            ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white shadow-2xs'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs">
+          {/* SECTION D: AI & Automation Status */}
+          {activeSection === 'automation' && (
+            <div className="space-y-6 animate-fadeIn">
               <div>
-                <div className="font-bold text-slate-900 dark:text-zinc-100">Export Offline Backup</div>
-                <div className="text-[11px] text-slate-500">Download JSON archive of your profile and resumes</div>
+                <h2 className="text-base font-bold text-slate-950 dark:text-white">
+                  Automation & System Engine
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Real-time status of the local automation runner and career intelligence backends.
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={handleExportData}
-                className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 flex items-center gap-1.5 shadow-xs"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
-              </button>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-950 dark:text-white">
+                      Autonomous Apply Runner
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      READY
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Playwright headless browser engine calibrated for Greenhouse, Lever, and Ashby portals.
+                  </p>
+                </div>
+
+                <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-950 dark:text-white">
+                      Career Intelligence
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      ACTIVE
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Adaptive curriculum generators, LeetCode company problem analyzers, and interview simulators.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Sign Out Card */}
-          <div className="bg-white dark:bg-zinc-900 border border-rose-200 dark:border-rose-950/60 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-bold text-rose-700 dark:text-rose-400">Account Session</h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                Signed in as <code className="font-mono">{currentUser?.email || 'user@nomadic.app'}</code>.
-              </p>
+          {/* SECTION E: Account & Storage */}
+          {activeSection === 'account' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div>
+                <h2 className="text-base font-bold text-slate-950 dark:text-white">
+                  Account & Storage
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Hardware-anchored local database and authentication details.
+                </p>
+              </div>
+
+              <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-950 dark:text-white block">
+                      Subscription Plan
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono uppercase font-bold">
+                      {currentUser?.tier || 'Free Plan'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">
+                    ACTIVE
+                  </span>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-950 dark:text-white block">
+                    Local Storage Footprint
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-mono">
+                    %APPDATA%/Nomadic/nomadic.db (Zero-Cloud Storage Lock)
+                  </p>
+                </div>
+              </div>
             </div>
+          )}
 
-            <button
-              type="button"
-              onClick={onLogout}
-              className="w-full sm:w-auto px-4 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
-            </button>
-          </div>
-
-        </div>
-      )}
+        </main>
+      </div>
 
     </div>
   );

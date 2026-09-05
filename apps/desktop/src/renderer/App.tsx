@@ -52,8 +52,15 @@ export default function App() {
     }
   });
 
-  // Navigation tab state
-  const [activeTrack, setActiveTrack] = useState<PersonaTrack>('learner');
+  // Navigation tab state with persistence
+  const [activeTrack, setActiveTrack] = useState<PersonaTrack>(() => {
+    try {
+      const saved = localStorage.getItem('nomadic_active_track') as PersonaTrack;
+      if (saved === 'learner' || saved === 'seeker') return saved;
+    } catch {}
+    return 'learner';
+  });
+
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [upgradeFeature, setUpgradeFeature] = useState<string>('');
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
@@ -64,11 +71,9 @@ export default function App() {
       if (hasAdminQuery) {
         return 'admin-overview';
       }
-      const stored = localStorage.getItem('nomadic_user') || localStorage.getItem('hirestack_user') || localStorage.getItem('jobmaxxer_user');
-      if (stored) {
-        const user: AppUser = JSON.parse(stored);
-        return user.role === 'admin' ? 'admin-overview' : 'learner-roadmaps';
-      }
+      const savedTrack = (localStorage.getItem('nomadic_active_track') as PersonaTrack) || 'learner';
+      const savedTab = localStorage.getItem(`nomadic_last_tab_${savedTrack}`) as TabType;
+      if (savedTab) return savedTab;
     } catch {}
     return 'learner-roadmaps';
   });
@@ -196,13 +201,35 @@ export default function App() {
     setActiveTab(newTab);
     if (['learner-roadmaps', 'learner-resources', 'learner-interview-prep'].includes(newTab)) {
       setActiveTrack('learner');
-    } else if (['feed', 'outreach', 'applications', 'logs'].includes(newTab)) {
+      try {
+        localStorage.setItem('nomadic_active_track', 'learner');
+        localStorage.setItem('nomadic_last_tab_learner', newTab);
+      } catch {}
+    } else if (['feed', 'outreach', 'applications'].includes(newTab)) {
       setActiveTrack('seeker');
+      try {
+        localStorage.setItem('nomadic_active_track', 'seeker');
+        localStorage.setItem('nomadic_last_tab_seeker', newTab);
+      } catch {}
+    } else {
+      // Shared tabs: opportunities, settings, logs
+      try {
+        localStorage.setItem(`nomadic_last_tab_${activeTrack}`, newTab);
+      } catch {}
     }
   };
 
   const handleTrackChange = (newTrack: PersonaTrack) => {
     setActiveTrack(newTrack);
+    try {
+      localStorage.setItem('nomadic_active_track', newTrack);
+      const savedTab = localStorage.getItem(`nomadic_last_tab_${newTrack}`) as TabType;
+      if (savedTab) {
+        setActiveTab(savedTab);
+        return;
+      }
+    } catch {}
+
     if (newTrack === 'learner') {
       setActiveTab('learner-roadmaps');
     } else {
@@ -375,6 +402,7 @@ export default function App() {
         activeTrack={activeTrack}
         setTrack={handleTrackChange}
         onOpenUpgrade={() => handleOpenUpgrade()}
+        onOpenCommandPalette={() => setShowCommandPalette(true)}
       />
 
       {/* Main Workspace Layout (Sidebar + View) */}
