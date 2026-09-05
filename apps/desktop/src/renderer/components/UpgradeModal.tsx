@@ -20,8 +20,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   onUpgradeSuccess,
   triggerFeature
 }) => {
-  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
-
   if (!isOpen) return null;
   const api = getApi();
 
@@ -37,19 +35,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     } else {
       window.open(waUrl, '_blank');
     }
-  };
-
-  const handleSimulateUpgrade = (tier: string) => {
-    setSyncFeedback(`✓ Upgraded successfully to ${tier.toUpperCase()} plan! (Dev Mode)`);
-    if (currentUser) {
-      const updated = { ...currentUser, subscription_tier: tier, tier };
-      localStorage.setItem('nomadic_user', JSON.stringify(updated));
-      localStorage.setItem('hirestack_user', JSON.stringify(updated));
-    }
-    onUpgradeSuccess?.();
-    setTimeout(() => {
-      onClose();
-    }, 1200);
   };
 
   return (
@@ -69,41 +54,35 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
             {triggerFeature ? `Unlock ${triggerFeature}` : 'Nomadic Membership Plans'}
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-950 dark:text-white tracking-tight">Accelerate Your Career with Nomadic</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <h2 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+            Scale Your Career Acceleration
+          </h2>
+          <p className="text-xs text-slate-500">
             Instant activation &amp; license setup directly via WhatsApp at{' '}
-            <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold text-emerald-600 dark:text-emerald-400 underline underline-offset-2 hover:opacity-80 inline-flex items-center gap-1"
-            >
-              {DISPLAY_WHATSAPP} <ExternalLink className="w-3 h-3" />
-            </a>
+            <strong className="text-slate-900 dark:text-white font-mono">{DISPLAY_WHATSAPP}</strong>
           </p>
         </div>
 
-        {/* 3-Tier Plan Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          
+        {/* 3-Tier Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Plan 1: Learner Pro (₹79) */}
-          <div className="border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 rounded-3xl p-5 space-y-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all">
+          <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-sm">
             <div className="space-y-3">
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Mastery Track</span>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Foundation</span>
                 <h3 className="font-extrabold text-slate-950 dark:text-white text-base">Learner Pro</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">For students &amp; self-learners</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Students, freshers &amp; interview prep</p>
                 <div className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
                   ₹79 <span className="text-xs font-normal text-slate-400 font-mono">/ mo</span>
                 </div>
               </div>
 
               <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700 pt-3">
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>Complete Learner Track</strong> access</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Unlimited AI custom career roadmaps</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>All 12+ technical textbooks &amp; system sheets</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>52-Week activity streak heatmap</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>Complete 1,000+ Job Board</strong> access</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>428+ Company Problem Sets (17,300+ Qs)</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Free solution mirrors &amp; video solutions</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Unlimited AI Roadmaps &amp; Curriculums</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Full 12+ CS Textbook Library</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>52-week streak heatmap &amp; tracking</span></li>
               </ul>
             </div>
 
@@ -115,13 +94,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>Upgrade via WhatsApp (₹79)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSimulateUpgrade('learner_pro')}
-                className="w-full py-1.5 text-[10px] font-mono text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-center"
-              >
-                [Test Unlock Instant Free]
               </button>
             </div>
           </div>
@@ -155,13 +127,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>Upgrade via WhatsApp (₹149)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSimulateUpgrade('seeker_pro')}
-                className="w-full py-1.5 text-[10px] font-mono text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-center"
-              >
-                [Test Unlock Instant Free]
               </button>
             </div>
           </div>
@@ -200,23 +165,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 <MessageSquare className="w-3.5 h-3.5 fill-current" />
                 <span>Upgrade via WhatsApp (₹299)</span>
               </button>
-              <button
-                type="button"
-                onClick={() => handleSimulateUpgrade('seeker_max')}
-                className="w-full py-1.5 text-[10px] font-mono text-slate-400 dark:text-slate-500 hover:text-white dark:hover:text-slate-900 text-center"
-              >
-                [Test Unlock Instant Free]
-              </button>
             </div>
           </div>
         </div>
-
-        {/* Feedback Message */}
-        {syncFeedback && (
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs text-emerald-900 dark:text-emerald-200 text-center font-bold animate-fade-up">
-            {syncFeedback}
-          </div>
-        )}
 
         {/* WhatsApp direct support footer */}
         <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-slate-400">

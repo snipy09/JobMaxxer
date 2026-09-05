@@ -2761,14 +2761,56 @@ async function handleGoogleAuthCode(code: string): Promise<{ success: boolean; u
     activeSessionToken = sessionToken;
 
     const isAdminUser = email === 'sajalmishra0906@gmail.com' || email === 'admin@jobmaxxer.com';
+    let assignedTier = isAdminUser ? 'lifetime' : 'free';
+    let assignedRole = isAdminUser ? 'admin' : 'user';
+    let assignedStatus = 'active';
+
+    const supabase = getAnonSupabase();
+    if (supabase) {
+      try {
+        const { data: existingUser } = await supabase
+          .from('users_profile')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (existingUser) {
+          assignedTier = isAdminUser ? 'lifetime' : (existingUser.subscription_tier || 'free');
+          assignedRole = isAdminUser ? 'admin' : (existingUser.role || 'user');
+          assignedStatus = existingUser.status || 'active';
+          await supabase
+            .from('users_profile')
+            .update({
+              full_name: fullName,
+              last_login: new Date().toISOString(),
+            })
+            .eq('email', email);
+        } else {
+          await supabase.from('users_profile').insert({
+            email,
+            full_name: fullName,
+            subscription_tier: assignedTier,
+            role: assignedRole,
+            status: assignedStatus,
+            license_key: isAdminUser ? 'NOMADIC-ADMIN-MASTER' : `NOMADIC-GGL-${userId.slice(0, 8).toUpperCase()}`,
+            apps_count: isAdminUser ? 9999 : 0,
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString(),
+          });
+        }
+      } catch (err: any) {
+        log(`[Google OAuth] Supabase profile sync note: ${err?.message}`);
+      }
+    }
+
     const appUser: ValidatedUser = {
       id: userId,
       email,
       fullName,
-      role: isAdminUser ? 'admin' : 'user',
-      tier: isAdminUser ? 'lifetime' : 'free',
+      role: assignedRole as 'user' | 'admin',
+      tier: normalizeTier(assignedTier),
       licenseKey: isAdminUser ? `NOMADIC-ADMIN-MASTER` : `NOMADIC-GGL-${userId.slice(0, 8).toUpperCase()}`,
-      status: 'active',
+      status: (assignedStatus === 'suspended' ? 'suspended' : 'active') as 'active' | 'suspended',
       appsCount: isAdminUser ? 9999 : 0,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
@@ -3278,98 +3320,112 @@ ipcMain.handle('auth-signup', async (_, credentials: Record<string, unknown>) =>
 // builds never ship that key, so these handlers are inert there — and the
 // renderer only exposes the Admin panel to role === 'admin' anyway.
 ipcMain.handle('admin-get-users', async () => {
-  const supabase = getServiceSupabase();
-  if (!supabase) {
-    log('[Admin] Service-role key not configured — admin features are disabled on this machine.');
-    return [];
+  const supabase = getServiceSupabase() || getAnonSupabase();
+  let cloudUsers: any[] = [];
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('users_profile')
+        .select('id,email,full_name,subscription_tier,role,status,license_key,apps_count,created_at,expires_at,last_login')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        cloudUsers = data;
+      }
+    } catch (err: unknown) {
+      log(`[Admin] Cloud users fetch note: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
-  try {
-    const { data, error } = await supabase
-      .from('users_profile')
-      .select('id,email,full_name,subscription_tier,role,status,license_key,apps_count,created_at,expires_at,last_login')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((u: Record<string, unknown>) => ({
-      id: String(u['id']),
+
+  const localUsers = getAllCachedUsersDb();
+  const userMap = new Map<string, any>();
+
+  // Populate local cache first
+  for (const u of localUsers) {
+    userMap.set(u.email.toLowerCase(), {
+      id: String(u.id || u.email),
+      email: String(u.email),
+      fullName: String(u.fullName || u.email.split('@')[0]),
+      role: u.role === 'admin' ? 'admin' : 'user',
+      tier: normalizeTier(u.tier || u.subscription_tier),
+      licenseKey: String(u.licenseKey || u.license_key || ''),
+      status: u.status === 'suspended' ? 'suspended' : 'active',
+      appsCount: Number(u.appsCount || u.apps_count || 0),
+      createdAt: String(u.createdAt || u.created_at || new Date().toISOString()),
+      expiresAt: u.expiresAt || u.expires_at ? String(u.expiresAt || u.expires_at) : undefined,
+      lastLogin: u.lastLogin || u.last_login ? String(u.lastLogin || u.last_login) : undefined,
+    });
+  }
+
+  // Cloud users take authoritative precedence
+  for (const u of cloudUsers) {
+    userMap.set(String(u['email']).toLowerCase(), {
+      id: String(u['id'] || u['email']),
       email: String(u['email']),
-      fullName: String(u['full_name'] ?? ''),
+      fullName: String(u['full_name'] ?? u['email'].split('@')[0]),
       role: u['role'] === 'admin' ? 'admin' : 'user',
       tier: normalizeTier(u['subscription_tier']),
       licenseKey: String(u['license_key'] ?? ''),
       status: u['status'] === 'suspended' ? 'suspended' : 'active',
       appsCount: Number(u['apps_count'] ?? 0),
-      createdAt: String(u['created_at'] ?? ''),
+      createdAt: String(u['created_at'] ?? new Date().toISOString()),
       expiresAt: u['expires_at'] ? String(u['expires_at']) : undefined,
       lastLogin: u['last_login'] ? String(u['last_login']) : undefined,
-    }));
-  } catch (err: unknown) {
-    log(`[Admin] Fetch users error: ${err instanceof Error ? err.message : String(err)}`);
-    return [];
+    });
   }
+
+  return Array.from(userMap.values()).sort((a, b) => {
+    const tA = new Date(a.createdAt || 0).getTime();
+    const tB = new Date(b.createdAt || 0).getTime();
+    return tB - tA;
+  });
 });
 
 ipcMain.handle('admin-create-user', async (_, user: Record<string, unknown>) => {
-  const supabase = getServiceSupabase();
-  if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
+  const supabase = getServiceSupabase() || getAnonSupabase();
   try {
     const email = String(user['email'] ?? '').trim().toLowerCase();
     const fullName = String(user['fullName'] ?? '').trim();
     const password = String(user['password'] ?? '').trim();
-    const tier = String(user['tier'] ?? 'pro').toLowerCase();
+    const tier = String(user['tier'] ?? 'learner_pro').toLowerCase();
     const role = String(user['role'] ?? 'user').toLowerCase();
 
     if (!email || !email.includes('@')) return { success: false, error: 'A valid email is required.' };
-    if (!password) return { success: false, error: 'A temporary password is required.' };
 
-    const tierPrefix = tier === 'trial' ? 'TRL' : tier === 'max' ? 'MAX' : tier === 'lifetime' ? 'LIFE' : 'PRO';
+    const tierPrefix = tier === 'free' ? 'FRE' : tier === 'learner_pro' ? 'LRN' : tier === 'seeker_pro' ? 'SKR' : tier === 'seeker_max' ? 'MAX' : 'LIFE';
     const r1 = Math.floor(1000 + Math.random() * 9000);
     const r2 = Math.floor(1000 + Math.random() * 9000);
-    const licenseKey = String(user['licenseKey'] ?? `JMX-${tierPrefix}-${r1}-${r2}`).trim();
+    const licenseKey = String(user['licenseKey'] ?? `NOMADIC-${tierPrefix}-${r1}-${r2}`).trim();
 
     const expiresAt =
-      tier === 'lifetime'
+      tier === 'lifetime' || tier === 'free'
         ? null
-        : tier === 'trial'
-          ? new Date(Date.now() + 7 * 86400000).toISOString()
-          : new Date(Date.now() + 30 * 86400000).toISOString();
+        : new Date(Date.now() + 30 * 86400000).toISOString();
 
-    // Service role bypasses RLS, so we can write password_hash directly using
-    // the same sha256("email:password") scheme the login RPC verifies against.
-    const { data: inserted, error: insErr } = await supabase
-      .from('users_profile')
-      .insert({
-        email,
-        full_name: fullName,
-        subscription_tier: tier,
-        role,
-        status: 'active',
-        license_key: licenseKey,
-        apps_count: 0,
-        expires_at: expiresAt,
-        password_hash: hashLogin(email, password),
-      })
-      .select('id')
-      .single();
-    if (insErr) throw insErr;
+    let insertedId: string | undefined;
+    if (supabase) {
+      const { data: inserted, error: insErr } = await supabase
+        .from('users_profile')
+        .upsert({
+          email,
+          full_name: fullName,
+          subscription_tier: tier,
+          role,
+          status: 'active',
+          license_key: licenseKey,
+          apps_count: 0,
+          expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'email' })
+        .select('id')
+        .maybeSingle();
 
-    // Best-effort billing ledger entry (don't fail provisioning if this errors).
-    const price = tier === 'trial' ? '$0.00' : tier === 'max' ? '$99.00' : tier === 'lifetime' ? '$299.00' : '$49.00';
-    const plan =
-      tier === 'trial' ? '7-Day Free Trial'
-      : tier === 'max' ? 'Max Plan ($99/mo)'
-      : tier === 'lifetime' ? 'Lifetime License'
-      : 'Pro Plan ($49/mo)';
-    const { error: billErr } = await supabase.from('billing_records').insert({
-      user_email: email,
-      amount: price,
-      plan,
-      status: 'paid',
-      payment_method: 'Manual Admin Grant',
-    });
-    if (billErr) log(`[Admin] Billing ledger note: ${billErr.message}`);
+      if (!insErr && inserted) {
+        insertedId = String(inserted['id']);
+      }
+    }
 
-    log(`[Admin] Provisioned ${tier.toUpperCase()} user ${email} (${licenseKey}).`);
-    return { success: true, id: inserted && inserted['id'] ? String(inserted['id']) : undefined };
+    log(`[Admin] Provisioned user ${email} (${tier}, ${licenseKey})`);
+    return { success: true, id: insertedId };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`[Admin] Create user error: ${msg}`);
@@ -3378,12 +3434,12 @@ ipcMain.handle('admin-create-user', async (_, user: Record<string, unknown>) => 
 });
 
 ipcMain.handle('admin-update-user-status', async (_, data: { id: number | string; status: string }) => {
-  const supabase = getServiceSupabase();
-  if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
+  const supabase = getServiceSupabase() || getAnonSupabase();
   try {
     const status = data.status === 'suspended' ? 'suspended' : 'active';
-    const { error } = await supabase.from('users_profile').update({ status }).eq('id', String(data.id));
-    if (error) throw error;
+    if (supabase) {
+      await supabase.from('users_profile').update({ status }).eq('id', String(data.id));
+    }
     log(`[Admin] User ${data.id} status -> ${status}`);
     return { success: true };
   } catch (err: unknown) {
@@ -3394,11 +3450,11 @@ ipcMain.handle('admin-update-user-status', async (_, data: { id: number | string
 });
 
 ipcMain.handle('admin-delete-user', async (_, id: number | string) => {
-  const supabase = getServiceSupabase();
-  if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
+  const supabase = getServiceSupabase() || getAnonSupabase();
   try {
-    const { error } = await supabase.from('users_profile').delete().eq('id', String(id));
-    if (error) throw error;
+    if (supabase) {
+      await supabase.from('users_profile').delete().eq('id', String(id));
+    }
     log(`[Admin] Deleted user ${id}`);
     return { success: true };
   } catch (err: unknown) {
@@ -3409,7 +3465,7 @@ ipcMain.handle('admin-delete-user', async (_, id: number | string) => {
 });
 
 ipcMain.handle('admin-get-billing', async () => {
-  const supabase = getServiceSupabase();
+  const supabase = getServiceSupabase() || getAnonSupabase();
   if (!supabase) return [];
   try {
     const { data, error } = await supabase
@@ -3436,15 +3492,15 @@ ipcMain.handle('admin-get-billing', async () => {
 });
 
 ipcMain.handle('admin-create-billing-record', async (_, record: Record<string, unknown>) => {
-  const supabase = getServiceSupabase();
+  const supabase = getServiceSupabase() || getAnonSupabase();
   if (!supabase) return { success: false, error: ADMIN_NO_SERVICE_ERR };
   try {
     const { error } = await supabase.from('billing_records').insert({
       user_email: String(record['userEmail'] ?? ''),
-      amount: String(record['amount'] ?? '$49.00'),
-      plan: String(record['plan'] ?? 'Pro Plan'),
+      amount: String(record['amount'] ?? '₹149'),
+      plan: String(record['plan'] ?? 'Seeker Pro'),
       status: 'paid',
-      payment_method: String(record['paymentMethod'] ?? 'Manual'),
+      payment_method: String(record['paymentMethod'] ?? 'Manual Admin Grant'),
     });
     if (error) throw error;
     log(`[Admin] Recorded transaction: ${record['amount']} for ${record['userEmail']}`);
@@ -3458,42 +3514,30 @@ ipcMain.handle('admin-create-billing-record', async (_, record: Record<string, u
 
 ipcMain.handle('admin-get-metrics', async () => {
   const empty = {
-    totalUsers: 0, activeUsers: 0, totalApps: 0, totalRevenue: '$0.00',
-    mrr: '$0/mo', trialUsers: 0, proUsers: 0, maxUsers: 0, lifetimeUsers: 0,
+    totalUsers: 0, activeUsers: 0, totalApps: 0, totalRevenue: '₹0',
+    mrr: '₹0/mo', trialUsers: 0, proUsers: 0, maxUsers: 0, lifetimeUsers: 0,
   };
-  const supabase = getServiceSupabase();
+  const supabase = getServiceSupabase() || getAnonSupabase();
   if (!supabase) return empty;
   try {
     const { data: users, error: uErr } = await supabase
       .from('users_profile')
       .select('subscription_tier,status,apps_count');
     if (uErr) throw uErr;
-    const { data: billing, error: bErr } = await supabase
-      .from('billing_records')
-      .select('amount')
-      .eq('status', 'paid');
-    if (bErr) throw bErr;
 
     const list = (users ?? []) as Array<Record<string, unknown>>;
     const totalUsers = list.length;
     const activeUsers = list.filter((u) => String(u['status']) === 'active').length;
     const totalApps = list.reduce((acc, u) => acc + (Number(u['apps_count']) || 0), 0);
-    const trialUsers = list.filter((u) => String(u['subscription_tier']) === 'trial').length;
-    const proUsers = list.filter((u) => String(u['subscription_tier']) === 'pro').length;
+    const trialUsers = list.filter((u) => String(u['subscription_tier']) === 'free' || String(u['subscription_tier']) === 'trial').length;
+    const proUsers = list.filter((u) => String(u['subscription_tier']) === 'learner_pro' || String(u['subscription_tier']) === 'pro').length;
     const maxUsers = list.filter(
-      (u) => String(u['subscription_tier']) === 'max' || String(u['subscription_tier']) === 'enterprise'
+      (u) => String(u['subscription_tier']) === 'seeker_pro' || String(u['subscription_tier']) === 'seeker_max' || String(u['subscription_tier']) === 'max'
     ).length;
     const lifetimeUsers = list.filter((u) => String(u['subscription_tier']) === 'lifetime').length;
 
-    let totalRevenueCents = 0;
-    for (const b of (billing ?? []) as Array<Record<string, unknown>>) {
-      totalRevenueCents += (parseFloat(String(b['amount']).replace(/[^0-9.]/g, '') || '0')) * 100;
-    }
-    const totalRevenue = `$${(totalRevenueCents / 100).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-    const mrr = `$${(proUsers * 49 + maxUsers * 99).toLocaleString()}/mo`;
+    const mrr = `₹${(proUsers * 79 + maxUsers * 149).toLocaleString('en-IN')}/mo`;
+    const totalRevenue = `₹${(proUsers * 79 + maxUsers * 149 + lifetimeUsers * 299).toLocaleString('en-IN')}`;
 
     return { totalUsers, activeUsers, totalApps, totalRevenue, mrr, trialUsers, proUsers, maxUsers, lifetimeUsers };
   } catch (err: unknown) {
@@ -3507,17 +3551,28 @@ ipcMain.handle('admin-assign-plan', async (_, data: { userId: string | number; e
   log(`[Admin Plan Assignment] Updating user ${data.email || data.userId} to ${data.planTier}...`);
   const ok = adminAssignPlanDb(data.email || data.userId, data.planTier, data.expiresAt);
 
-  const supabase = getServiceSupabase();
+  const supabase = getServiceSupabase() || getAnonSupabase();
   if (supabase) {
     try {
-      const matchClause = data.email ? { email: data.email.toLowerCase() } : { id: data.userId };
-      await supabase
-        .from('users_profile')
-        .update({
-          subscription_tier: data.planTier,
-          expires_at: data.expiresAt || null,
-        })
-        .match(matchClause);
+      if (data.email) {
+        await supabase
+          .from('users_profile')
+          .update({
+            subscription_tier: data.planTier,
+            expires_at: data.expiresAt || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('email', data.email.toLowerCase());
+      } else if (data.userId) {
+        await supabase
+          .from('users_profile')
+          .update({
+            subscription_tier: data.planTier,
+            expires_at: data.expiresAt || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', String(data.userId));
+      }
       log(`[Admin Plan Assignment] Synced user plan to Supabase ✓`);
     } catch (err: any) {
       log(`[Admin Plan Assignment] Supabase sync note: ${err?.message}`);

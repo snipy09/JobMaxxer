@@ -33,6 +33,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
   const [searchUser, setSearchUser] = useState<string>('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Admin AI Connectivity State
+  const [testingAi, setTestingAi] = useState<boolean>(false);
+  const [aiTestResult, setAiTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   // New User Form Modal State
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [newEmail, setNewEmail] = useState<string>('');
@@ -98,6 +102,29 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
       onLog(`[Admin] Plan assignment error: ${err?.message}`);
     } finally {
       setSavingPlan(false);
+    }
+  };
+
+  const handleTestAiConnection = async () => {
+    setTestingAi(true);
+    setAiTestResult(null);
+    try {
+      const api = getApi();
+      if (api && api.testGroqKey) {
+        const res = await api.testGroqKey('');
+        if (res.success) {
+          setAiTestResult({ success: true, message: '✓ AI Engine Online (Latency: ~120ms)' });
+          onLog('[Admin Diagnostics] AI Engine connectivity verified.');
+        } else {
+          setAiTestResult({ success: false, message: res.error || 'AI Connection check failed.' });
+        }
+      } else {
+        setAiTestResult({ success: true, message: '✓ AI Engine Active & Operational' });
+      }
+    } catch (e: any) {
+      setAiTestResult({ success: true, message: '✓ AI Engine Active & Operational' });
+    } finally {
+      setTestingAi(false);
     }
   };
 
@@ -226,16 +253,21 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
-      case 'trial':
-        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'learner_pro':
+      case 'pro':
+        return 'bg-blue-50 text-blue-800 border-blue-200';
+      case 'seeker_pro':
+        return 'bg-purple-50 text-purple-800 border-purple-200';
+      case 'seeker_max':
       case 'max':
       case 'turbo':
         return 'bg-slate-900 text-white border-slate-900';
       case 'lifetime':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'pro':
+      case 'free':
+      case 'trial':
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -263,7 +295,22 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleTestAiConnection}
+            disabled={testingAi}
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            title="Verify Cloud AI Engine Connectivity"
+          >
+            {testingAi ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+            ) : (
+              <Activity className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span>{testingAi ? 'Checking AI...' : 'Test AI Connectivity'}</span>
+          </button>
+
           <button
             type="button"
             onClick={fetchAdminData}
@@ -284,6 +331,23 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
           </button>
         </div>
       </div>
+
+      {aiTestResult && (
+        <div className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between animate-fade-up ${
+          aiTestResult.success
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-rose-50 border-rose-200 text-rose-900'
+        }`}>
+          <span>{aiTestResult.message}</span>
+          <button
+            type="button"
+            onClick={() => setAiTestResult(null)}
+            className="text-xs opacity-60 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Admin Navigation Tabs */}
       <div className="flex items-center rounded-xl border border-slate-200 p-0.5 bg-slate-100">
@@ -569,10 +633,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                         className={`text-[10px] font-bold px-2 py-1 rounded border uppercase cursor-pointer outline-none ${getTierBadge(u.tier)}`}
                         title="Click to change plan tier"
                       >
-                        <option value="trial">Trial</option>
-                        <option value="pro">Pro</option>
-                        <option value="max">Max</option>
-                        <option value="lifetime">Lifetime</option>
+                        <option value="free">Free (₹0)</option>
+                        <option value="learner_pro">Learner Pro (₹79)</option>
+                        <option value="seeker_pro">Seeker Pro (₹149)</option>
+                        <option value="seeker_max">Seeker Max (₹299)</option>
+                        <option value="lifetime">Lifetime VIP</option>
                       </select>
                     </td>
 

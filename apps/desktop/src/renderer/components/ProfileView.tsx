@@ -643,31 +643,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed">
               Zero configuration required. All dynamic recruiter questions, cover letter syntheses, and technical interview evaluations are automatically processed by Nomadic's high-speed cloud intelligence.
             </p>
-            <div className="pt-1 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleTestGroq}
-                disabled={testingGroq}
-                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 inline-flex items-center gap-1.5 shadow-2xs"
-              >
-                {testingGroq ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Verifying AI...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Test AI Connection</span>
-                  </>
-                )}
-              </button>
-              {groqTestResult && (
-                <span className={`text-xs font-mono font-semibold ${groqTestResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
-                  {groqTestResult.message}
-                </span>
-              )}
-            </div>
           </div>
 
           {/* System Health Check */}
