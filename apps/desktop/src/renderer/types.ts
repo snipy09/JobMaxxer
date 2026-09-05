@@ -219,6 +219,7 @@ export interface ElectronAPI {
     maxAllowed?: number;
     error?: string;
   }>;
+  cancelAutonomousApply?: () => Promise<{ success: boolean }>;
   verifyEmail: (email: string) => Promise<{ isValid: boolean; stageFailed?: number; reason?: string }>;
   getHrContacts: (targetRole?: string) => Promise<{ success: boolean; contacts: OutreachContact[]; error?: string }>;
   sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>) =>

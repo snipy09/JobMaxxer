@@ -221,8 +221,8 @@ export class AutoApplyEngine {
       await AutoApplyEngine.injectOverlay(page, 'Typing candidate credentials...');
       await AutoApplyEngine.fillStandardFields(page, profile);
 
-      // Answer dynamic questions with Groq AI
-      await AutoApplyEngine.injectOverlay(page, 'Evaluating custom questions with Groq AI...');
+      // Answer dynamic questions with in-house AI solver
+      await AutoApplyEngine.injectOverlay(page, 'Auto-answering application questions...');
       await AutoApplyEngine.answerOpenEndedFields(page, profile);
 
       // Attach tailored resume

@@ -232,6 +232,11 @@ export function createBrowserApiShim(): ElectronAPI {
       return { success: true, applied: jobUrls.length, totalBatches: batches.length };
     },
 
+    cancelAutonomousApply: async () => {
+      emitLog('[Auto-Apply Engine] Autonomous application queue canceled by user.');
+      return { success: true };
+    },
+
     verifyEmail: async (email: string) => {
       return { isValid: true };
     },

@@ -12,6 +12,7 @@ const apiObj = {
   getCloudFeed: (userId: string) => ipcRenderer.invoke('get-cloud-feed', userId),
   launchSemiAuto: (jobUrls: string[]) => ipcRenderer.invoke('launch-semi-auto', jobUrls),
   launchAutonomous: (jobUrls: string[]) => ipcRenderer.invoke('launch-autonomous', jobUrls),
+  cancelAutonomousApply: () => ipcRenderer.invoke('cancel-autonomous-apply'),
   verifyEmail: (email: string) => ipcRenderer.invoke('verify-email', email),
   getHrContacts: (targetRole?: string) => ipcRenderer.invoke('get-hr-contacts', targetRole),
   sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>) =>

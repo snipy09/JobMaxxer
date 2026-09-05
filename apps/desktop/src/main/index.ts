@@ -1410,8 +1410,17 @@ ipcMain.handle('remove-saved-job', async (_, applyUrl: string) => {
   }
 });
 
+let isAutoApplyCanceled = false;
+
 // ── IPC: Autonomous Auto-Apply (External Chrome Engine) ────────────────────
+ipcMain.handle('cancel-autonomous-apply', async () => {
+  log('[Autonomous Auto-Apply] Cancellation requested by user.');
+  isAutoApplyCanceled = true;
+  return { success: true };
+});
+
 ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
+  isAutoApplyCanceled = false;
   log(`[Autonomous Auto-Apply] Starting automated submission for ${jobUrls.length} positions in external Chrome...`);
   try {
     const db = getDb();
@@ -1511,10 +1520,18 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
     let totalProcessed = 0;
 
     for (let b = 0; b < batches.length; b++) {
+      if (isAutoApplyCanceled) {
+        log('[Auto-Apply Engine] Stopped remaining batches due to cancellation.');
+        break;
+      }
       const currentBatch = batches[b];
       log(`[Batch Worker] Starting Batch ${b + 1}/${batches.length} (${currentBatch.length} jobs in queue)...`);
 
       for (let i = 0; i < currentBatch.length; i++) {
+        if (isAutoApplyCanceled) {
+          log('[Auto-Apply Engine] Canceled by user. Halting application queue.');
+          break;
+        }
         const url = currentBatch[i];
         totalProcessed++;
         let jobCompany = 'Tech Company';

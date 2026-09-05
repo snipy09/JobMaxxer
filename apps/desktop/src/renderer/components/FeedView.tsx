@@ -4,7 +4,8 @@ import {
   CheckCircle2, X, Building, MapPin, DollarSign,
   CheckSquare, Square, Bookmark, Globe, Clock,
   Sparkles, ExternalLink, ChevronDown, ChevronUp,
-  AlertCircle, Filter, ArrowRight, Check, Loader2, Copy
+  AlertCircle, Filter, ArrowRight, Check, Loader2, Copy,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { Job, MasterProfile, getApi } from '../types';
 import { computeJobRelevance } from '../data/relevanceMatcher';
@@ -256,12 +257,51 @@ export const FeedView: React.FC<FeedViewProps> = ({
   }, [scoredJobPool, filterTab, searchQuery]);
 
   const isFreeUser = !currentUser?.tier || currentUser?.tier === 'free';
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(18);
+
+  // Reset page to 1 when filters or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterTab, searchQuery, pageSize]);
+
+  const totalFilteredCount = filteredJobs.length;
+  const totalPages = isFreeUser && filterTab !== 'saved' ? 1 : Math.max(1, Math.ceil(totalFilteredCount / pageSize));
+
   const displayedJobs = useMemo(() => {
     if (isFreeUser && filterTab !== 'saved') {
       return filteredJobs.slice(0, 10);
     }
-    return filteredJobs;
-  }, [filteredJobs, isFreeUser, filterTab]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredJobs.slice(start, start + pageSize);
+  }, [filteredJobs, isFreeUser, filterTab, currentPage, pageSize]);
+
+  const handlePageChange = (newPage: number) => {
+    const clamped = Math.max(1, Math.min(totalPages, newPage));
+    setCurrentPage(clamped);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const paginationRange = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const delta = 1;
+    const range: (number | string)[] = [];
+    const left = Math.max(2, currentPage - delta);
+    const right = Math.min(totalPages - 1, currentPage + delta);
+
+    range.push(1);
+    if (left > 2) range.push('...');
+    for (let i = left; i <= right; i++) {
+      range.push(i);
+    }
+    if (right < totalPages - 1) range.push('...');
+    range.push(totalPages);
+    return range;
+  }, [currentPage, totalPages]);
 
   const toggleSelect = (url: string) => {
     const next = new Set(selectedUrls);
@@ -339,13 +379,31 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }
   };
 
+  const [isCancelingApply, setIsCancelingApply] = useState<boolean>(false);
+
+  const handleCancelAutoApply = async () => {
+    const api = getApi();
+    setIsCancelingApply(true);
+    setAutoApplyLogs(prev => [...prev, '[Action] Canceling auto-apply execution...']);
+    if (api && api.cancelAutonomousApply) {
+      try {
+        await api.cancelAutonomousApply();
+      } catch {}
+    }
+    setTimeout(() => {
+      setExecutingAutoApply(false);
+      setIsCancelingApply(false);
+    }, 600);
+  };
+
   // 100% Autonomous Background Auto-Apply Engine
   const handleTriggerAutonomousApply = async (targetUrls: string[]) => {
     if (!targetUrls || targetUrls.length === 0) return;
+    setIsCancelingApply(false);
     setExecutingAutoApply(true);
     setAutoApplyLogs([
-      `[Init] Starting autonomous submission for ${targetUrls.length} positions...`,
-      `[Config] Processing in sequential batches with automated form filling...`
+      `[Init] Starting automated application queue for ${targetUrls.length} positions...`,
+      `[Info] Processing sequentially with automated form filling...`
     ]);
     setAutoApplyProgress(5);
 
@@ -371,11 +429,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
       if (res && res.success) {
         setAutoApplyLogs(prev => [
           ...prev,
-          `[Complete] ✓ Finished processing: ${res.applied || 0} applied successfully, ${res.skipped || 0} skipped.`
+          `[Complete] ✓ Finished: ${res.applied || 0} applied successfully, ${res.skipped || 0} skipped.`
         ]);
         onLog(`[Autonomous] Completed ${targetUrls.length} applications (${res.applied || 0} submitted).`);
       } else {
-        setAutoApplyLogs(prev => [...prev, `[Notice] ${res.error || 'Autonomous apply finished with status notes.'}`]);
+        setAutoApplyLogs(prev => [...prev, `[Notice] ${res.error || 'Autonomous apply finished.'}`]);
       }
     } catch (err: any) {
       setAutoApplyLogs(prev => [...prev, `[Error] ${err?.message || String(err)}`]);
@@ -642,6 +700,99 @@ export const FeedView: React.FC<FeedViewProps> = ({
             })}
           </div>
 
+          {/* Pagination Controls (For Unlocked Tiers) */}
+          {!isFreeUser && totalPages > 1 && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 font-mono">
+                <span>
+                  Showing {Math.min(totalFilteredCount, (currentPage - 1) * pageSize + 1)}–{Math.min(totalFilteredCount, currentPage * pageSize)} of {totalFilteredCount} positions
+                </span>
+                <span className="hidden sm:inline">·</span>
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <span>Per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 text-xs text-slate-800 dark:text-zinc-200 outline-none"
+                  >
+                    <option value={18}>18</option>
+                    <option value={36}>36</option>
+                    <option value={54}>54</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Page Number Buttons */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-30 transition"
+                  title="First Page"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-30 transition"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                {paginationRange.map((p, idx) => {
+                  if (p === '...') {
+                    return (
+                      <span key={`dots-${idx}`} className="px-2 py-1 text-xs text-slate-400 font-mono">
+                        ...
+                      </span>
+                    );
+                  }
+                  const pageNum = Number(p);
+                  const isCurrent = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`min-w-8 h-8 px-2 rounded-xl text-xs font-bold transition-all ${
+                        isCurrent
+                          ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs'
+                          : 'border border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-30 transition"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-30 transition"
+                  title="Last Page"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Free User Locked Jobs Banner */}
           {isFreeUser && filteredJobs.length > 10 && (
             <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white dark:from-zinc-900 dark:to-zinc-950 border border-slate-800 dark:border-zinc-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -771,31 +922,33 @@ export const FeedView: React.FC<FeedViewProps> = ({
       {/* Autonomous Apply Simulator Modal */}
       {executingAutoApply && (
         <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-fade-up">
-            <div className="flex items-center justify-between">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center shadow-xs">
                   <Zap className="w-4 h-4 text-emerald-400 fill-current" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Autonomous Apply Engine Active</h3>
-                  <p className="text-[11px] text-slate-500 font-mono">Playwright Stealth + Neural Form Solver</p>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Auto-Apply In Progress</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">Automated Form Filling &amp; Submission</p>
                 </div>
               </div>
-              {autoApplyProgress === 100 && (
-                <button
-                  onClick={() => setExecutingAutoApply(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
+              
+              <button
+                type="button"
+                onClick={handleCancelAutoApply}
+                disabled={isCancelingApply}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
+                title="Cancel Auto-Apply"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Progress Bar */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs font-mono font-bold">
-                <span className="text-slate-500">Execution Progress</span>
+                <span className="text-slate-500">Progress</span>
                 <span className="text-emerald-500">{autoApplyProgress}%</span>
               </div>
               <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
@@ -815,13 +968,16 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
             <div className="flex items-center justify-between pt-2">
               <span className="text-[10px] font-mono text-slate-400">
-                Autonomous background worker
+                {isCancelingApply ? 'Stopping auto-apply...' : 'Running in background Chrome window'}
               </span>
               <button
-                onClick={() => setExecutingAutoApply(false)}
-                className="px-4 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50"
+                type="button"
+                onClick={handleCancelAutoApply}
+                disabled={isCancelingApply}
+                className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold transition shadow-xs flex items-center gap-1.5"
               >
-                Dismiss Window
+                <X className="w-3.5 h-3.5" />
+                <span>{isCancelingApply ? 'Canceling...' : 'Cancel Auto-Apply'}</span>
               </button>
             </div>
           </div>
