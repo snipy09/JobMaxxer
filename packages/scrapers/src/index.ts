@@ -4,6 +4,7 @@ import { scrapeDirectDom } from './direct-dom-scraper.ts';
 import { scrapeWebSearchIndexes } from './web-search-scraper.ts';
 import { scrapeNicheBoards } from './niche-boards-scraper.ts';
 import { scrapeInternshala, type InternshalaJob } from './internshala-scraper.ts';
+import { scrapeNaukriIndia, scrapeIndeedIndia } from './indian-portals-scraper.ts';
 import { computeJobHash } from './hasher.ts';
 import { scrapeRecruiterLeads, type RecruiterLead } from './recruiter-scraper.ts';
 import { getScraperSupabase } from './env-helper.ts';
@@ -15,6 +16,8 @@ export {
   scrapeWebSearchIndexes,
   scrapeNicheBoards,
   scrapeInternshala,
+  scrapeNaukriIndia,
+  scrapeIndeedIndia,
   scrapeRecruiterLeads,
   computeJobHash,
   type RawJob,
@@ -170,22 +173,26 @@ export async function runAllScrapers(
     { name: 'Jobspresso Tech', url: 'https://jobspresso.co/feed/' },
   ];
 
-  const [atsJobs, internshalaJobs, webJobs, nicheJobs, rssJobs] = await Promise.all([
+  const [atsJobs, internshalaJobs, naukriJobs, indeedJobs, webJobs, nicheJobs, rssJobs] = await Promise.all([
     withTimeout(scrapeAtsApis(), 15000, []),
     withTimeout(scrapeInternshala().catch(() => []), 10000, []),
+    withTimeout(scrapeNaukriIndia().catch(() => []), 10000, []),
+    withTimeout(scrapeIndeedIndia().catch(() => []), 10000, []),
     withTimeout(scrapeWebSearchIndexes(['react', 'typescript', 'python', 'intern', 'bangalore', 'india']), 10000, []),
     withTimeout(scrapeNicheBoards(), 10000, []),
     withTimeout(scrapeAggregatorsAndRss(TOP_RSS_FEEDS), 10000, []),
   ]);
 
   const safeInternshala = Array.isArray(internshalaJobs) ? internshalaJobs : [];
+  const safeNaukri = Array.isArray(naukriJobs) ? naukriJobs : [];
+  const safeIndeed = Array.isArray(indeedJobs) ? indeedJobs : [];
   const safeAts = Array.isArray(atsJobs) ? atsJobs : [];
   const safeWeb = Array.isArray(webJobs) ? webJobs : [];
   const safeNiche = Array.isArray(nicheJobs) ? nicheJobs : [];
   const safeRss = Array.isArray(rssJobs) ? rssJobs : [];
 
   // Exclude LinkedIn positions strictly per directive
-  const allJobs = [...safeAts, ...safeInternshala, ...safeWeb, ...safeNiche, ...safeRss].filter(j => {
+  const allJobs = [...safeAts, ...safeInternshala, ...safeNaukri, ...safeIndeed, ...safeWeb, ...safeNiche, ...safeRss].filter(j => {
     const src = (j.source || '').toLowerCase();
     const url = (j.applyUrl || '').toLowerCase();
     return !src.includes('linkedin') && !url.includes('linkedin.com');

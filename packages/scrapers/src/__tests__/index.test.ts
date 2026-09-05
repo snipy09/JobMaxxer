@@ -10,6 +10,11 @@ vi.mock('../internshala-scraper.js', () => ({
   scrapeInternshala: vi.fn().mockResolvedValue([])
 }));
 
+vi.mock('../indian-portals-scraper.js', () => ({
+  scrapeNaukriIndia: vi.fn().mockResolvedValue([]),
+  scrapeIndeedIndia: vi.fn().mockResolvedValue([])
+}));
+
 describe('computeRelevanceScore', () => {
   const mockJob: RawJob = {
     company: 'Test Company',
@@ -214,7 +219,10 @@ describe('runAllScrapers', () => {
     vi.resetAllMocks();
     mockFetch.mockReset();
     const { scrapeInternshala } = await import('../internshala-scraper.js');
+    const { scrapeNaukriIndia, scrapeIndeedIndia } = await import('../indian-portals-scraper.js');
     vi.mocked(scrapeInternshala).mockResolvedValue([]);
+    vi.mocked(scrapeNaukriIndia).mockResolvedValue([]);
+    vi.mocked(scrapeIndeedIndia).mockResolvedValue([]);
   });
 
   afterEach(() => {
