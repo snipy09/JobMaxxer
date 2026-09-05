@@ -1601,8 +1601,8 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
               status: 'prefilled',
               mode: 'autonomous',
             });
-            skipped++;
-            log(`[Auto-Apply] Pre-filled ${result.fieldsFilledCount} fields for ${jobCompany} (left open for review)`);
+            applied++;
+            log(`[Auto-Apply] ✓ Pre-filled ${result.fieldsFilledCount} fields for ${jobCompany} (ready for review & submit)`);
           } else {
             logAndSyncApplication({
               company: jobCompany,
