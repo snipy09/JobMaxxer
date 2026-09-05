@@ -2047,16 +2047,19 @@ Analyze the candidate details and generate a JSON response matching this schema:
 // ── IPC: Dynamic Custom Roadmap Generator ──────────────────────────────────
 ipcMain.handle('generate-custom-roadmap', async (_, params: {
   roleTitle: string;
+  customTitle?: string;
   currentSkills?: string;
   targetHorizon?: string;
   dailyCommitment?: string;
   geminiKey?: string;
   groqKey?: string;
 }) => {
-  const { roleTitle, currentSkills, targetHorizon, dailyCommitment, geminiKey, groqKey } = params;
-  log(`[AI Roadmap] Generating custom curriculum for: "${roleTitle}"...`);
+  const { roleTitle, customTitle, currentSkills, targetHorizon, dailyCommitment, geminiKey, groqKey } = params;
+  const preferredTitle = (customTitle && customTitle.trim()) || `${roleTitle} Acceleration Roadmap`;
+  log(`[AI Roadmap] Generating custom curriculum for: "${preferredTitle}" (role: ${roleTitle})...`);
 
   const prompt = `Role / Profession: ${roleTitle}
+Roadmap Custom Name: ${preferredTitle}
 Candidate Current Skills: ${currentSkills || 'Fundamental industry foundations'}
 Timeline: ${targetHorizon || '2 Months'} (${dailyCommitment || '2 Hours/Day'})
 
@@ -2065,7 +2068,7 @@ Note: This applies to ANY career path (Engineering, Product Management, UI/UX De
 Generate a comprehensive 4-phase career & learning roadmap formatted strictly in JSON:
 {
   "id": "roadmap-${Date.now()}",
-  "title": "${roleTitle} Mastery Roadmap",
+  "title": "${preferredTitle}",
   "domain": "Domain Name (e.g. Design, Product, Engineering, Marketing, Finance, Sales)",
   "targetRoles": ["${roleTitle}"],
   "targetHorizon": "${targetHorizon || '2 Months'}",
@@ -2174,6 +2177,9 @@ Generate a comprehensive 4-phase career & learning roadmap formatted strictly in
       log(`[AI Roadmap] Generated roadmap for "${roleTitle}" ✓`);
       const roadmapId = res.id || `custom-${Date.now()}`;
       res.id = roadmapId;
+      if (customTitle && customTitle.trim()) {
+        res.title = customTitle.trim();
+      }
       saveCustomRoadmapDb(roadmapId, roleTitle, res.domain || 'Career Path', JSON.stringify(res), targetHorizon, dailyCommitment);
       return { success: true, roadmap: res };
     }
@@ -2185,7 +2191,7 @@ Generate a comprehensive 4-phase career & learning roadmap formatted strictly in
   const fallbackId = `custom-${Date.now()}`;
   const fallbackRoadmap = {
     id: fallbackId,
-    title: `${roleTitle} Acceleration Roadmap`,
+    title: preferredTitle,
     domain: 'Professional Track',
     targetRoles: [roleTitle],
     targetHorizon: targetHorizon || '2 Months',

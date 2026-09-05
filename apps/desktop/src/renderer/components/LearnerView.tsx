@@ -9,7 +9,7 @@ import {
   Laptop, X, ArrowRight, SlidersHorizontal,
   Clock, ShieldCheck, Layers, CheckCircle2,
   Plus, Loader2, Sparkles, RefreshCw, Award,
-  Youtube, FileText, Compass, ChevronDown, Trash2, Calendar
+  Youtube, FileText, Compass, ChevronDown, Trash2, Calendar, Pencil
 } from 'lucide-react';
 
 interface LearnerViewProps {
@@ -81,11 +81,16 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
   // Custom AI Roadmaps modal state
   const [showGenerateModal, setShowGenerateModal] = useState<boolean>(false);
   const [newRoleTitle, setNewRoleTitle] = useState<string>('');
+  const [newCustomTitle, setNewCustomTitle] = useState<string>('');
   const [newSkillsInput, setNewSkillsInput] = useState<string>('');
   const [targetHorizon, setTargetHorizon] = useState<string>('3 Months');
   const [dailyCommitment, setDailyCommitment] = useState<string>('2 Hours/Day');
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState<boolean>(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+
+  // In-Place Roadmap Renaming State
+  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
+  const [editingTitleText, setEditingTitleText] = useState<string>('');
 
   // Database-backed Activity Heatmap & Stats
   const [heatmapData, setHeatmapData] = useState<ActivityHeatmapDay[]>([]);
@@ -292,8 +297,10 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
 
     const api = getApi();
     try {
+      const preferredCustomTitle = newCustomTitle.trim() || `${newRoleTitle.trim()} Acceleration Roadmap`;
       const res = await api.generateCustomRoadmap({
         roleTitle: newRoleTitle.trim(),
+        customTitle: preferredCustomTitle,
         currentSkills: newSkillsInput.trim() || profile.techStack,
         targetHorizon,
         dailyCommitment,
@@ -309,8 +316,9 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         } catch {}
         setShowGenerateModal(false);
         setNewRoleTitle('');
+        setNewCustomTitle('');
         setNewSkillsInput('');
-        onLog(`[Curriculum Engine] Generated dynamic curriculum for "${newRoleTitle.trim()}"`);
+        onLog(`[Curriculum Engine] Generated track: "${preferredCustomTitle}"`);
       } else {
         throw new Error(res?.error || 'Failed to synthesize roadmap.');
       }
@@ -318,6 +326,59 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
       setGenerateError(err?.message || 'Error generating roadmap.');
     } finally {
       setIsGeneratingRoadmap(false);
+    }
+  };
+
+  const handleSaveRenamedTitle = async () => {
+    if (!currentRoadmap || !editingTitleText.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const newName = editingTitleText.trim();
+    const updated = { ...currentRoadmap, title: newName };
+    const api = getApi();
+    try {
+      if (api && api.saveCustomRoadmap) {
+        await api.saveCustomRoadmap({
+          id: updated.id,
+          roleTitle: (updated.targetRoles || [])[0] || newName,
+          domain: updated.domain || 'Custom Track',
+          roadmapJson: JSON.stringify(updated),
+          targetHorizon,
+          dailyCommitment,
+        });
+      }
+      setCustomRoadmaps(prev => prev.map(r => r.id === updated.id ? updated : r));
+      try {
+        localStorage.setItem('nomadic_cached_roadmap', JSON.stringify(updated));
+      } catch {}
+      onLog(`[Curriculum Engine] Renamed roadmap to "${newName}" ✓`);
+    } catch (err: any) {
+      onLog(`[Curriculum Engine] Rename error: ${err?.message}`);
+    } finally {
+      setIsEditingTitle(false);
+    }
+  };
+
+  const handleDeleteCurrentTrack = async () => {
+    if (!currentRoadmap) return;
+    if (!window.confirm(`Delete roadmap track "${currentRoadmap.title}"?`)) return;
+    const api = getApi();
+    try {
+      if (api && api.deleteCustomRoadmap) {
+        await api.deleteCustomRoadmap(currentRoadmap.id);
+      }
+      const remaining = customRoadmaps.filter(r => r.id !== currentRoadmap.id);
+      setCustomRoadmaps(remaining);
+      if (remaining.length > 0) {
+        setActiveRoadmapId(remaining[0].id);
+        try {
+          localStorage.setItem('nomadic_cached_roadmap', JSON.stringify(remaining[0]));
+        } catch {}
+      }
+      onLog(`[Curriculum Engine] Removed roadmap track "${currentRoadmap.title}"`);
+    } catch (err: any) {
+      onLog(`[Curriculum Engine] Delete error: ${err?.message}`);
     }
   };
 
@@ -372,9 +433,58 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800/80 pb-4">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                {currentRoadmap?.title || (isGeneratingRoadmap ? 'Synthesizing Curriculum...' : 'Career Progression Track')}
-              </h1>
+              {isEditingTitle ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={editingTitleText}
+                    onChange={(e) => setEditingTitleText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveRenamedTitle();
+                      if (e.key === 'Escape') setIsEditingTitle(false);
+                    }}
+                    autoFocus
+                    placeholder="Custom Roadmap Name"
+                    className="bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-600 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900 dark:text-zinc-100 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveRenamedTitle}
+                    className="p-1.5 rounded-lg bg-black text-white dark:bg-white dark:text-black text-xs font-bold hover:opacity-90"
+                    title="Save Name"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingTitle(false)}
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 text-xs"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 group">
+                  <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100">
+                    {currentRoadmap?.title || (isGeneratingRoadmap ? 'Synthesizing Curriculum...' : 'Career Progression Track')}
+                  </h1>
+                  {currentRoadmap && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTitleText(currentRoadmap.title || '');
+                        setIsEditingTitle(true);
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 rounded transition opacity-70 group-hover:opacity-100"
+                      title="Rename this Roadmap (Custom Name)"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {profile.desiredTitle && (
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-powder-50/80 text-powder-800 dark:bg-powder-950/40 dark:text-powder-300 border border-powder-200/80 dark:border-powder-800/60 font-semibold">
                   Target: {profile.desiredTitle}
@@ -392,15 +502,25 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             {/* Dynamic AI Roadmap Switcher */}
             {customRoadmaps.length > 1 && (
-              <select
-                value={activeRoadmapId}
-                onChange={(e) => setActiveRoadmapId(e.target.value)}
-                className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 font-medium focus:outline-none"
-              >
-                {customRoadmaps.map(r => (
-                  <option key={r.id} value={r.id}>{r.title}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-1">
+                <select
+                  value={activeRoadmapId}
+                  onChange={(e) => setActiveRoadmapId(e.target.value)}
+                  className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 font-medium focus:outline-none"
+                >
+                  {customRoadmaps.map(r => (
+                    <option key={r.id} value={r.id}>{r.title}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleDeleteCurrentTrack}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg border border-slate-200 dark:border-zinc-700 transition"
+                  title="Delete Track"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
 
             <button
@@ -614,7 +734,18 @@ export const LearnerView: React.FC<LearnerViewProps> = ({
                   type="text"
                   value={newRoleTitle}
                   onChange={(e) => setNewRoleTitle(e.target.value)}
-                  placeholder="e.g. Senior Product Manager, UI/UX Designer, Growth Marketing Lead, Financial Analyst"
+                  placeholder="e.g. Senior Product Manager, Full Stack Engineer, Growth Lead"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Custom Track / Roadmap Name (Optional)</label>
+                <input
+                  type="text"
+                  value={newCustomTitle}
+                  onChange={(e) => setNewCustomTitle(e.target.value)}
+                  placeholder="e.g. Full Stack Spring Boot 2026, Fast-Track AI Engineering"
                   className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none"
                 />
               </div>

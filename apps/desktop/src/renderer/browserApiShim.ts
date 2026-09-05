@@ -391,12 +391,13 @@ export function createBrowserApiShim(): ElectronAPI {
     },
 
     generateCustomRoadmap: async (params: any) => {
-      emitLog(`[AI Roadmap] Synthesizing curriculum for ${params.roleTitle}...`);
+      emitLog(`[AI Roadmap] Synthesizing curriculum for ${params.customTitle || params.roleTitle}...`);
+      const roadmapTitle = (params.customTitle && params.customTitle.trim()) || (params.roleTitle + ' Acceleration Roadmap');
       return {
         success: true,
         roadmap: {
           id: 'custom-' + Date.now(),
-          title: params.roleTitle + ' Acceleration Roadmap',
+          title: roadmapTitle,
           domain: 'Core Engineering',
           targetRoles: [params.roleTitle],
           milestones: [

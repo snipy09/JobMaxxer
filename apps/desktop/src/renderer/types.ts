@@ -260,6 +260,7 @@ export interface ElectronAPI {
   }>;
   generateCustomRoadmap: (params: {
     roleTitle: string;
+    customTitle?: string;
     currentSkills?: string;
     targetHorizon?: string;
     dailyCommitment?: string;
