@@ -88,6 +88,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [executingAutoApply, setExecutingAutoApply] = useState<boolean>(false);
   const [autoApplyLogs, setAutoApplyLogs] = useState<string[]>([]);
   const [autoApplyProgress, setAutoApplyProgress] = useState<number>(0);
+  const [pillColorState, setPillColorState] = useState<'grey' | 'green' | 'red'>('grey');
+  const [pillMessage, setPillMessage] = useState<string>('Initializing auto-apply...');
   const [activeJobTarget, setActiveJobTarget] = useState<{ company: string; title: string } | null>(null);
   const [viewingJob, setViewingJob] = useState<Job | null>(null);
 
@@ -403,6 +405,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
       `[Init] Target: ${targetLabel}...`,
       `[Info] Processing with automatic form fill and resume submission...`
     ]);
+    setPillColorState('grey');
+    setPillMessage('Initializing auto-apply engine...');
     setAutoApplyProgress(5);
 
     const api = getApi();
@@ -418,6 +422,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
       }
       if (typeof data.progress === 'number') {
         setAutoApplyProgress(Math.min(100, Math.max(5, data.progress)));
+      }
+      if (data.statusEvent) {
+        setPillColorState(data.statusEvent.colorState || 'grey');
+        setPillMessage(data.statusEvent.message || 'Processing...');
       }
     }) : () => {};
 
@@ -924,12 +932,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center shadow-xs">
-                  <Zap className="w-4 h-4 text-emerald-400 fill-current" />
+                <div className={`w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-xs transition-colors duration-300 ${
+                  pillColorState === 'green' ? 'bg-emerald-500' : pillColorState === 'red' ? 'bg-rose-500' : 'bg-slate-900 dark:bg-zinc-100 dark:text-zinc-900'
+                }`}>
+                  <Zap className="w-4 h-4 fill-current" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Auto-Apply In Progress</h3>
-                  <p className="text-[11px] text-slate-500 font-mono">Automated Form Filling &amp; Submission</p>
+                  <p className="text-[11px] text-slate-500 font-mono line-clamp-1">{pillMessage}</p>
                 </div>
               </div>
               
@@ -983,23 +993,41 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
       )}
 
-      {/* Floating Pill Cancel Indicator */}
+      {/* Floating 3-Color Status Pill Indicator */}
       {executingAutoApply && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] animate-fade-up">
-          <button
-            type="button"
-            onClick={handleCancelAutoApply}
-            disabled={isCancelingApply}
-            className="px-5 py-2.5 rounded-full bg-slate-950 text-white dark:bg-white dark:text-slate-950 border border-slate-700 dark:border-slate-300 text-xs font-bold shadow-2xl flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all"
+          <div
+            className={`px-5 py-2.5 rounded-full border text-xs font-bold shadow-2xl flex items-center gap-3 transition-all duration-300 ${
+              pillColorState === 'green'
+                ? 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-900/20'
+                : pillColorState === 'red'
+                ? 'bg-rose-600 border-rose-400 text-white shadow-rose-900/20'
+                : 'bg-slate-900 border-slate-700 text-slate-200 dark:bg-zinc-100 dark:border-zinc-300 dark:text-zinc-900'
+            }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Auto-Apply ({autoApplyProgress}%)</span>
-            <div className="h-3 w-px bg-slate-700 dark:bg-slate-300 mx-1" />
-            <span className="text-rose-400 dark:text-rose-600 flex items-center gap-1 font-bold">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${
+              pillColorState === 'green' ? 'bg-white' : pillColorState === 'red' ? 'bg-amber-300 animate-ping' : 'bg-emerald-400 animate-pulse'
+            }`} />
+            
+            <div className="flex flex-col">
+              <span className="truncate max-w-[300px]">{pillMessage}</span>
+              {pillColorState === 'grey' && autoApplyProgress < 100 && (
+                <span className="text-[9px] font-mono opacity-60 mt-0.5">Progress: {autoApplyProgress}%</span>
+              )}
+            </div>
+
+            <div className="h-4 w-px bg-white/20 mx-1" />
+            
+            <button
+              type="button"
+              onClick={handleCancelAutoApply}
+              disabled={isCancelingApply}
+              className="flex items-center gap-1 font-bold opacity-80 hover:opacity-100 transition-opacity whitespace-nowrap"
+            >
               <X className="w-3.5 h-3.5" />
-              Cancel
-            </span>
-          </button>
+              <span>{isCancelingApply ? 'Stopping...' : 'Cancel'}</span>
+            </button>
+          </div>
         </div>
       )}
 

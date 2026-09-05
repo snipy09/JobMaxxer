@@ -37,6 +37,16 @@ export interface ApplyResult {
   error?: string;
 }
 
+export interface AutoApplyStatusEvent {
+  phase: 'navigating' | 'filling' | 'answering' | 'uploading' | 'submitting' | 'advancing' | 'success' | 'user_input_required' | 'cancelled';
+  message: string;
+  colorState: 'grey' | 'green' | 'red';
+  progress?: number;
+  actionRequired?: string;
+}
+
+export type ProgressCallback = (event: AutoApplyStatusEvent | string) => void;
+
 export interface ExternalBrowserSession {
   context: BrowserContext;
   userDataDir: string;
@@ -180,7 +190,7 @@ export class AutoApplyEngine {
   public static async submitApplication(
     url: string,
     profile: MasterProfile,
-    onProgress?: (msg: string) => void
+    onProgress?: ProgressCallback
   ): Promise<ApplyResult> {
     if (!url || !url.trim()) {
       return { url: '', success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0, error: 'Invalid URL' };
@@ -191,168 +201,129 @@ export class AutoApplyEngine {
       const session = await getOrLaunchExternalSession();
       page = await session.context.newPage();
 
-      onProgress?.(`[Autonomous] Navigating to: ${url}`);
+      // Ensure popup trapping (Failure Mode 1)
+      page.on('popup', async (popup) => {
+        try {
+          await popup.waitForLoadState();
+          page = popup;
+          await page?.bringToFront();
+        } catch {}
+      });
+
+      if (typeof onProgress === 'function') onProgress({ phase: 'navigating', message: `Navigating to application link: ${url}`, colorState: 'grey' });
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.bringToFront().catch(() => {});
 
-      // 1. Inject floating status overlay
-      await AutoApplyEngine.injectOverlay(page, '⚡ Nomadic: Auto-Apply Engine Active');
+      await AutoApplyEngine.emitStatus(page, { phase: 'navigating', message: 'Nomadic Auto-Apply Engine Active', colorState: 'grey' }, onProgress);
 
-      // 2. Detect CAPTCHA barriers
       const captchaDetected = await AutoApplyEngine.detectCaptcha(page);
       if (captchaDetected) {
-        await AutoApplyEngine.injectOverlay(
-          page,
-          '⚠️ CAPTCHA Challenge Detected — Solve to proceed',
-          '#f59e0b'
-        );
-        onProgress?.(`[Autonomous] CAPTCHA detected at ${url}. Left open in browser for candidate.`);
+        await AutoApplyEngine.emitStatus(page, {
+          phase: 'user_input_required',
+          message: 'CAPTCHA Challenge Detected — Solve to proceed',
+          colorState: 'red',
+          actionRequired: 'Solve CAPTCHA'
+        }, onProgress);
         return {
-          url,
-          success: false,
-          submitted: false,
-          prefilled: false,
-          captchaDetected: true,
-          fieldsFilledCount: 0,
+          url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
           error: 'CAPTCHA challenge detected (left open in browser)',
         };
       }
 
-      // 3. Detect Login / Authentication Wall
       const isLoginRequired = await AutoApplyEngine.detectLoginRequired(page);
       if (isLoginRequired) {
-        await AutoApplyEngine.injectOverlay(
-          page,
-          '🔐 Sign-In Required — Please log in to your account',
-          '#f59e0b'
-        );
-        onProgress?.(`[Autonomous] 🔐 Sign-in required for ${url}. Waiting for candidate authentication...`);
+        await AutoApplyEngine.emitStatus(page, {
+          phase: 'user_input_required',
+          message: 'Sign-In Required — Please log in to your account',
+          colorState: 'red',
+          actionRequired: 'Sign in to portal'
+        }, onProgress);
+        
         const loggedIn = await AutoApplyEngine.waitForLoginComplete(page, onProgress);
         if (loggedIn) {
-          await AutoApplyEngine.injectOverlay(
-            page,
-            '✓ Sign-In Verified! Resuming auto-fill...',
-            '#22c55e'
-          );
-          onProgress?.(`[Autonomous] ✓ User authenticated at ${url}. Resuming application filling...`);
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'navigating',
+            message: 'Sign-In Verified! Resuming auto-fill...',
+            colorState: 'grey'
+          }, onProgress);
         } else {
-          onProgress?.(`[Autonomous] Sign-in required for ${url}. Left open in browser.`);
           return {
-            url,
-            success: false,
-            submitted: false,
-            prefilled: false,
-            captchaDetected: false,
-            requiresLogin: true,
-            fieldsFilledCount: 0,
+            url, success: false, submitted: false, prefilled: false, captchaDetected: false, requiresLogin: true, fieldsFilledCount: 0,
             error: 'Sign-in required on job portal (left open in browser)',
           };
         }
       }
 
-      // 4. Expand application form if collapsed
       await AutoApplyEngine.openApplicationFormIfRequired(page);
 
-      // 5. Fill candidate text fields & measure count
-      await AutoApplyEngine.injectOverlay(page, 'Typing candidate credentials...');
+      await AutoApplyEngine.emitStatus(page, { phase: 'filling', message: 'Typing candidate credentials...', colorState: 'grey' }, onProgress);
       const standardFieldsFilled = await AutoApplyEngine.fillStandardFields(page, profile);
 
-      // 6. Fill select dropdowns & radio buttons
+      await AutoApplyEngine.emitStatus(page, { phase: 'filling', message: 'Selecting dropdown options...', colorState: 'grey' }, onProgress);
       const dropdownsFilled = await AutoApplyEngine.fillSelectDropdowns(page, profile);
 
-      // 7. Answer dynamic questions with in-house AI solver
-      await AutoApplyEngine.injectOverlay(page, 'Auto-answering application questions...');
+      await AutoApplyEngine.emitStatus(page, { phase: 'answering', message: 'Auto-answering application questions...', colorState: 'grey' }, onProgress);
       const questionsAnswered = await AutoApplyEngine.answerOpenEndedFields(page, profile);
 
-      // 8. Attach matching resume
-      await AutoApplyEngine.injectOverlay(page, 'Attaching matching resume...');
+      await AutoApplyEngine.emitStatus(page, { phase: 'uploading', message: 'Attaching matching PDF resume...', colorState: 'grey' }, onProgress);
       const resumeUploaded = await AutoApplyEngine.uploadResumeIfPresent(page, profile);
 
-      // 9. Check consent & required checkboxes
+      await AutoApplyEngine.emitStatus(page, { phase: 'filling', message: 'Checking required consent checkboxes...', colorState: 'grey' }, onProgress);
       const checkboxesChecked = await AutoApplyEngine.fillConsentAndRequiredCheckboxes(page);
 
       const totalFieldsFilled = standardFieldsFilled + dropdownsFilled + questionsAnswered + (resumeUploaded ? 1 : 0) + checkboxesChecked;
 
-      // Check if page actually had an application form
       if (totalFieldsFilled === 0) {
-        onProgress?.(`[Autonomous] No fillable application form found at ${url}.`);
+        if (typeof onProgress === 'function') onProgress({ phase: 'cancelled', message: `No fillable application form found at ${url}.`, colorState: 'grey' });
         return {
-          url,
-          success: false,
-          submitted: false,
-          prefilled: false,
-          captchaDetected: false,
-          fieldsFilledCount: 0,
+          url, success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0,
           error: 'No application form detected on page',
         };
       }
 
       await page.waitForTimeout(1000);
 
-      // 10. Submit application form
-      await AutoApplyEngine.injectOverlay(page, 'Submitting application form...', '#38bdf8');
+      await AutoApplyEngine.emitStatus(page, { phase: 'submitting', message: 'Submitting application form...', colorState: 'grey' }, onProgress);
       const submitClicked = await AutoApplyEngine.submitForm(page);
 
       if (!submitClicked) {
-        await AutoApplyEngine.injectOverlay(
-          page,
-          `✓ Pre-filled ${totalFieldsFilled} fields! Ready for 1-Click Submit`,
-          '#22c55e'
-        );
-        onProgress?.(`[Autonomous] Pre-filled ${totalFieldsFilled} fields at ${url}. Ready for review.`);
+        await AutoApplyEngine.emitStatus(page, {
+          phase: 'user_input_required',
+          message: `Pre-filled ${totalFieldsFilled} fields — Ready for 1-Click Review & Submit`,
+          colorState: 'red',
+          actionRequired: 'Review Form & Click Submit'
+        }, onProgress);
         return {
-          url,
-          success: true,
-          submitted: false,
-          prefilled: true,
-          captchaDetected: false,
-          fieldsFilledCount: totalFieldsFilled,
+          url, success: true, submitted: false, prefilled: true, captchaDetected: false, fieldsFilledCount: totalFieldsFilled,
         };
       }
 
-      // 11. Strictly verify submission confirmation
       const confirmed = await AutoApplyEngine.waitForConfirmation(page);
       if (confirmed) {
-        await AutoApplyEngine.injectOverlay(
-          page,
-          '✓ Application Submitted & Confirmed!',
-          '#22c55e'
-        );
-        onProgress?.(`[Autonomous] Confirmed submitted successfully: ${url} ✓`);
+        await AutoApplyEngine.emitStatus(page, {
+          phase: 'success',
+          message: 'Confirmed Application Submitted Successfully!',
+          colorState: 'green'
+        }, onProgress);
         return {
-          url,
-          success: true,
-          submitted: true,
-          prefilled: true,
-          captchaDetected: false,
-          fieldsFilledCount: totalFieldsFilled,
+          url, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: totalFieldsFilled,
         };
       } else {
-        await AutoApplyEngine.injectOverlay(
-          page,
-          '✓ Details Pre-filled — Please review and click submit in browser',
-          '#38bdf8'
-        );
-        onProgress?.(`[Autonomous] Form pre-filled for ${url} (left open in browser for 1-click review)`);
+        await AutoApplyEngine.emitStatus(page, {
+          phase: 'user_input_required',
+          message: 'Action Needed: Please manually verify application submission',
+          colorState: 'red',
+          actionRequired: 'Click Submit Manually'
+        }, onProgress);
         return {
-          url,
-          success: true,
-          submitted: false,
-          prefilled: true,
-          captchaDetected: false,
-          fieldsFilledCount: totalFieldsFilled,
-          error: 'Pre-filled, left open for 1-click review & submit',
+          url, success: true, submitted: false, prefilled: true, captchaDetected: false, fieldsFilledCount: totalFieldsFilled,
+          error: 'Pre-filled, left open for manual verify & submit',
         };
       }
     } catch (err: any) {
-      onProgress?.(`[Autonomous] Error on ${url}: ${err?.message}`);
+      if (typeof onProgress === 'function') onProgress({ phase: 'cancelled', message: `Error: ${err?.message}`, colorState: 'grey' });
       return {
-        url,
-        success: false,
-        submitted: false,
-        prefilled: false,
-        captchaDetected: false,
-        fieldsFilledCount: 0,
+        url, success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0,
         error: err?.message || String(err),
       };
     }
@@ -360,7 +331,24 @@ export class AutoApplyEngine {
 
   // ── Helper Methods ────────────────────────────────────────────────────────
 
-  private static async injectOverlay(page: Page, text: string, color: string = '#38bdf8'): Promise<void> {
+  private static async emitStatus(
+    page: Page,
+    event: AutoApplyStatusEvent,
+    onProgress?: ProgressCallback
+  ): Promise<void> {
+    const colorHex = event.colorState === 'green' ? '#16a34a' : event.colorState === 'red' ? '#dc2626' : '#94a3b8';
+    
+    // Broadcast via IPC callback
+    if (typeof onProgress === 'function') {
+      onProgress(event);
+    }
+    
+    // Inject Chrome floating overlay
+    const overlayText = event.actionRequired ? `⚠️ ${event.message}` : event.colorState === 'green' ? `✓ ${event.message}` : `⚡ ${event.message}`;
+    await AutoApplyEngine.injectOverlay(page, overlayText, colorHex);
+  }
+
+  private static async injectOverlay(page: Page, text: string, color: string = '#94a3b8'): Promise<void> {
     try {
       await page.evaluate(
         ({ text, color }: { text: string; color: string }) => {
@@ -879,7 +867,7 @@ Write a concise, compelling, highly professional answer directly from the candid
 
   private static async waitForLoginComplete(
     page: Page,
-    onProgress?: (msg: string) => void,
+    onProgress?: ProgressCallback,
     maxWaitMs: number = 90000
   ): Promise<boolean> {
     const startTime = Date.now();
@@ -895,7 +883,12 @@ Write a concise, compelling, highly professional answer directly from the candid
         const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
         if (elapsedSec > 0 && elapsedSec % 10 === 0 && elapsedSec !== lastNotifiedSec) {
           lastNotifiedSec = elapsedSec;
-          onProgress?.(`[Autonomous] Waiting for login in browser (${elapsedSec}s / 90s)...`);
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'user_input_required',
+            message: `Sign in required... (${elapsedSec}s / 90s)`,
+            colorState: 'red',
+            actionRequired: 'Sign in to portal'
+          }, onProgress);
         }
 
         await page.waitForTimeout(2000);

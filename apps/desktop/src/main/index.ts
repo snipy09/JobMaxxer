@@ -1548,7 +1548,21 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
         log(`[Auto-Apply ${totalProcessed}/${jobUrls.length}] Submitting to ${jobCompany} (${url})...`);
 
         try {
-          const result = await AutoApplyEngine.submitApplication(url, profile, (m) => log(m));
+          const result = await AutoApplyEngine.submitApplication(url, profile, (eventPayload) => {
+            if (typeof eventPayload === 'string') {
+              log(eventPayload);
+            } else {
+              // eventPayload is AutoApplyStatusEvent! Send structured data to renderer!
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('auto-apply-progress', {
+                  log: `[Auto-Apply] ${eventPayload.message}`,
+                  progress: eventPayload.progress, // Optional, can calculate based on phase
+                  statusEvent: eventPayload // Custom payload for UI to handle 3-color pill
+                });
+              }
+              log(`[Auto-Apply Status] [${eventPayload.colorState.toUpperCase()}] ${eventPayload.message}`);
+            }
+          });
           if (result.captchaDetected) {
             log(`[Auto-Apply] CAPTCHA challenge at ${url} — left open for candidate.`);
             logAndSyncApplication({
