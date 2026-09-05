@@ -18,20 +18,20 @@ export const TermsModal: React.FC<TermsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 select-none font-sans">
-      <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+      <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in duration-200">
         
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50/50 dark:bg-zinc-900/50">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-slate-950 text-white dark:bg-white dark:text-slate-950 flex items-center justify-center shadow-xs">
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">
-                Terms &amp; Conditions &bull; JobMaxxer
+              <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                Terms of Service &amp; Conditions · Nomadic
               </h2>
-              <p className="text-[11px] text-slate-500 font-normal">
-                Last updated: August 2026 &bull; Version 2.4
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-normal">
+                Version 1.0.0 · Comprehensive Career Operating System
               </p>
             </div>
           </div>
@@ -39,79 +39,79 @@ export const TermsModal: React.FC<TermsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Scrollable Terms Content */}
-        <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 leading-relaxed">
+        <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-zinc-300 leading-relaxed">
           
           <div className="space-y-1.5">
-            <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-mono">1</span>
-              Software License &amp; Authorized Use
+            <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-xs flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono">1</span>
+              Software License &amp; Authorized Desktop Usage
             </h3>
-            <p className="text-slate-600 pl-7">
-              JobMaxxer grants you a non-exclusive, non-transferable, revocable license to utilize the desktop application on authorized devices in accordance with your active subscription tier (Trial, Pro, Max, or Lifetime). Single-device concurrency is enforced via secure cryptographic licensing.
+            <p className="text-slate-600 dark:text-zinc-400 pl-7">
+              Nomadic grants you a personal, non-exclusive, non-transferable license to operate the Nomadic desktop software in accordance with your registered plan tier (Free Plan, Learner Pro, Seeker Pro, or Seeker Max). Single-laptop hardware locks are enforced to maintain account security.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-mono">2</span>
-              Automated Job Application Engine &amp; User Responsibility
+            <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-xs flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono">2</span>
+              Autonomous Job Applications &amp; Accuracy
             </h3>
-            <p className="text-slate-600 pl-7">
-              JobMaxxer provides local browser automation and AI-powered field pre-filling (e.g. Groq LLaMA-3) to streamline your job search. You acknowledge and agree that all application submissions, responses to employer questionnaires, work authorization statements, and uploaded resumes remain your sole responsibility.
+            <p className="text-slate-600 dark:text-zinc-400 pl-7">
+              Nomadic executes automated form filling, resume uploads, and open-ended employer questions directly in your local external browser. You retain full ownership and responsibility for the accuracy of all candidate information, work authorization statements, and submissions delivered on your behalf.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-mono">3</span>
-              7-Day Trial Period, Renewals &amp; Subscriptions
+            <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-xs flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono">3</span>
+              Curriculum, Resource Vault &amp; Question Bank
             </h3>
-            <p className="text-slate-600 pl-7">
-              Users enrolled in a <strong>7-Day Free Trial</strong> receive full access for exactly seven (7) consecutive days from account activation. Upon expiration of the 7-day period, automated services pause until the user renews or upgrades to a paid plan. Paid subscriptions (Pro and Max) operate on a 30-day recurring term.
+            <p className="text-slate-600 dark:text-zinc-400 pl-7">
+              The 428+ company question collection, AI-synthesized roadmaps, textbook summaries, and architecture reference sheets are provided for career development and interview preparation. Content is structured to assist candidates in self-paced technical mastery.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-mono">4</span>
-              Ethical Outreach &amp; Anti-Spam Compliance
+            <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-xs flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono">4</span>
+              Ethical Recruiter Outreach Compliance
             </h3>
-            <p className="text-slate-600 pl-7">
-              When utilizing recruiter lead scraping and cold outreach tools, you agree to comply with applicable anti-spam and electronic communications regulations (such as CAN-SPAM, GDPR, and CASL). Mass spamming, harassment, or unauthorized scraping of protected third-party systems is strictly prohibited.
+            <p className="text-slate-600 dark:text-zinc-400 pl-7">
+              When utilizing 1-click Gmail outreach and recruiter contact pipelines, you agree to comply with standard electronic communications ethics. Mass unsolicited spamming or aggressive outreach is discouraged in favor of targeted, professional communication.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-mono">5</span>
-              Local Data Privacy &amp; Security Guarantee
+            <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-xs flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center text-[10px] font-mono">5</span>
+              Local-First Data Privacy Guarantee
             </h3>
-            <p className="text-slate-600 pl-7">
-              Your sensitive candidate data—including PDF resume files, private Groq API keys, phone numbers, and local application histories—is stored locally in SQLite on your device. JobMaxxer does not sell, broker, or transmit your private credentials to unauthorized third parties.
+            <p className="text-slate-600 dark:text-zinc-400 pl-7">
+              Your sensitive data—including resume files, personal contact information, and local application logs—remains permanently stored in your local SQLite database on your machine. Nomadic does not sell or distribute your private resume documents to third-party data brokers.
             </p>
           </div>
 
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-500 text-[11px]">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Secure &amp; Privacy-First Desktop Architecture</span>
+        <div className="p-4 border-t border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-slate-500 text-[11px] font-mono">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Local-First &amp; Privacy Protected</span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-white text-xs font-bold transition-colors"
+              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800 text-xs font-bold transition-colors"
             >
               Close
             </button>
@@ -123,10 +123,10 @@ export const TermsModal: React.FC<TermsModalProps> = ({
                   onAccept();
                   onClose();
                 }}
-                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                className="px-5 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>I Agree</span>
+                <span>I Accept Terms</span>
               </button>
             )}
           </div>

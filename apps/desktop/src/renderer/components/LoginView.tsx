@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Loader2, AlertCircle, CheckCircle2, X, RefreshCw, Sparkles, Shield
+  Loader2, AlertCircle, CheckCircle2, X, RefreshCw, Sparkles, Shield, CheckSquare, Square
 } from 'lucide-react';
 import { AppUser, getApi } from '../types';
+import { TermsModal } from './TermsModal';
 
 interface LoginViewProps {
   onLoginSuccess: (user: AppUser) => void;
@@ -17,6 +18,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [googleSuccess, setGoogleSuccess] = useState<boolean>(false);
   const [googleWaitSeconds, setGoogleWaitSeconds] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Mandatory Terms & Conditions Agreement
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nomadic_terms_accepted') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
 
   // Listen for Google OAuth callback from electron main process
   useEffect(() => {
@@ -55,7 +66,29 @@ export const LoginView: React.FC<LoginViewProps> = ({
     };
   }, [googleLoading, googleSuccess]);
 
+  const handleToggleTerms = () => {
+    const next = !hasAcceptedTerms;
+    setHasAcceptedTerms(next);
+    try {
+      localStorage.setItem('nomadic_terms_accepted', next ? 'true' : 'false');
+    } catch {}
+    if (next) setErrorMsg(null);
+  };
+
+  const handleAcceptTermsInModal = () => {
+    setHasAcceptedTerms(true);
+    try {
+      localStorage.setItem('nomadic_terms_accepted', 'true');
+    } catch {}
+    setErrorMsg(null);
+  };
+
   const handleGoogleLogin = async () => {
+    if (!hasAcceptedTerms) {
+      setErrorMsg('Please read and accept the Terms & Conditions before signing in.');
+      return;
+    }
+
     setGoogleLoading(true);
     setGoogleSuccess(false);
     setErrorMsg(null);
@@ -181,8 +214,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
               )}
             </div>
           ) : (
-            /* 1-Click Exclusive Google Sign In Button */
-            <div className="space-y-3">
+            /* 1-Click Exclusive Google Sign In Button & Terms Checkbox */
+            <div className="space-y-4">
               <button
                 type="button"
                 onClick={handleGoogleLogin}
@@ -197,8 +230,35 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <span>Continue with Google (1-Click)</span>
               </button>
 
-              <div className="p-3 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-200/80 dark:border-zinc-800 text-[11px] text-slate-500 dark:text-zinc-400 text-center leading-relaxed">
-                Click above to authenticate securely via Google in your browser.
+              {/* Terms & Conditions Acceptance Checkbox */}
+              <div className="p-3 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer text-left">
+                  <button
+                    type="button"
+                    onClick={handleToggleTerms}
+                    className="mt-0.5 shrink-0 text-slate-700 dark:text-zinc-300"
+                  >
+                    {hasAcceptedTerms ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                  <span className="text-[11px] text-slate-600 dark:text-zinc-400 leading-tight">
+                    I agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowTermsModal(true);
+                      }}
+                      className="text-slate-900 dark:text-white font-bold underline hover:text-powder-600 dark:hover:text-powder-400"
+                    >
+                      Terms of Service &amp; Conditions
+                    </button>
+                    {' '}and Local Data Privacy Guarantee.
+                  </span>
+                </label>
               </div>
             </div>
           )}
@@ -215,6 +275,16 @@ export const LoginView: React.FC<LoginViewProps> = ({
           Encrypted with local SQLite WAL &amp; single-laptop hardware locks.
         </p>
       </div>
+
+      {/* Terms & Conditions Modal */}
+      {showTermsModal && (
+        <TermsModal
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          onAccept={handleAcceptTermsInModal}
+          hasAccepted={hasAcceptedTerms}
+        />
+      )}
     </div>
   );
 };
