@@ -526,10 +526,10 @@ export class AutoApplyEngine {
         }
 
         // 7. Extract Compact Semantic DOM Snapshot (10ms)
-        const domSnapshot = await extractSemanticDOM(page);
+        const snapshot = await extractSemanticDOM(page);
 
         // 8. AI Pilot Instant Decision Loop (Gemini 2.0 Flash / Groq in ~120ms)
-        const aiPlan = await generateAIPilotPlan(profile, domSnapshot, {
+        const aiPlan = await generateAIPilotPlan(profile, snapshot, {
           geminiKey: profile.geminiApiKey,
           groqKey: profile.groqApiKey,
         });
@@ -541,6 +541,16 @@ export class AutoApplyEngine {
               message: `AI Pilot: ${aiPlan.statusMessage}`,
               colorState: 'grey'
             }, onProgress);
+          }
+
+          // Priority A: If this is a directory/search landing page (not a specific job or form), search for role or click first matching job
+          if (snapshot.isJobDescription === false && snapshot.hasApplicationForm === false && aiPlan.actionType === 'click_apply') {
+            const targetEl = await page.$(`[data-nomadic-id="${aiPlan.clickTargetElementId}"]`);
+            if (targetEl) {
+              await humanClick(page, targetEl);
+              await page.waitForTimeout(600);
+              continue;
+            }
           }
 
           // Case A: AI clicks Apply CTA on job description page

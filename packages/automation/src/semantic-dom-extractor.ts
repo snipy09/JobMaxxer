@@ -70,15 +70,28 @@ export async function extractSemanticDOM(page: Page): Promise<SemanticDOMSnapsho
             const ariaLabel = node.getAttribute('aria-label') || '';
             const text = (node.textContent || '').trim().replace(/\s+/g, ' ');
 
-            // Ignore search inputs and newsletter subscription bars
-            if (
+            // Ignore search inputs, directory filters, newsletter subscription bars
+            const className = (typeof node.className === 'string' ? node.className : '').toLowerCase();
+            const role = (node.getAttribute('role') || '').toLowerCase();
+            const isSearchOrFilter =
               type === 'search' ||
+              role === 'searchbox' ||
               name.includes('search') ||
+              id.toLowerCase().includes('search') ||
               placeholder.toLowerCase().includes('search') ||
+              ariaLabel.toLowerCase().includes('search') ||
+              className.includes('search') ||
+              name.includes('keyword') ||
+              placeholder.toLowerCase().includes('keyword') ||
+              ariaLabel.toLowerCase().includes('keyword') ||
+              name.includes('location') ||
+              placeholder.toLowerCase().includes('location') ||
               name.includes('newsletter') ||
               placeholder.toLowerCase().includes('newsletter') ||
-              placeholder.toLowerCase().includes('subscribe')
-            ) {
+              placeholder.toLowerCase().includes('subscribe') ||
+              Boolean(node.closest('header, nav, [role="search"], form[role="search"], .search-container, .hero-search, .search-box'));
+
+            if (isSearchOrFilter) {
               return;
             }
 
