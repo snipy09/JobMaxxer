@@ -35,6 +35,7 @@ import { FormSubmitter } from './submitter.js';
 import { AIFallbackSolver } from './ai-fallback.js';
 import { extractSemanticDOM, type SemanticDOMSnapshot } from './semantic-dom-extractor.js';
 import { generateAIPilotPlan, type AIPilotPlan } from './ai-pilot-engine.js';
+import { dispatchSpecializedPortalBot } from './bots/bot-dispatcher.js';
 
 export interface MasterProfile {
   firstName: string;
@@ -523,6 +524,24 @@ export class AutoApplyEngine {
             url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
             error: 'CAPTCHA challenge detected (left open in browser)',
           };
+        }
+
+        // 6b. Specialized Dedicated Bot Route (Internshala, Lever, Greenhouse, Ashby)
+        const specializedResult = await dispatchSpecializedPortalBot(page, url, profile);
+        if (specializedResult && specializedResult.fieldsFilled > 0) {
+          totalFieldsFilled += specializedResult.fieldsFilled;
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'filling',
+            message: `Specialized Bot Completed (${specializedResult.fieldsFilled} fields & questions solved)...`,
+            colorState: 'green'
+          }, onProgress);
+
+          if (specializedResult.submitted) {
+            isSubmitted = true;
+            if (specializedResult.confirmed) {
+              break;
+            }
+          }
         }
 
         // 7. Extract Compact Semantic DOM Snapshot (10ms)

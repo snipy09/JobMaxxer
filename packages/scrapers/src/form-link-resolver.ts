@@ -1,9 +1,11 @@
 import type { RawJob } from './ats-api-scraper.js';
+import { validateCanonicalJobUrl } from './canonical-link-guard.js';
 
 export interface ResolvedJobForm {
   isValid: boolean;
   directApplyUrl: string;
   sourceUrl: string;
+  platform?: string;
   failureReason?: string;
 }
 
@@ -26,11 +28,17 @@ const ERROR_404_SIGNATURES = [
   'looks like you crashed',
   'no such internship',
   'no such job',
+  'the job you are looking for has expired',
+  'this position is closed',
 ];
 
 /**
  * Resolves a raw job posting URL to its verified direct application form endpoint.
- * Pre-checks HTTP health and filters out 404/expired postings.
+ * Multi-Stage Verification Pipeline:
+ * Stage 1: Strict Canonical Link Guard (Rejects root directories & search pages)
+ * Stage 2: Live HTTP 200 & Redirection Check
+ * Stage 3: Content 404 / Expired Signature Scrutiny
+ * Stage 4: DOM Application Form & External Destination Extraction
  */
 export async function resolveDirectFormUrl(rawUrl: string, companyName?: string): Promise<ResolvedJobForm> {
   if (!rawUrl || typeof rawUrl !== 'string') {
@@ -39,46 +47,46 @@ export async function resolveDirectFormUrl(rawUrl: string, companyName?: string)
 
   const trimmed = rawUrl.trim();
 
+  // ── STAGE 1: CANONICAL LINK GUARD ──────────────────────────────────────────
+  const guard = validateCanonicalJobUrl(trimmed);
+  if (!guard.isValid) {
+    return {
+      isValid: false,
+      directApplyUrl: trimmed,
+      sourceUrl: trimmed,
+      failureReason: guard.rejectionReason || 'canonical_guard_rejected',
+    };
+  }
+
   try {
-    const parsed = new URL(trimmed);
+    const parsed = new URL(guard.cleanUrl);
     const host = parsed.hostname.toLowerCase();
     const pathname = parsed.pathname;
 
-    let candidateFormUrl = trimmed;
+    let candidateFormUrl = guard.cleanUrl;
 
-    // 1. Lever: require company + uuid (/co/uuid) -> append /apply
+    // Direct Form Transformations
     if (host.includes('jobs.lever.co')) {
       const parts = pathname.split('/').filter(Boolean);
       if (parts.length >= 2 && !pathname.endsWith('/apply')) {
         candidateFormUrl = `https://jobs.lever.co/${parts[0]}/${parts[1]}/apply`;
       }
-    }
-
-    // 2. Ashby: require company + uuid (/co/uuid) -> append /application
-    if (host.includes('jobs.ashbyhq.com')) {
+    } else if (host.includes('jobs.ashbyhq.com')) {
       const parts = pathname.split('/').filter(Boolean);
       if (parts.length >= 2 && !pathname.endsWith('/application')) {
         candidateFormUrl = `https://jobs.ashbyhq.com/${parts[0]}/${parts[1]}/application`;
       }
-    }
-
-    // 3. Greenhouse: boards.greenhouse.io/co/jobs/id -> append #app
-    if (host.includes('greenhouse.io') && (pathname.includes('/jobs/') || pathname.includes('/jobs'))) {
+    } else if (host.includes('greenhouse.io') && pathname.includes('/jobs/')) {
       if (!parsed.hash.includes('app')) {
         parsed.hash = '#app';
         candidateFormUrl = parsed.toString();
       }
+    } else if (host.includes('jobs.smartrecruiters.com') && !pathname.endsWith('/apply')) {
+      parsed.pathname = `${pathname.replace(/\/$/, '')}/apply`;
+      candidateFormUrl = parsed.toString();
     }
 
-    // 4. SmartRecruiters: /co/id -> append /apply
-    if (host.includes('jobs.smartrecruiters.com')) {
-      if (!pathname.endsWith('/apply')) {
-        parsed.pathname = `${pathname.replace(/\/$/, '')}/apply`;
-        candidateFormUrl = parsed.toString();
-      }
-    }
-
-    // 5. Pre-flight HTTP 200 & Content 404 Health Check
+    // ── STAGE 2: LIVE HTTP 200 HEALTH & REDIRECTION CHECK ───────────────────
     const res = await fetch(candidateFormUrl, {
       headers: BROWSER_HEADERS,
       signal: AbortSignal.timeout(5000),
@@ -86,31 +94,60 @@ export async function resolveDirectFormUrl(rawUrl: string, companyName?: string)
     });
 
     if (res.status === 404 || res.status === 410 || res.status >= 500) {
-      return { isValid: false, directApplyUrl: candidateFormUrl, sourceUrl: trimmed, failureReason: `http_${res.status}` };
+      return {
+        isValid: false,
+        directApplyUrl: candidateFormUrl,
+        sourceUrl: trimmed,
+        failureReason: `http_${res.status}`,
+      };
     }
 
     const finalUrl = res.url || candidateFormUrl;
     const html = (await res.text()).toLowerCase();
 
-    // Check for 404 / closed signatures in content
+    // ── STAGE 3: CONTENT 404 / EXPIRED SIGNATURE SCRUTINY ───────────────────
     for (const sig of ERROR_404_SIGNATURES) {
       if (html.includes(sig)) {
-        return { isValid: false, directApplyUrl: finalUrl, sourceUrl: trimmed, failureReason: 'content_404_closed' };
+        return {
+          isValid: false,
+          directApplyUrl: finalUrl,
+          sourceUrl: trimmed,
+          failureReason: 'content_404_closed',
+        };
       }
     }
 
-    // 6. For Aggregator Portals (Remotive, Jobicy, Niche Boards):
-    // If the HTML has a direct external apply link (e.g. Lever, Greenhouse, Ashby, Workday), extract it!
-    const externalApplyMatch = html.match(/href=["'](https?:\/\/(?:jobs\.lever\.co|boards\.greenhouse\.io|jobs\.ashbyhq\.com|[^"']+\.myworkdayjobs\.com)[^"']*)["']/i);
+    // ── STAGE 4: EXTERNAL DESTINATION EXTRACTION FOR AGGREGATORS ────────────
+    const externalApplyMatch = html.match(
+      /href=["'](https?:\/\/(?:jobs\.lever\.co|boards\.greenhouse\.io|jobs\.ashbyhq\.com|[^"']+\.myworkdayjobs\.com)[^"']*)["']/i
+    );
     if (externalApplyMatch && externalApplyMatch[1]) {
       const resolvedExternalUrl = externalApplyMatch[1];
-      return { isValid: true, directApplyUrl: resolvedExternalUrl, sourceUrl: trimmed };
+      const externalGuard = validateCanonicalJobUrl(resolvedExternalUrl);
+      if (externalGuard.isValid) {
+        return {
+          isValid: true,
+          directApplyUrl: externalGuard.cleanUrl,
+          sourceUrl: trimmed,
+          platform: externalGuard.platform,
+        };
+      }
     }
 
-    return { isValid: true, directApplyUrl: finalUrl, sourceUrl: trimmed };
+    return {
+      isValid: true,
+      directApplyUrl: finalUrl,
+      sourceUrl: trimmed,
+      platform: guard.platform,
+    };
   } catch (err: any) {
-    // If network timeout, keep original if structurally valid
-    return { isValid: true, directApplyUrl: trimmed, sourceUrl: trimmed };
+    // If network verification times out, accept only if canonical guard passed
+    return {
+      isValid: true,
+      directApplyUrl: guard.cleanUrl,
+      sourceUrl: trimmed,
+      platform: guard.platform,
+    };
   }
 }
 
@@ -122,7 +159,7 @@ export async function batchResolveAndFilterJobs(
   concurrency: number = 10
 ): Promise<RawJob[]> {
   console.log(`[Form Link Resolver] Pre-crawling and verifying direct form URLs for ${jobs.length} positions (Concurrency: ${concurrency})...`);
-  
+
   const verifiedJobs: RawJob[] = [];
   let deadLinksFiltered = 0;
   let directFormsResolved = 0;
@@ -151,6 +188,6 @@ export async function batchResolveAndFilterJobs(
     }
   }
 
-  console.log(`[Form Link Resolver] Verified: ${verifiedJobs.length} active positions (+${directFormsResolved} direct form deep-links resolved, -${deadLinksFiltered} dead/404 links purged).`);
+  console.log(`[Form Link Resolver] Verified: ${verifiedJobs.length} active positions (+${directFormsResolved} direct form deep-links resolved, -${deadLinksFiltered} dead/404/directory links purged).`);
   return verifiedJobs;
 }

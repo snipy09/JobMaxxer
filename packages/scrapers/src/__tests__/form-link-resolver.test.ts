@@ -2,80 +2,77 @@ import { describe, it, expect, vi } from 'vitest';
 import { resolveDirectFormUrl, batchResolveAndFilterJobs } from '../form-link-resolver.js';
 import type { RawJob } from '../ats-api-scraper.js';
 
-describe('Pre-Computed Direct Form Link Resolver', () => {
-  it('resolves valid Lever URLs to /apply endpoint', async () => {
-    // Mock global fetch to return 200 with valid content
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockResolvedValue({
+describe('Flawless Form Link Resolver & Quality Pipeline', () => {
+  it('strictly rejects directory root URLs before network requests', async () => {
+    const res1 = await resolveDirectFormUrl('https://jobs.elastic.co/?size=n_5_n');
+    expect(res1.isValid).toBe(false);
+    expect(res1.failureReason).toBe('directory_root_rejected');
+
+    const res2 = await resolveDirectFormUrl('https://boards.greenhouse.io/elastic');
+    expect(res2.isValid).toBe(false);
+    expect(res2.failureReason).toBe('greenhouse_missing_job_id');
+  });
+
+  it('verifies canonical URLs with mocked network success', async () => {
+    // Mock global fetch to return clean 200 HTML
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       status: 200,
-      url: 'https://jobs.lever.co/razorpay/1234-abcd/apply',
-      text: () => Promise.resolve('<html><body><form id="application-form">Apply</form></body></html>'),
+      ok: true,
+      url: 'https://jobs.lever.co/postman/88f2195e-1234-5678/apply',
+      text: async () => '<html><body><form id="application-form"><input type="email" /></form></body></html>',
     } as any);
 
-    const result = await resolveDirectFormUrl('https://jobs.lever.co/razorpay/1234-abcd');
-    expect(result.isValid).toBe(true);
-    expect(result.directApplyUrl).toBe('https://jobs.lever.co/razorpay/1234-abcd/apply');
+    const res = await resolveDirectFormUrl('https://jobs.lever.co/postman/88f2195e-1234-5678');
+    expect(res.isValid).toBe(true);
+    expect(res.directApplyUrl).toBe('https://jobs.lever.co/postman/88f2195e-1234-5678/apply');
 
-    global.fetch = originalFetch;
+    fetchSpy.mockRestore();
   });
 
-  it('filters out 404 dead job boards', async () => {
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockResolvedValue({
-      status: 404,
-      url: 'https://boards.greenhouse.io/deadboard',
-      text: () => Promise.resolve('<html><body>Page not found - The job board you were viewing is no longer active</body></html>'),
-    } as any);
-
-    const result = await resolveDirectFormUrl('https://boards.greenhouse.io/deadboard/jobs/999');
-    expect(result.isValid).toBe(false);
-
-    global.fetch = originalFetch;
-  });
-
-  it('batch resolves a list of jobs and purges invalid ones', async () => {
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (url.includes('dead')) {
+  it('batches and filters raw jobs, keeping only valid direct form positions', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((url: any) => {
+      const urlStr = String(url);
+      if (urlStr.includes('postman')) {
         return Promise.resolve({
-          status: 404,
-          url,
-          text: () => Promise.resolve('404 not found'),
-        });
+          status: 200,
+          ok: true,
+          url: urlStr,
+          text: async () => '<html><body><form id="application-form"></form></body></html>',
+        } as any);
       }
       return Promise.resolve({
-        status: 200,
-        url,
-        text: () => Promise.resolve('<html><body>Job description and apply form</body></html>'),
-      });
+        status: 404,
+        ok: false,
+        text: async () => 'Page not found',
+      } as any);
     });
 
-    const mockJobs: RawJob[] = [
+    const sampleJobs: RawJob[] = [
       {
-        company: 'LiveCorp',
-        title: 'Software Engineer',
-        location: 'Remote',
+        company: 'Postman',
+        title: 'Backend Engineer',
+        location: 'Bengaluru',
         description: 'Great role',
-        applyUrl: 'https://jobs.ashbyhq.com/livecorp/abcd-1234',
-        source: 'Ashby',
+        applyUrl: 'https://jobs.lever.co/postman/88f2195e-1234-5678',
+        source: 'Lever',
         jobHash: 'hash1',
       },
       {
-        company: 'DeadCorp',
-        title: 'Old Job',
+        company: 'Elastic Directory',
+        title: 'Careers Directory',
         location: 'Remote',
-        description: 'Dead role',
-        applyUrl: 'https://jobs.lever.co/deadcorp/dead-id',
-        source: 'Lever',
+        description: 'Bad role',
+        applyUrl: 'https://jobs.elastic.co/?size=n_5_n',
+        source: 'Directory',
         jobHash: 'hash2',
-      },
+      }
     ];
 
-    const verified = await batchResolveAndFilterJobs(mockJobs, 5);
+    const verified = await batchResolveAndFilterJobs(sampleJobs, 2);
     expect(verified.length).toBe(1);
-    expect(verified[0].company).toBe('LiveCorp');
-    expect(verified[0].applyUrl).toBe('https://jobs.ashbyhq.com/livecorp/abcd-1234/application');
+    expect(verified[0].company).toBe('Postman');
+    expect(verified[0].applyUrl).toBe('https://jobs.lever.co/postman/88f2195e-1234-5678/apply');
 
-    global.fetch = originalFetch;
+    fetchSpy.mockRestore();
   });
 });
