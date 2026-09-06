@@ -164,17 +164,17 @@ export default function Download() {
 
             <div className="space-y-3 pt-4 border-t border-ink-100">
               <a
-                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.0/Nomadic.Setup.1.0.0.exe"
+                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.Setup.1.0.2.exe"
                 onClick={() => setDownloadStarted(true)}
                 className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95 text-center"
               >
                 <DownloadIcon className="w-4 h-4" />
-                <span>Download for Windows (Setup.exe — 92.8 MB)</span>
+                <span>Download for Windows (Setup.exe — 92.0 MB)</span>
               </a>
 
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
-                <span>File: Nomadic.Setup.1.0.0.exe</span>
-                <span>SHA-256 Verified · 92.8 MB</span>
+                <span>File: Nomadic.Setup.1.0.2.exe</span>
+                <span>SHA-256 Verified · 92.0 MB</span>
               </div>
             </div>
           </div>
@@ -258,7 +258,7 @@ export default function Download() {
               <span className="text-xs font-mono font-bold text-ink-400">STEP 01</span>
               <h4 className="font-bold text-sm text-ink-950">Download Installer</h4>
               <p className="text-ink-600 leading-relaxed">
-                Click the download button above to download the <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic-Setup-1.0.0.exe</code> file to your computer.
+                Click the download button above to download the <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic-Setup-1.0.2.exe</code> file to your computer.
               </p>
             </div>
 
