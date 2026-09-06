@@ -92,7 +92,8 @@ export async function injectStealthScripts(target: Page | Frame): Promise<void> 
 }
 
 /**
- * Types text into an element with randomized human-like keystroke intervals (30-85ms).
+ * Rapid-Fast Element Value Setter & Form Filler (< 5ms per field).
+ * Instantly populates inputs/textareas while cleanly triggering DOM change and input events.
  */
 export async function humanType(
   page: Page | Frame,
@@ -112,54 +113,34 @@ export async function humanType(
     if (typeof el.scrollIntoViewIfNeeded === 'function') {
       await el.scrollIntoViewIfNeeded().catch(() => {});
     }
-    if (typeof page.waitForTimeout === 'function') {
-      await page.waitForTimeout(50 + Math.random() * 50);
-    }
-    if (typeof el.click === 'function') {
-      await el.click().catch(() => {});
-    }
 
-    // Direct fill fallback if type is not supported
-    if (typeof el.type !== 'function') {
-      if (typeof el.fill === 'function') {
+    // Try Playwright high-speed fill first
+    if (typeof el.fill === 'function') {
+      try {
         await el.fill(text);
         return true;
-      }
-      if (typeof el.evaluate === 'function') {
-        await el.evaluate((input: HTMLInputElement, val: string) => {
-          if (input) input.value = val;
-        }, text);
-        return true;
-      }
+      } catch {}
     }
 
-    // Clear existing text if any
-    try {
-      if (typeof el.evaluate === 'function') {
-        await el.evaluate((input: HTMLInputElement) => {
-          if (input && typeof input.value !== 'undefined') input.value = '';
-        });
-      }
-    } catch {}
-
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      await el.type(char, { delay: 25 + Math.random() * 60 }).catch(() => {});
-      if (typeof page.waitForTimeout === 'function' && (char === ' ' || char === '.' || char === '@')) {
-        await page.waitForTimeout(40 + Math.random() * 70);
-      }
-    }
-
+    // DOM rapid-paste fallback with native React/standard event dispatch
     if (typeof el.evaluate === 'function') {
-      await el.evaluate((input: HTMLInputElement) => {
-        if (input) {
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+      await el.evaluate((input: HTMLInputElement, val: string) => {
+        if (!input) return;
+        const nativeInputValueSetter = (Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value') ||
+                                        Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value'))?.set;
+        if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(input, val);
+        } else {
+          input.value = val;
         }
-      }).catch(() => {});
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+      }, text).catch(() => {});
+      return true;
     }
 
-    return true;
+    return false;
   } catch {
     return false;
   }

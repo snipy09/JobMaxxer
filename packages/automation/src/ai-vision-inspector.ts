@@ -36,10 +36,13 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
           '[role="button"]',
           '[role="textbox"]',
           '[role="combobox"]',
+          '[role="listbox"]',
           '[role="checkbox"]',
           '[role="radio"]',
           '[data-qa*="apply"]',
           '[data-qa*="submit"]',
+          '[class*="select"]',
+          '[class*="dropdown"]',
           '[class*="apply"]',
           '[class*="button"]'
         ].join(', ');
@@ -116,7 +119,7 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
 }
 
 /**
- * Dispatches an element fill action by its unique nomadic ID across frames.
+ * Dispatches a rapid element fill action by its unique nomadic ID across frames.
  */
 export async function executeNomadicFill(page: Page, nomadicId: string, value: string): Promise<boolean> {
   const frames = [page, ...page.frames()];
@@ -124,13 +127,17 @@ export async function executeNomadicFill(page: Page, nomadicId: string, value: s
     try {
       const el = await frame.$(`[data-nomadic-id="${nomadicId}"]`);
       if (el) {
-        const isVisible = await el.isVisible().catch(() => false);
+        const isVisible = typeof el.isVisible === 'function' ? await el.isVisible().catch(() => false) : true;
         if (isVisible) {
-          await el.scrollIntoViewIfNeeded().catch(() => {});
-          await el.evaluate((node: any) => {
-            node.style.outline = '2px solid #22c55e';
-            node.style.boxShadow = '0 0 10px rgba(34,197,94,0.4)';
-          }).catch(() => {});
+          if (typeof el.scrollIntoViewIfNeeded === 'function') {
+            await el.scrollIntoViewIfNeeded().catch(() => {});
+          }
+          if (typeof el.evaluate === 'function') {
+            await el.evaluate((node: any) => {
+              node.style.outline = '2px solid #22c55e';
+              node.style.boxShadow = '0 0 8px rgba(34,197,94,0.3)';
+            }).catch(() => {});
+          }
           return await humanType(frame, el, value);
         }
       }
@@ -140,31 +147,96 @@ export async function executeNomadicFill(page: Page, nomadicId: string, value: s
 }
 
 /**
- * Dispatches an element select action by its unique nomadic ID across frames.
+ * Universal Dropdown & Combobox Selector:
+ * Handles standard <select>, custom React/Radix selects, ARIA comboboxes, and listbox menus.
  */
 export async function executeNomadicSelect(page: Page, nomadicId: string, optionValueOrText: string): Promise<boolean> {
   const frames = [page, ...page.frames()];
+  const optLower = (optionValueOrText || '').toLowerCase().trim();
+
   for (const frame of frames) {
     try {
       const el = await frame.$(`[data-nomadic-id="${nomadicId}"]`);
-      if (el) {
-        const isVisible = await el.isVisible().catch(() => false);
-        if (isVisible) {
-          const optLower = optionValueOrText.toLowerCase().trim();
-          const options = await el.$$eval('option', (opts: any[]) =>
-            opts.map(o => ({ value: o.value, text: (o.textContent || '').trim().toLowerCase() }))
-          );
+      if (!el) continue;
 
-          const matched = options.find(o => o.text.includes(optLower) || o.value.toLowerCase() === optLower);
+      const isVisible = typeof el.isVisible === 'function' ? await el.isVisible().catch(() => false) : true;
+      if (!isVisible) continue;
+
+      if (typeof el.scrollIntoViewIfNeeded === 'function') {
+        await el.scrollIntoViewIfNeeded().catch(() => {});
+      }
+
+      const tagName = await el.evaluate((node: any) => (node.tagName || '').toLowerCase()).catch(() => '');
+
+      // 1. Standard <select> element
+      if (tagName === 'select') {
+        const options = await el.$$eval('option', (opts: any[]) =>
+          opts.map(o => ({ value: o.value, text: (o.textContent || '').trim().toLowerCase() }))
+        ).catch(() => []);
+
+        if (options.length > 0) {
+          const matched = options.find(o => o.text.includes(optLower) || o.value.toLowerCase() === optLower || optLower.includes(o.text));
           if (matched && matched.value) {
-            await (el as any).selectOption(matched.value);
+            await (el as any).selectOption(matched.value).catch(() => {});
             return true;
           } else if (options.length > 1) {
-            await (el as any).selectOption(options[1].value);
-            return true;
+            // Pick first non-empty option
+            const firstValid = options.find(o => o.value && o.value !== '' && !o.text.includes('select') && !o.text.includes('choose')) || options[1];
+            if (firstValid) {
+              await (el as any).selectOption(firstValid.value).catch(() => {});
+              return true;
+            }
           }
         }
       }
+
+      // 2. Custom Combobox, ARIA Select, or Dropdown Button
+      // Click trigger to open dropdown
+      await humanClick(frame, el);
+      if (typeof page.waitForTimeout === 'function') {
+        await page.waitForTimeout(200);
+      }
+
+      // Look for popup options in current frame and main page
+      const optionSelectors = [
+        '[role="option"]',
+        'li[role="option"]',
+        '.select__option',
+        'div[class*="option"]',
+        'div[id*="react-select"]',
+        'button.dropdown-item',
+        'li.dropdown-item',
+        'div[role="listbox"] div',
+        'ul[role="listbox"] li'
+      ];
+
+      for (const sel of optionSelectors) {
+        try {
+          const optionElements = await frame.$$(sel).catch(() => []);
+          for (const optEl of optionElements) {
+            const isOptVis = typeof optEl.isVisible === 'function' ? await optEl.isVisible().catch(() => false) : true;
+            if (!isOptVis) continue;
+
+            const text = (await optEl.textContent().catch(() => ''))?.toLowerCase().trim() || '';
+            if (text && (text.includes(optLower) || optLower.includes(text))) {
+              await humanClick(frame, optEl);
+              return true;
+            }
+          }
+        } catch {}
+      }
+
+      // If search input exists inside combobox, type and press Enter
+      const innerInput = await el.$('input[type="text"], input[role="combobox"]').catch(() => null);
+      if (innerInput) {
+        await humanType(frame, innerInput, optionValueOrText);
+        if ('keyboard' in page && page.keyboard) {
+          await page.keyboard.press('Enter').catch(() => {});
+        }
+        return true;
+      }
+
+      return true;
     } catch {}
   }
   return false;
@@ -179,9 +251,9 @@ export async function executeNomadicCheckbox(page: Page, nomadicId: string, chec
     try {
       const el = await frame.$(`[data-nomadic-id="${nomadicId}"]`);
       if (el) {
-        const isVisible = await el.isVisible().catch(() => false);
+        const isVisible = typeof el.isVisible === 'function' ? await el.isVisible().catch(() => false) : true;
         if (isVisible) {
-          const isCurrentlyChecked = await el.isChecked().catch(() => false);
+          const isCurrentlyChecked = typeof el.isChecked === 'function' ? await el.isChecked().catch(() => false) : false;
           if (isCurrentlyChecked !== checked) {
             return await humanClick(frame, el);
           }

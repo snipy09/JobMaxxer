@@ -362,7 +362,7 @@ export class AutoApplyEngine {
 
       while (turn < MAX_TURNS) {
         turn++;
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(300);
 
         // A. Anti-Bot / Cloudflare Turnstile Check
         const cfResult = await handleCloudflareTurnstile(page);
@@ -373,7 +373,7 @@ export class AutoApplyEngine {
             colorState: 'red',
             actionRequired: 'Verify Human Check'
           }, onProgress);
-          await page.waitForTimeout(3000);
+          await page.waitForTimeout(1500);
         }
 
         // B. Check for Confirmed Submission
@@ -485,13 +485,13 @@ export class AutoApplyEngine {
               }, onProgress);
               const clicked = await executeNomadicClick(page, targetId);
               if (clicked) {
-                await page.waitForTimeout(2000);
+                await page.waitForTimeout(600);
                 continue;
               }
             }
           }
 
-          // Case 3: AI fills form inputs
+          // Case 3: AI fills form inputs (Rapid Fast)
           let filledInTurn = 0;
           if (Array.isArray(aiPlan.fillActions)) {
             for (const fillAct of aiPlan.fillActions) {
@@ -537,7 +537,7 @@ export class AutoApplyEngine {
             if (nextButton) {
               await AutoApplyEngine.emitStatus(page, { phase: 'advancing', message: 'Advancing to next step...', colorState: 'grey' }, onProgress);
               await humanClick(page, nextButton);
-              await page.waitForTimeout(2000);
+              await page.waitForTimeout(600);
               continue;
             }
           }
@@ -546,7 +546,7 @@ export class AutoApplyEngine {
             await AutoApplyEngine.emitStatus(page, { phase: 'submitting', message: 'Submitting completed application...', colorState: 'grey' }, onProgress);
             const submitClicked = await AutoApplyEngine.submitForm(page);
             if (submitClicked) {
-              await page.waitForTimeout(3000);
+              await page.waitForTimeout(1000);
               const finalConfirm = await AutoApplyEngine.isPageConfirmedSubmission(page);
               if (finalConfirm) {
                 isSubmitted = true;
@@ -567,7 +567,7 @@ export class AutoApplyEngine {
         const nextBtn = await AutoApplyEngine.findNextStepButton(page);
         if (nextBtn) {
           await humanClick(page, nextBtn);
-          await page.waitForTimeout(2000);
+          await page.waitForTimeout(600);
           continue;
         }
 
@@ -575,7 +575,7 @@ export class AutoApplyEngine {
         if (submitBtn && totalFieldsFilled > 0) {
           await AutoApplyEngine.emitStatus(page, { phase: 'submitting', message: 'Submitting application...', colorState: 'grey' }, onProgress);
           await humanClick(page, submitBtn);
-          await page.waitForTimeout(3000);
+          await page.waitForTimeout(1000);
           isSubmitted = await AutoApplyEngine.isPageConfirmedSubmission(page);
           break;
         }
@@ -1007,25 +1007,70 @@ export class AutoApplyEngine {
 
   private static async fillSelectDropdowns(target: Page | Frame, profile: MasterProfile): Promise<number> {
     let count = 0;
-    const selects = await target.$$('select').catch(() => []);
+    const selects = await target.$$('select, [role="combobox"], div.select__control, button[aria-haspopup="listbox"]').catch(() => []);
 
     for (const select of selects) {
       try {
         const isVisible = await select.isVisible().catch(() => false);
         if (!isVisible) continue;
 
-        const options = await select.$$eval('option', (opts: any[]) =>
-          opts.map(o => ({ value: o.value, text: (o.textContent || '').trim().toLowerCase() }))
-        );
+        const tagName = await select.evaluate((node: any) => (node.tagName || '').toLowerCase()).catch(() => '');
 
-        if (options.length > 1) {
-          const authOption = options.find(o => o.text.includes('yes') || o.text.includes('authorized') || o.text.includes('citizen') || o.text.includes('permanent'));
-          if (authOption && authOption.value) {
-            await (select as any).selectOption(authOption.value);
-            count++;
-          } else {
-            await (select as any).selectOption(options[1].value);
-            count++;
+        if (tagName === 'select') {
+          const selectMeta = await select.evaluate((el: HTMLSelectElement) => {
+            let labelText = '';
+            if (el.id) {
+              const labelEl = document.querySelector(`label[for="${el.id}"]`);
+              if (labelEl) labelText = labelEl.textContent || '';
+            }
+            if (!labelText) {
+              const parentLabel = el.closest('label');
+              if (parentLabel) labelText = parentLabel.textContent || '';
+            }
+            return {
+              name: (el.name || '').toLowerCase(),
+              id: (el.id || '').toLowerCase(),
+              label: labelText.toLowerCase(),
+            };
+          }).catch(() => ({ name: '', id: '', label: '' }));
+
+          const metaText = `${selectMeta.name} ${selectMeta.id} ${selectMeta.label}`;
+
+          const options = await select.$$eval('option', (opts: any[]) =>
+            opts.map(o => ({ value: o.value, text: (o.textContent || '').trim().toLowerCase() }))
+          ).catch(() => []);
+
+          if (options.length > 1) {
+            let chosenValue: string | null = null;
+
+            // 1. Sponsorship question: "Will you require sponsorship?" -> Choose "No"
+            if (metaText.includes('sponsor') || metaText.includes('visa')) {
+              const noOpt = options.find(o => o.text === 'no' || o.text.startsWith('no') || o.value.toLowerCase() === 'no');
+              if (noOpt) chosenValue = noOpt.value;
+            }
+
+            // 2. Authorization question: "Are you authorized to work?" -> Choose "Yes"
+            if (!chosenValue && (metaText.includes('authoriz') || metaText.includes('eligible') || metaText.includes('permit') || metaText.includes('legal'))) {
+              const yesOpt = options.find(o => o.text === 'yes' || o.text.startsWith('yes') || o.text.includes('authorized') || o.value.toLowerCase() === 'yes');
+              if (yesOpt) chosenValue = yesOpt.value;
+            }
+
+            // 3. Gender / Demographic questions -> Choose "Decline" / "Prefer not to say" or valid option
+            if (!chosenValue && (metaText.includes('gender') || metaText.includes('race') || metaText.includes('veteran') || metaText.includes('disability') || metaText.includes('eeo'))) {
+              const declineOpt = options.find(o => o.text.includes('decline') || o.text.includes('prefer not') || o.text.includes('choose not') || o.text.includes('not a protected') || o.text.includes('do not have'));
+              if (declineOpt) chosenValue = declineOpt.value;
+            }
+
+            // 4. Default: pick the first valid option
+            if (!chosenValue) {
+              const firstValid = options.find(o => o.value && o.value !== '' && !o.text.includes('select') && !o.text.includes('choose')) || options[1];
+              if (firstValid) chosenValue = firstValid.value;
+            }
+
+            if (chosenValue) {
+              await (select as any).selectOption(chosenValue).catch(() => {});
+              count++;
+            }
           }
         }
       } catch {}
