@@ -526,8 +526,42 @@ export class AutoApplyEngine {
           };
         }
 
-        // 6b. Specialized Dedicated Bot Route (Internshala, Lever, Greenhouse, Ashby)
-        const specializedResult = await dispatchSpecializedPortalBot(page, url, profile);
+        // 6b. Fast 1-Click Navigation from Job Description to Application Form (if not already on form)
+        const isAlreadyForm = await page.evaluate(() => {
+          const hasAppContainer = Boolean(document.querySelector('#application-form, .application-form, form[action*="apply"], #application_modal, [data-qa="application-form"]'));
+          const hasEmailInput = Boolean(document.querySelector('input[type="email"], input[name*="email" i]'));
+          const hasFileInput = Boolean(document.querySelector('input[type="file"]'));
+          return hasAppContainer || (hasEmailInput && hasFileInput);
+        }).catch(() => false);
+
+        if (!isAlreadyForm) {
+          const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
+          if (fastNav.triggered && fastNav.action !== 'form_already_present') {
+            await AutoApplyEngine.emitStatus(page, {
+              phase: 'navigating',
+              message: `Opening Application Form (${fastNav.action.replace(/_/g, ' ')})...`,
+              colorState: 'grey'
+            }, onProgress);
+
+            await page.waitForTimeout(400);
+
+            // Track if clicking opened a new popup/tab
+            const allOpenPages = session.context.pages();
+            if (allOpenPages.length > 1) {
+              const latestPage = allOpenPages[allOpenPages.length - 1];
+              if (latestPage && !latestPage.isClosed() && latestPage !== page) {
+                page = latestPage;
+                await injectStealthScripts(page);
+                await enableFastRouteInterception(page);
+                await page.bringToFront().catch(() => {});
+              }
+            }
+            await page.waitForLoadState('domcontentloaded').catch(() => {});
+          }
+        }
+
+        // 6c. Specialized Dedicated Bot Route (Internshala, Lever, Greenhouse, Ashby)
+        const specializedResult = await dispatchSpecializedPortalBot(page, page.url(), profile);
         if (specializedResult && specializedResult.fieldsFilled > 0) {
           totalFieldsFilled += specializedResult.fieldsFilled;
           await AutoApplyEngine.emitStatus(page, {
