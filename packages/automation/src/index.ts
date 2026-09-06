@@ -24,6 +24,12 @@ import {
   executeNomadicSelect,
   executeNomadicClick,
 } from './ai-vision-inspector.ts';
+import {
+  injectStealthScripts,
+  humanType,
+  humanClick,
+  handleCloudflareTurnstile,
+} from './stealth-evasion.ts';
 import { ATS_FIELD_ALIASES } from './alias-dictionary.ts';
 import {
   findChromeExecutable,
@@ -53,6 +59,10 @@ export {
   executeNomadicFill,
   executeNomadicSelect,
   executeNomadicClick,
+  injectStealthScripts,
+  humanType,
+  humanClick,
+  handleCloudflareTurnstile,
 };
 
 export type {

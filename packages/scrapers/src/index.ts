@@ -134,7 +134,6 @@ function isRemoteJob(j: RawJob): boolean {
     j.workplaceType === 'remote' ||
     loc.includes('remote') ||
     title.includes('remote') ||
-    src.includes('weworkremotely') ||
     src.includes('jobspresso') ||
     src.includes('verified placements')
   );
@@ -167,10 +166,8 @@ export async function runAllScrapers(
   };
 
   const TOP_RSS_FEEDS = [
-    { name: 'WeWorkRemotely: Dev', url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss' },
-    { name: 'WeWorkRemotely: DevOps', url: 'https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss' },
-    { name: 'WeWorkRemotely: FullStack', url: 'https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss' },
     { name: 'Jobspresso Tech', url: 'https://jobspresso.co/feed/' },
+    { name: 'Remotive Software', url: 'https://remotive.com/remote-jobs/feed' },
   ];
 
   const [atsJobs, internshalaJobs, naukriJobs, indeedJobs, webJobs, nicheJobs, rssJobs] = await Promise.all([

@@ -1501,16 +1501,19 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
       }
     } catch {}
 
-    const planCheck = checkUserPlanLimitDb(jobUrls.length, userTier);
-    if (!planCheck.allowed) {
-      log(`[Plan Rules] Submission halted: ${planCheck.reason}`);
-      return {
-        success: false,
-        error: planCheck.reason,
-        limitReached: true,
-        currentUsage: planCheck.currentUsage,
-        maxAllowed: planCheck.maxAllowed,
-      };
+    // Allow single targeted job applies directly without batch throttling
+    if (jobUrls.length > 1) {
+      const planCheck = checkUserPlanLimitDb(jobUrls.length, userTier);
+      if (!planCheck.allowed) {
+        log(`[Plan Rules] Submission halted: ${planCheck.reason}`);
+        return {
+          success: false,
+          error: planCheck.reason,
+          limitReached: true,
+          currentUsage: planCheck.currentUsage,
+          maxAllowed: planCheck.maxAllowed,
+        };
+      }
     }
 
     // 2. Sequential batch processing: chunk jobs into 5-job batches (e.g. 50 jobs = 10 batches of 5)

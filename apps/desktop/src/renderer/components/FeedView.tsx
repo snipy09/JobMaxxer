@@ -495,7 +495,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
       unsub();
       setTimeout(() => {
         setExecutingAutoApply(false);
-      }, 3000);
+        setActiveJobTarget(null);
+      }, 1000);
     }
   };
 

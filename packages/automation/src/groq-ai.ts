@@ -26,7 +26,10 @@ export interface SemanticElement {
 }
 
 export interface AIFormActionPlan {
-  pageState: 'listing_page' | 'application_form' | 'login_required' | 'captcha_detected' | 'submission_confirmed' | 'unknown';
+  pageState: 'listing_or_homepage' | 'job_description' | 'application_form' | 'stepper_step' | 'login_required' | 'captcha_detected' | 'submission_confirmed' | 'unknown';
+  actionType?: 'click_element' | 'fill_form' | 'advance_step' | 'submit' | 'search_job' | 'done';
+  clickTargetElementId?: string;
+  searchQuery?: string;
   fillActions: Array<{
     elementId: string;
     value: string;
@@ -244,14 +247,26 @@ export async function generateAIVisionActionPlan(
   elements: SemanticElement[],
   options: { geminiKey?: string } = {}
 ): Promise<AIFormActionPlan | null> {
-  const systemInstruction = `You are the Nomadic Autonomous Application Decision Engine.
-Your job is to visually analyze the application screen and semantic DOM elements, and output an exact action plan in JSON format.
+  const systemInstruction = `You are the Nomadic Autonomous Application & Navigation AI Decision Engine.
+Your job is to visually inspect the screenshot and interactive DOM elements, determine the exact state of the page, and output an action plan to reach and complete the job application.
 
-Output Schema:
+Page Classification Guide:
+- "listing_or_homepage": The browser opened a company homepage, career portal index, or search page. Action: set actionType="click_element" with clickTargetElementId of the "Apply" / "Careers" / "View Job" link, or actionType="search_job" with searchQuery.
+- "job_description": The page shows the job posting description. Action: set actionType="click_element" with clickTargetElementId of the "Apply for this job" / "Apply Now" / "Easy Apply" / "Submit Application" button.
+- "application_form": An input form is displayed. Action: set actionType="fill_form", fill candidate fields into fillActions, select dropdowns in selectActions, check agreements in checkboxActions, identify uploadResumeElementId, and set clickTargetElementId to the submit button or clickActionElementId.
+- "stepper_step": A multi-step application form is active. Action: set actionType="advance_step", fill step inputs, and set clickTargetElementId to "Next" / "Continue".
+- "login_required": The user is prompted to sign in / create an account. Action: set pageState="login_required".
+- "captcha_detected": An interactive CAPTCHA is blocking progress. Action: set pageState="captcha_detected".
+- "submission_confirmed": The page confirms application submission ("Application submitted", "Thank you for applying", "Success"). Action: set actionType="done".
+
+Output Schema (valid JSON only):
 {
-  "pageState": "listing_page" | "application_form" | "login_required" | "captcha_detected" | "submission_confirmed" | "unknown",
+  "pageState": "listing_or_homepage" | "job_description" | "application_form" | "stepper_step" | "login_required" | "captcha_detected" | "submission_confirmed" | "unknown",
+  "actionType": "click_element" | "fill_form" | "advance_step" | "submit" | "search_job" | "done",
+  "clickTargetElementId": "element_id_to_click_if_applicable",
+  "searchQuery": "search_query_if_search_bar_present",
   "fillActions": [
-    { "elementId": "element_id_from_list", "value": "value_to_type", "fieldPurpose": "first_name" | "email" | "custom_answer" etc. }
+    { "elementId": "element_id_from_list", "value": "value_to_type", "fieldPurpose": "first_name" | "last_name" | "email" | "phone" | "linkedin" | "github" | "custom_answer" }
   ],
   "selectActions": [
     { "elementId": "element_id_from_list", "selectedOption": "option_text_or_value" }
@@ -262,7 +277,7 @@ Output Schema:
   "uploadResumeElementId": "file_input_id_if_present",
   "clickActionElementId": "button_or_link_id_to_click",
   "nextStepType": "advance_next" | "submit_application" | "open_job" | "none",
-  "statusMessage": "Short human readable summary of action"
+  "statusMessage": "Short human readable summary of the action"
 }`;
 
   const prompt = `Candidate Profile:

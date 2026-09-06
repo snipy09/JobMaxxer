@@ -1,5 +1,6 @@
 import type { Page, Frame } from 'playwright';
 import type { SemanticElement } from './groq-ai.js';
+import { humanClick, humanType } from './stealth-evasion.js';
 
 export interface PageVisionCapture {
   screenshotBase64: string;
@@ -14,7 +15,7 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
   // 1. Capture base64 screenshot
   let screenshotBase64 = '';
   try {
-    const screenshotBuffer = await page.screenshot({ type: 'jpeg', quality: 70, fullPage: false });
+    const screenshotBuffer = await page.screenshot({ type: 'jpeg', quality: 75, fullPage: false });
     screenshotBase64 = screenshotBuffer.toString('base64');
   } catch {}
 
@@ -26,7 +27,23 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
     try {
       const frameElements = await frame.evaluate(() => {
         const results: any[] = [];
-        const selector = 'input, textarea, select, button, a.apply-button, a[href*="apply"], [role="button"], [role="textbox"], [role="combobox"], [data-qa*="apply"], [data-qa*="submit"]';
+        const selector = [
+          'input',
+          'textarea',
+          'select',
+          'button',
+          'a[href]',
+          '[role="button"]',
+          '[role="textbox"]',
+          '[role="combobox"]',
+          '[role="checkbox"]',
+          '[role="radio"]',
+          '[data-qa*="apply"]',
+          '[data-qa*="submit"]',
+          '[class*="apply"]',
+          '[class*="button"]'
+        ].join(', ');
+
         const nodes = document.querySelectorAll(selector);
 
         nodes.forEach((node: any, idx) => {
@@ -35,6 +52,9 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
             const style = window.getComputedStyle(node);
             if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
 
+            const rect = node.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) return;
+
             // Generate or preserve unique nomadic ID
             let nomadicId = node.getAttribute('data-nomadic-id');
             if (!nomadicId) {
@@ -42,7 +62,7 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
               node.setAttribute('data-nomadic-id', nomadicId);
             }
 
-            // Extract label
+            // Extract label & context text
             let labelText = '';
             if (node.id) {
               const labelEl = document.querySelector(`label[for="${node.id}"]`);
@@ -53,7 +73,12 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
               if (parentLabel) labelText = parentLabel.textContent || '';
             }
             if (!labelText) {
-              labelText = node.getAttribute('aria-label') || node.getAttribute('placeholder') || node.name || node.textContent || '';
+              labelText = node.getAttribute('aria-label') ||
+                          node.getAttribute('placeholder') ||
+                          node.name ||
+                          node.innerText ||
+                          node.textContent ||
+                          node.getAttribute('title') || '';
             }
 
             const options: string[] = [];
@@ -69,7 +94,7 @@ export async function capturePageVisionAndDOM(page: Page): Promise<PageVisionCap
               type: (node.getAttribute('type') || '').toLowerCase(),
               name: node.name || '',
               placeholder: node.getAttribute('placeholder') || '',
-              label: labelText.trim().replace(/\s+/g, ' ').slice(0, 120),
+              label: labelText.trim().replace(/\s+/g, ' ').slice(0, 140),
               value: node.value || '',
               ariaLabel: node.getAttribute('aria-label') || '',
               options: options.slice(0, 15),
@@ -106,11 +131,7 @@ export async function executeNomadicFill(page: Page, nomadicId: string, value: s
             node.style.outline = '2px solid #22c55e';
             node.style.boxShadow = '0 0 10px rgba(34,197,94,0.4)';
           }).catch(() => {});
-          await el.click().catch(() => {});
-          await el.fill(value);
-          await el.dispatchEvent('input').catch(() => {});
-          await el.dispatchEvent('change').catch(() => {});
-          return true;
+          return await humanType(frame, el, value);
         }
       }
     } catch {}
@@ -150,6 +171,29 @@ export async function executeNomadicSelect(page: Page, nomadicId: string, option
 }
 
 /**
+ * Dispatches a checkbox action by its unique nomadic ID across frames.
+ */
+export async function executeNomadicCheckbox(page: Page, nomadicId: string, checked: boolean = true): Promise<boolean> {
+  const frames = [page, ...page.frames()];
+  for (const frame of frames) {
+    try {
+      const el = await frame.$(`[data-nomadic-id="${nomadicId}"]`);
+      if (el) {
+        const isVisible = await el.isVisible().catch(() => false);
+        if (isVisible) {
+          const isCurrentlyChecked = await el.isChecked().catch(() => false);
+          if (isCurrentlyChecked !== checked) {
+            return await humanClick(frame, el);
+          }
+          return true;
+        }
+      }
+    } catch {}
+  }
+  return false;
+}
+
+/**
  * Dispatches a click action by its unique nomadic ID across frames.
  */
 export async function executeNomadicClick(page: Page, nomadicId: string): Promise<boolean> {
@@ -158,13 +202,33 @@ export async function executeNomadicClick(page: Page, nomadicId: string): Promis
     try {
       const el = await frame.$(`[data-nomadic-id="${nomadicId}"]`);
       if (el) {
-        const isVisible = await el.isVisible().catch(() => false);
-        const isEnabled = await el.isEnabled().catch(() => false);
+        const isVisible = typeof el.isVisible === 'function' ? await el.isVisible().catch(() => false) : true;
+        const isEnabled = typeof el.isEnabled === 'function' ? await el.isEnabled().catch(() => false) : true;
         if (isVisible && isEnabled) {
-          await el.scrollIntoViewIfNeeded().catch(() => {});
-          await el.click().catch(() => {});
-          return true;
+          if (typeof el.evaluate === 'function') {
+            await el.evaluate((node: any) => {
+              node.style.outline = '2px solid #38bdf8';
+            }).catch(() => {});
+          }
+          return await humanClick(frame, el);
         }
+      }
+    } catch {}
+  }
+  return false;
+}
+
+/**
+ * Dispatches a resume upload action to a file input by its nomadic ID across frames.
+ */
+export async function executeNomadicUploadResume(page: Page, nomadicId: string, resumePath: string): Promise<boolean> {
+  const frames = [page, ...page.frames()];
+  for (const frame of frames) {
+    try {
+      const el = await frame.$(`[data-nomadic-id="${nomadicId}"]`);
+      if (el) {
+        await (el as any).setInputFiles(resumePath).catch(() => {});
+        return true;
       }
     } catch {}
   }
