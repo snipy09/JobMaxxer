@@ -1,6 +1,6 @@
 import type { Page, BrowserContext } from 'playwright';
 
-const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font', 'imageset']);
+const BLOCKED_RESOURCE_TYPES = new Set(['media', 'imageset']);
 
 const BLOCKED_TRACKER_DOMAINS = [
   'trainings.internshala.com',
@@ -25,9 +25,9 @@ const BLOCKED_TRACKER_DOMAINS = [
 ];
 
 /**
- * Enables high-speed network route interception:
- * Aborts non-essential images, media, fonts, and 15+ tracking scripts,
- * allowing job application pages to load in under 250ms.
+ * Enables network route interception:
+ * Aborts heavy media, tracking ads, and promotional course domains
+ * while preserving JavaScript, styles, and fonts required by security WAFs.
  */
 export async function enableFastRouteInterception(target: Page | BrowserContext): Promise<void> {
   try {
@@ -36,19 +36,19 @@ export async function enableFastRouteInterception(target: Page | BrowserContext)
       const resourceType = request.resourceType();
       const url = request.url().toLowerCase();
 
-      // 1. Block heavy binary assets
+      // 1. Block heavy binary media
       if (BLOCKED_RESOURCE_TYPES.has(resourceType)) {
         return route.abort();
       }
 
-      // 2. Block third-party tracking & analytics scripts
+      // 2. Block third-party tracking scripts & promotional course subdomains
       for (const domain of BLOCKED_TRACKER_DOMAINS) {
         if (url.includes(domain)) {
           return route.abort();
         }
       }
 
-      // Allow HTML, scripts, XHR, Fetch, and CSS stylesheets
+      // Allow HTML, scripts, XHR, Fetch, stylesheets, and fonts
       return route.continue();
     });
   } catch {}

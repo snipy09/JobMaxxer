@@ -362,6 +362,25 @@ export class AutoApplyEngine {
         };
       }
 
+      // Check for WAF / Access Restricted page immediately
+      const initialWafCheck = await AutoApplyEngine.detectWafOrAccessRestricted(page);
+      if (initialWafCheck.isBlocked) {
+        await AutoApplyEngine.emitStatus(page, {
+          phase: 'user_input_required',
+          message: 'Access Restricted / Security Challenge — Please solve in browser',
+          colorState: 'red',
+          actionRequired: 'Verify Access'
+        }, onProgress);
+        await page.bringToFront().catch(() => {});
+        const unblocked = await AutoApplyEngine.waitForWafUnblocked(page, onProgress);
+        if (!unblocked) {
+          return {
+            url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
+            error: 'Access restricted by portal security (left open in browser)',
+          };
+        }
+      }
+
       // Candidate profile context for AI vision planner
       const candidateProfileForAI = {
         fullName: profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Candidate',
@@ -414,6 +433,25 @@ export class AutoApplyEngine {
             url, success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0,
             error: 'Job posting closed or not found (404)',
           };
+        }
+
+        // B2. Check for WAF / Security Access Restrictions
+        const wafLoopCheck = await AutoApplyEngine.detectWafOrAccessRestricted(page);
+        if (wafLoopCheck.isBlocked) {
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'user_input_required',
+            message: 'Access Restricted / Security Challenge — Please solve in browser',
+            colorState: 'red',
+            actionRequired: 'Verify Access'
+          }, onProgress);
+          await page.bringToFront().catch(() => {});
+          const unblocked = await AutoApplyEngine.waitForWafUnblocked(page, onProgress);
+          if (!unblocked) {
+            return {
+              url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
+              error: 'Access restricted by portal security (left open in browser)',
+            };
+          }
         }
 
         // C. Check for Confirmed Submission
@@ -902,6 +940,58 @@ export class AutoApplyEngine {
     if (typeof callback === 'function') {
       callback(event);
     }
+  }
+
+  public static async detectWafOrAccessRestricted(page: Page): Promise<{ isBlocked: boolean; reason?: string }> {
+    try {
+      const wafSignatures = [
+        'access is temporarily restricted',
+        'we detected unusual activity from your device or network',
+        'automated (bot) activity on your network',
+        'use of developer or inspection tools',
+        'access denied',
+        'security challenge',
+        'you have been blocked',
+        'waf protection',
+        'datadome',
+        'perimeterx',
+        'attention required! | cloudflare',
+        'sorry, you have been blocked',
+      ];
+
+      const targets = AutoApplyEngine.getAllFrames(page);
+      for (const target of targets) {
+        const check = await target.evaluate((sigs) => {
+          const body = (document.body?.innerText || '').toLowerCase();
+          const title = (document.title || '').toLowerCase();
+
+          for (const sig of sigs) {
+            if (body.includes(sig) || title.includes(sig)) {
+              return { isBlocked: true, reason: sig };
+            }
+          }
+          return { isBlocked: false };
+        }, wafSignatures).catch(() => ({ isBlocked: false }));
+
+        if (check.isBlocked) return check;
+      }
+      return { isBlocked: false };
+    } catch {
+      return { isBlocked: false };
+    }
+  }
+
+  public static async waitForWafUnblocked(page: Page, onProgress?: ProgressCallback): Promise<boolean> {
+    const maxWaitSeconds = 25;
+    const start = Date.now();
+
+    while ((Date.now() - start) / 1000 < maxWaitSeconds) {
+      if (page.isClosed()) return false;
+      const check = await AutoApplyEngine.detectWafOrAccessRestricted(page);
+      if (!check.isBlocked) return true;
+      await page.waitForTimeout(2000);
+    }
+    return false;
   }
 
   public static async detectCaptcha(page: Page): Promise<boolean> {
