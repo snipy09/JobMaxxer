@@ -158,21 +158,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }
   };
 
-  // 3. Refresh and load saved jobs on launch
+  // 3. Refresh and load latest cloud jobs on mount
   useEffect(() => {
-    const sessionKey = 'nomadic_jobs_session_synced';
-    const hasSyncedThisSession = sessionStorage.getItem(sessionKey) === 'true';
-    
-    if (!hasSyncedThisSession) {
-      fetchCloudJobs().then(() => {
-        sessionStorage.setItem(sessionKey, 'true');
-      });
-    } else {
-      const api = getApi();
-      if (api && api.getSavedJobs) {
-        api.getSavedJobs().then(saved => setSavedJobs(saved || [])).catch(() => {});
-      }
-    }
+    fetchCloudJobs();
   }, []);
 
   // Keyboard shortcut listener (Escape to close drawer, ⌘K for search focus)

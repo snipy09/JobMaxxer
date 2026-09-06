@@ -998,10 +998,15 @@ ipcMain.handle('get-cloud-feed', async () => {
               jobHash: (j['job_hash'] as string) || '',
             };
             const score = computeRelevanceScore(rawJob, profileKeywords);
+            const titleLower = rawJob.title.toLowerCase();
+            const locLower = rawJob.location.toLowerCase();
             return {
               ...rawJob,
               salary: (j['salary_range'] as string) || undefined,
               score,
+              employmentType: j['employment_type'] || (titleLower.includes('intern') ? 'internship' : 'job'),
+              workplaceType: j['workplace_type'] || (locLower.includes('remote') ? 'remote' : 'hybrid'),
+              experienceLevel: j['experience_level'] || (titleLower.includes('senior') ? 'senior' : titleLower.includes('intern') ? 'entry' : 'mid'),
               createdAt: (j['created_at'] as string) || new Date(nowTime - idx * 60000).toISOString(),
             };
           });
