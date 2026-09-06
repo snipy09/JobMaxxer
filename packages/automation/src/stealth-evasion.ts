@@ -7,11 +7,25 @@ import type { Page, Frame, ElementHandle } from 'playwright';
 export async function injectStealthScripts(target: Page | Frame): Promise<void> {
   const stealthScript = `
     (() => {
-      // 1. Strip navigator.webdriver
+      // 1. Strip navigator.webdriver and automation indicators
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined,
         configurable: true
       });
+
+      // 1b. Mock chrome cdc_ / webdriver symbols
+      try {
+        delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Array;
+        delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+        delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+      } catch {}
+
+      // 1c. Mock Notification and Permissions
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        try {
+          Object.defineProperty(Notification, 'permission', { get: () => 'default' });
+        } catch {}
+      }
 
       // 2. Mock window.chrome
       if (!window.chrome) {

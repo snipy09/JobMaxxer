@@ -698,6 +698,11 @@ export class AutoApplyEngine {
           }, onProgress);
         }
 
+        // Human pacing: brief pause before clicking Submit to ensure all JS field validations complete cleanly
+        if (totalFieldsFilled > 0) {
+          await page.waitForTimeout(300);
+        }
+
         // 11. Submission Engine (FormSubmitter) — Click Submit & Verify Confirmation
         if (totalFieldsFilled > 0 && !isSubmitted) {
           const submitter = new FormSubmitter(page, atsConfig);
