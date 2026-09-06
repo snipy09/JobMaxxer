@@ -33,6 +33,8 @@ import { FormFiller, CandidateProfile } from './form-filler.js';
 import { ApplicationNavigator } from './navigator.js';
 import { FormSubmitter } from './submitter.js';
 import { AIFallbackSolver } from './ai-fallback.js';
+import { extractSemanticDOM, type SemanticDOMSnapshot } from './semantic-dom-extractor.js';
+import { generateAIPilotPlan, type AIPilotPlan } from './ai-pilot-engine.js';
 
 export interface MasterProfile {
   firstName: string;
@@ -523,27 +525,118 @@ export class AutoApplyEngine {
           };
         }
 
-        // 7. Navigation Engine (ApplicationNavigator) — Click Apply / Open Modal / Bind to Tab
-        const nav = new ApplicationNavigator(page, atsConfig);
-        const navResult = await nav.navigateToApplicationForm();
-        if (navResult.formPage && navResult.formPage !== page && !navResult.formPage.isClosed()) {
-          page = navResult.formPage;
+        // 7. Extract Compact Semantic DOM Snapshot (10ms)
+        const domSnapshot = await extractSemanticDOM(page);
+
+        // 8. AI Pilot Instant Decision Loop (Gemini 2.0 Flash / Groq in ~120ms)
+        const aiPlan = await generateAIPilotPlan(profile, domSnapshot, {
+          geminiKey: profile.geminiApiKey,
+          groqKey: profile.groqApiKey,
+        });
+
+        if (aiPlan) {
+          if (aiPlan.statusMessage) {
+            await AutoApplyEngine.emitStatus(page, {
+              phase: 'navigating',
+              message: `AI Pilot: ${aiPlan.statusMessage}`,
+              colorState: 'grey'
+            }, onProgress);
+          }
+
+          // Case A: AI clicks Apply CTA on job description page
+          if (aiPlan.actionType === 'click_apply' && aiPlan.clickTargetElementId) {
+            const targetEl = await page.$(`[data-nomadic-id="${aiPlan.clickTargetElementId}"]`);
+            if (targetEl) {
+              await humanClick(page, targetEl);
+              await page.waitForTimeout(400);
+
+              // Check if clicking opened a new tab/popup
+              const allOpenPages = session.context.pages();
+              if (allOpenPages.length > 1) {
+                const latestPage = allOpenPages[allOpenPages.length - 1];
+                if (latestPage && !latestPage.isClosed() && latestPage !== page) {
+                  page = latestPage;
+                  await injectStealthScripts(page);
+                  await enableFastRouteInterception(page);
+                  await page.bringToFront().catch(() => {});
+                }
+              }
+              await page.waitForLoadState('domcontentloaded').catch(() => {});
+              continue;
+            }
+          }
+
+          // Case B: AI fills fields directly
+          if (Array.isArray(aiPlan.fillActions) && aiPlan.fillActions.length > 0) {
+            let filledByAi = 0;
+            for (const act of aiPlan.fillActions) {
+              if (!act.elementId || !act.value) continue;
+              try {
+                const targetNode = await page.$(`[data-nomadic-id="${act.elementId}"]`);
+                if (targetNode) {
+                  if (act.fieldType === 'file' || act.value === 'RESUME_ATTACHMENT') {
+                    const rPath = profile.resumeFilePath && fs.existsSync(profile.resumeFilePath) ? profile.resumeFilePath : null;
+                    if (rPath) {
+                      await targetNode.setInputFiles(rPath).catch(() => {});
+                      filledByAi++;
+                    }
+                  } else if (act.fieldType === 'radio') {
+                    await targetNode.check().catch(() => {});
+                    filledByAi++;
+                  } else if (act.fieldType === 'checkbox') {
+                    await targetNode.check().catch(() => {});
+                    filledByAi++;
+                  } else if (act.fieldType === 'select') {
+                    await targetNode.selectOption({ label: act.value }).catch(() => {});
+                    filledByAi++;
+                  } else {
+                    await targetNode.fill(act.value).catch(() => {});
+                    filledByAi++;
+                  }
+                }
+              } catch {}
+            }
+            totalFieldsFilled += filledByAi;
+          }
+
+          // Case C: AI triggers Submit Button
+          if (aiPlan.submitButtonElementId && totalFieldsFilled > 0) {
+            const submitBtn = await page.$(`[data-nomadic-id="${aiPlan.submitButtonElementId}"]`);
+            if (submitBtn) {
+              await humanClick(page, submitBtn);
+              await page.waitForTimeout(600);
+              const isConfirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled);
+              if (isConfirmed) {
+                isSubmitted = true;
+                break;
+              }
+            }
+          }
         }
 
-        // 8. Form Filling Engine (FormFiller) — Pure Deterministic Universal Form Solver
+        // 9. Navigation Engine Fallback (ApplicationNavigator) — Click Apply / Open Modal / Bind to Tab
+        if (totalFieldsFilled === 0) {
+          const nav = new ApplicationNavigator(page, atsConfig);
+          const navResult = await nav.navigateToApplicationForm();
+          if (navResult.formPage && navResult.formPage !== page && !navResult.formPage.isClosed()) {
+            page = navResult.formPage;
+          }
+        }
+
+        // 10. Form Filling Engine (FormFiller) — Pure Deterministic Universal Form Solver
         const filler = new FormFiller(page, atsConfig, profile);
         const fillResult = await filler.fillFormDeterministic();
         if (fillResult.fieldsFilled > 0) {
           totalFieldsFilled += fillResult.fieldsFilled;
           await AutoApplyEngine.emitStatus(page, {
             phase: 'filling',
-            message: `Form Filled (${fillResult.fieldsFilled} fields, radios & checkboxes solved)...`,
+            message: `AI Form Filled (${totalFieldsFilled} fields, radios & questions solved)...`,
             colorState: 'green'
           }, onProgress);
         }
 
-        // 9. Submission Engine (FormSubmitter) — Click Submit & Verify Confirmation
-        if (totalFieldsFilled > 0) {
+        // 11. Submission Engine (FormSubmitter) — Click Submit & Verify Confirmation
+        if (totalFieldsFilled > 0 && !isSubmitted) {
           const submitter = new FormSubmitter(page, atsConfig);
           const submitResult = await submitter.submitAndVerify();
           if (submitResult.submitted) {
