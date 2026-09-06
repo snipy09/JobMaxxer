@@ -261,9 +261,9 @@ export const ATS_PORTALS: Record<string, ATSPortal> = {
       fullName: 'input[name="full_name"], input#full_name',
       email: 'input#email, input[name="email"], input[type="email"]',
       phone: 'input#phone, input[name="phone"], input[type="tel"]',
-      linkedIn: 'input[name*="linkedin" i], input[id*="linkedin" i], input[data-qa*="linkedin" i]',
-      github: 'input[name*="github" i], input[id*="github" i]',
-      portfolio: 'input[name*="website" i], input[id*="website" i], input[name*="portfolio" i]',
+      linkedIn: 'input[autocomplete*="custom-question-linkedin" i], input[name*="linkedin" i], input[id*="linkedin" i], input[data-qa*="linkedin" i]',
+      github: 'input[autocomplete*="custom-question-github" i], input[name*="github" i], input[id*="github" i]',
+      portfolio: 'input[autocomplete*="custom-question-website" i], input[autocomplete*="custom-question-portfolio" i], input[name*="website" i], input[id*="website" i], input[name*="portfolio" i]',
       resume: 'input[type="file"], input#resume_file'
     },
     radioBehavior: {
