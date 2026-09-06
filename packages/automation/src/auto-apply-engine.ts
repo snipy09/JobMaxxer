@@ -476,7 +476,20 @@ export class AutoApplyEngine {
             message: `Instant Match: ${fastNav.action.replace(/_/g, ' ')}...`,
             colorState: 'grey'
           }, onProgress);
-          await page.waitForTimeout(350);
+          
+          await page.waitForTimeout(600);
+          // Check if clicking Apply opened a new popup/tab or redirected to an external ATS form
+          const allOpenPages = session.context.pages();
+          if (allOpenPages.length > 1) {
+            const latestPage = allOpenPages[allOpenPages.length - 1];
+            if (latestPage && !latestPage.isClosed() && latestPage !== page) {
+              page = latestPage;
+              await injectStealthScripts(page);
+              await enableFastRouteInterception(page);
+              await page.bringToFront().catch(() => {});
+            }
+          }
+          await page.waitForLoadState('domcontentloaded').catch(() => {});
           continue;
         }
 

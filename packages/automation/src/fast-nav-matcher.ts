@@ -70,6 +70,7 @@ export function isDirectJobDetailPage(url: string): boolean {
   return (
     lower.includes('/internship/detail/') ||
     lower.includes('/job/detail/') ||
+    lower.includes('/remote-jobs/') ||
     lower.includes('boards.greenhouse.io') ||
     lower.includes('jobs.lever.co') ||
     lower.includes('jobs.ashbyhq.com') ||
@@ -122,7 +123,6 @@ export async function runFastLocalNavMatcher(
       }
 
       // 2. High-Priority "Apply" Button Scanner
-      // For Internshala: Strictly use verified Internshala apply CTA buttons
       const primaryApplySelectors = isInternshala
         ? [
             '#apply_now_button',
@@ -136,17 +136,35 @@ export async function runFastLocalNavMatcher(
             '#apply_now_button',
             'button#apply_now_button',
             'a.postings-btn',
-            'button[data-qa="apply-button"]',
+            'button[data-qa*="apply"]',
+            'a[data-qa*="apply"]',
             'button.apply-button',
+            'a.apply-button',
             '#apply_button',
+            'button:has-text("Apply for this position")',
+            'a:has-text("Apply for this position")',
             'button:has-text("Apply for this job")',
             'a:has-text("Apply for this job")',
+            'button:has-text("Apply for role")',
+            'a:has-text("Apply for role")',
             'button:has-text("Apply with Resume")',
+            'a:has-text("Apply with Resume")',
+            'button:has-text("Apply on company website")',
+            'a:has-text("Apply on company website")',
             'button:has-text("Apply now")',
             'a:has-text("Apply now")',
+            'button:has-text("Start application")',
+            'a:has-text("Start application")',
+            'button:has-text("Quick Apply")',
+            'button:has-text("Easy Apply")',
+            'button:has-text("Apply online")',
+            'a:has-text("Apply online")',
+            'button:has-text("Apply")',
+            'a:has-text("Apply")',
             'a[href$="/apply"]',
             'a[href$="/application"]',
             'a[href*="/apply?"]',
+            'a[href*="/apply/"]',
           ];
 
       for (const sel of primaryApplySelectors) {
@@ -163,6 +181,27 @@ export async function runFastLocalNavMatcher(
                 await humanClick(frame, btn);
                 return { triggered: true, action: 'apply_clicked', targetText: sel };
               }
+            }
+          }
+        } catch {}
+      }
+
+      // 2b. Dynamic Text Scanner for Apply CTAs (e.g. "Apply for this position →")
+      const buttonsAndLinks = await frame.$$('button, a[href], [role="button"]').catch(() => []);
+      for (const el of buttonsAndLinks) {
+        try {
+          const text = (await el.textContent().catch(() => ''))?.toLowerCase().trim() || '';
+          const href = (await el.getAttribute('href').catch(() => '')) || '';
+          if (
+            text.length >= 4 &&
+            text.length <= 60 &&
+            (text.startsWith('apply') || text.includes('apply for') || text.includes('apply to') || text.includes('apply now') || text === 'apply') &&
+            !isPromotionalElement(text, href)
+          ) {
+            const isVis = typeof el.isVisible === 'function' ? await el.isVisible().catch(() => false) : true;
+            if (isVis) {
+              await humanClick(frame, el);
+              return { triggered: true, action: 'apply_clicked', targetText: text };
             }
           }
         } catch {}
