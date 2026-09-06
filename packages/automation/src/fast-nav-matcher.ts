@@ -106,23 +106,7 @@ export async function runFastLocalNavMatcher(
         adElements.forEach(el => el.remove());
       }).catch(() => {});
 
-      // 1. Check if an application form is ALREADY open and visible in DOM
-      const isFormVisible = await frame.evaluate(() => {
-        const formInput = document.querySelector(
-          'input[type="email"], input[name*="email"], input[name*="first_name"], input[name*="name"], #application-form, form[action*="apply"], #application_form'
-        );
-        if (formInput) {
-          const style = window.getComputedStyle(formInput);
-          return style.display !== 'none' && style.visibility !== 'hidden';
-        }
-        return false;
-      }).catch(() => false);
-
-      if (isFormVisible) {
-        return { triggered: true, action: 'form_already_present' };
-      }
-
-      // 2. High-Priority "Apply" Button Scanner
+      // 1. High-Priority "Apply" Button Scanner (Always check if page has an Apply CTA first!)
       const primaryApplySelectors = isInternshala
         ? [
             '#apply_now_button',
@@ -133,14 +117,6 @@ export async function runFastLocalNavMatcher(
             'a[id="apply_now_button"]',
           ]
         : [
-            '#apply_now_button',
-            'button#apply_now_button',
-            'a.postings-btn',
-            'button[data-qa*="apply"]',
-            'a[data-qa*="apply"]',
-            'button.apply-button',
-            'a.apply-button',
-            '#apply_button',
             'button:has-text("Apply for this position")',
             'a:has-text("Apply for this position")',
             'button:has-text("Apply for this job")',
@@ -153,18 +129,26 @@ export async function runFastLocalNavMatcher(
             'a:has-text("Apply on company website")',
             'button:has-text("Apply now")',
             'a:has-text("Apply now")',
+            '#apply_now_button',
+            'button#apply_now_button',
+            'a.postings-btn',
+            'button[data-qa*="apply"]',
+            'a[data-qa*="apply"]',
+            'button.apply-button',
+            'a.apply-button',
+            '#apply_button',
             'button:has-text("Start application")',
             'a:has-text("Start application")',
             'button:has-text("Quick Apply")',
             'button:has-text("Easy Apply")',
             'button:has-text("Apply online")',
             'a:has-text("Apply online")',
-            'button:has-text("Apply")',
-            'a:has-text("Apply")',
             'a[href$="/apply"]',
             'a[href$="/application"]',
             'a[href*="/apply?"]',
             'a[href*="/apply/"]',
+            'button:has-text("Apply")',
+            'a:has-text("Apply")',
           ];
 
       for (const sel of primaryApplySelectors) {
@@ -186,7 +170,7 @@ export async function runFastLocalNavMatcher(
         } catch {}
       }
 
-      // 2b. Dynamic Text Scanner for Apply CTAs (e.g. "Apply for this position →")
+      // 1b. Dynamic Text Scanner for Apply CTAs (e.g. "Apply for this position →")
       const buttonsAndLinks = await frame.$$('button, a[href], [role="button"]').catch(() => []);
       for (const el of buttonsAndLinks) {
         try {
@@ -205,6 +189,23 @@ export async function runFastLocalNavMatcher(
             }
           }
         } catch {}
+      }
+
+      // 2. Check if a real job application form / modal is already open
+      const isFormVisible = await frame.evaluate(() => {
+        const hasResumeUpload = document.querySelector('input[type="file"]');
+        const hasEmail = document.querySelector('input[type="email"], input[name*="email"]');
+        const hasName = document.querySelector('input[name*="first_name"], input[name*="last_name"], input[name*="full_name"], input[id*="first_name"], input[id*="last_name"]');
+        const hasAppContainer = document.querySelector('#application-form, form[action*="apply"], #application_form, .application-form, [data-qa="application-form"]');
+
+        if (hasAppContainer || (hasEmail && hasName) || (hasResumeUpload && hasEmail)) {
+          return true;
+        }
+        return false;
+      }).catch(() => false);
+
+      if (isFormVisible) {
+        return { triggered: true, action: 'form_already_present' };
       }
 
       // If already on a detail page, NEVER click directory cards or search inputs!

@@ -87,6 +87,24 @@ export async function executeDeterministicFormSolve(
             const id = (input.id || '').toLowerCase();
             const placeholder = (input.placeholder || '').toLowerCase();
             const ariaLabel = (input.getAttribute('aria-label') || '').toLowerCase();
+
+            // Ignore search bars, newsletter subscriptions, feedback forms
+            if (
+              input.type === 'search' ||
+              name.includes('search') ||
+              placeholder.includes('search') ||
+              id.includes('search') ||
+              name.includes('newsletter') ||
+              placeholder.includes('newsletter') ||
+              placeholder.includes('subscribe') ||
+              name.includes('subscribe') ||
+              id.includes('subscribe') ||
+              name.includes('comment') ||
+              placeholder.includes('leave a comment')
+            ) {
+              return;
+            }
+
             let labelText = '';
             if (input.id) {
               const lbl = document.querySelector(`label[for="${input.id}"]`);

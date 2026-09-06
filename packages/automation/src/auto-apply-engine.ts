@@ -511,7 +511,32 @@ export class AutoApplyEngine {
           };
         }
 
-        // 7. Instant Form Solve (Single-Pass V8 Execution in < 20ms)
+        // 7. Fast Nav Matcher (Check if page has an "Apply" button / CTA to click first)
+        const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
+        if (fastNav.triggered && fastNav.action !== 'form_already_present') {
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'navigating',
+            message: `Opening Application Form (${fastNav.action.replace(/_/g, ' ')})...`,
+            colorState: 'grey'
+          }, onProgress);
+
+          await page.waitForTimeout(500);
+
+          // Check if clicking Apply opened a new popup/tab
+          const allOpenPages = session.context.pages();
+          if (allOpenPages.length > 1) {
+            const latestPage = allOpenPages[allOpenPages.length - 1];
+            if (latestPage && !latestPage.isClosed() && latestPage !== page) {
+              page = latestPage;
+              await injectStealthScripts(page);
+              await enableFastRouteInterception(page);
+              await page.bringToFront().catch(() => {});
+            }
+          }
+          await page.waitForLoadState('domcontentloaded').catch(() => {});
+        }
+
+        // 8. Instant Form Solve on the Application Form / Modal (< 20ms)
         const solveResult = await executeDeterministicFormSolve(page, profile);
         if (solveResult.filledCount > 0) {
           totalFieldsFilled += solveResult.filledCount;
@@ -531,34 +556,6 @@ export class AutoApplyEngine {
           }
         }
 
-        // 8. If no fields filled yet, run Fast Nav Matcher (Click Apply / Open Application modal in 10ms)
-        if (totalFieldsFilled === 0) {
-          const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
-          if (fastNav.triggered && fastNav.action !== 'form_already_present') {
-            await AutoApplyEngine.emitStatus(page, {
-              phase: 'navigating',
-              message: `Triggering: ${fastNav.action.replace(/_/g, ' ')}...`,
-              colorState: 'grey'
-            }, onProgress);
-
-            await page.waitForTimeout(400);
-
-            // Check if clicking Apply opened a new popup/tab
-            const allOpenPages = session.context.pages();
-            if (allOpenPages.length > 1) {
-              const latestPage = allOpenPages[allOpenPages.length - 1];
-              if (latestPage && !latestPage.isClosed() && latestPage !== page) {
-                page = latestPage;
-                await injectStealthScripts(page);
-                await enableFastRouteInterception(page);
-                await page.bringToFront().catch(() => {});
-              }
-            }
-            await page.waitForLoadState('domcontentloaded').catch(() => {});
-            continue;
-          }
-        }
-
         // 9. Multi-Step Stepper Advance (e.g. Next -> Review -> Submit)
         const advanced = await AutoApplyEngine.advanceApplicationStepper(page);
         if (advanced) {
@@ -571,7 +568,7 @@ export class AutoApplyEngine {
           continue;
         }
 
-        // If form fields were filled, we are done
+        // If form fields were filled and submit triggered, we are done
         if (totalFieldsFilled > 0) {
           break;
         }

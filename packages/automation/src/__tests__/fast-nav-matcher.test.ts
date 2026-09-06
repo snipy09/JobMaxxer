@@ -23,6 +23,8 @@ describe('Fast Local Navigation Matcher (Tier 1)', () => {
       url: vi.fn().mockReturnValue('https://internshala.com/internship/detail/dev-1'),
       frames: vi.fn().mockReturnValue([]),
       evaluate: vi.fn().mockResolvedValue(true),
+      $: vi.fn().mockResolvedValue(null),
+      $$: vi.fn().mockResolvedValue([]),
     } as any;
 
     const result = await runFastLocalNavMatcher(mockPage, 'Frontend Developer');
