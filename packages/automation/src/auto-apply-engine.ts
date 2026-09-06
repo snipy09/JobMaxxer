@@ -35,6 +35,8 @@ export interface MasterProfile {
   phone: string;
   linkedin?: string;
   github?: string;
+  portfolio?: string;
+  projectsUrl?: string;
   sponsorship?: string;
   salary?: string;
   noticePeriod?: string;
@@ -85,7 +87,10 @@ const ATS_FIELD_ALIASES: Record<string, string[]> = {
   email: ['email', 'email_address', 'email-address', 'e-mail', 'mail', 'user_email', 'contact_email', 'email address'],
   phone: ['phone', 'phone_number', 'phone-number', 'mobile', 'cell', 'telephone', 'tel', 'contact_number', 'phone-number', 'phone number', 'contact number'],
   linkedin: ['linkedin', 'linkedin_url', 'linkedin-url', 'linkedin_profile', 'linkedin-profile', 'urls[LinkedIn]', 'urls[linkedin]', 'linkedin url', 'linkedin profile'],
-  github: ['github', 'github_url', 'github-url', 'github_profile', 'github-profile', 'urls[GitHub]', 'urls[github]', 'portfolio', 'website', 'personal_url', 'website url', 'github url'],
+  github: ['github', 'github_url', 'github-url', 'github_profile', 'github-profile', 'urls[GitHub]', 'urls[github]', 'github url', 'github profile'],
+  portfolio: ['portfolio', 'portfolio_url', 'portfolio-url', 'website', 'personal_website', 'personal_url', 'website_url', 'homepage', 'urls[portfolio]', 'urls[other]'],
+  projects: ['project_link', 'project_url', 'projects_url', 'project_links', 'projects_link', 'project', 'projects', 'live_demo', 'demo_link', 'deployed_url', 'work_sample', 'work_samples', 'code_sample', 'project url', 'project link'],
+  coverLetter: ['cover_letter', 'coverletter', 'cover-letter', 'why_us', 'why_hire', 'why_are_you_interested', 'additional_info', 'additional_information', 'why do you want', 'tell us about'],
   salary: ['salary', 'expected_salary', 'desired_salary', 'compensation', 'target_comp', 'ctc', 'expected ctc', 'desired compensation', 'expected compensation'],
   noticePeriod: ['notice', 'notice_period', 'availability', 'earliest_start_date', 'start_date', 'when can you start', 'notice period', 'available from'],
 };
@@ -1134,119 +1139,145 @@ export class AutoApplyEngine {
         if (val && val.trim().length > 0) continue;
 
         const meta = await input.evaluate((el: HTMLInputElement) => {
+          let labelText = '';
+          if (el.id) {
+            const labelEl = document.querySelector(`label[for="${el.id}"]`);
+            if (labelEl) labelText = labelEl.textContent || '';
+          }
+          if (!labelText) {
+            const parentLabel = el.closest('label');
+            if (parentLabel) labelText = parentLabel.textContent || '';
+          }
           return {
             name: (el.name || '').toLowerCase(),
             id: (el.id || '').toLowerCase(),
             placeholder: (el.placeholder || '').toLowerCase(),
             ariaLabel: (el.getAttribute('aria-label') || '').toLowerCase(),
+            label: labelText.toLowerCase(),
             type: (el.type || '').toLowerCase(),
+            required: el.required || el.getAttribute('aria-required') === 'true',
           };
-        });
+        }).catch(() => ({ name: '', id: '', placeholder: '', ariaLabel: '', label: '', type: 'text', required: false }));
 
-        const combined = `${meta.name} ${meta.id} ${meta.placeholder} ${meta.ariaLabel}`.toLowerCase();
+        const combined = `${meta.name} ${meta.id} ${meta.placeholder} ${meta.ariaLabel} ${meta.label}`.toLowerCase();
 
+        // 1. Projects & Work Sample Links
+        if (ATS_FIELD_ALIASES.projects.some(k => combined.includes(k))) {
+          let projVal = profile.projectsUrl || profile.customAnswers?.['project_url'] || profile.customAnswers?.['projects'] || profile.cachedAnswers?.['project_url'];
+          if (!projVal && profile.portfolio) projVal = profile.portfolio;
+          if (!projVal && profile.github) projVal = profile.github;
+          
+          if (!projVal && meta.required && 'page' in target) {
+            projVal = await AutoApplyEngine.promptUserForMissingField(target as Page, 'Project Link / Portfolio URL', 'project_url', profile) || '';
+          }
+          if (projVal) {
+            await humanType(target, input, projVal);
+            filled++;
+            continue;
+          }
+        }
+
+        // 2. Portfolio / Personal Website URL
+        if (ATS_FIELD_ALIASES.portfolio.some(k => combined.includes(k))) {
+          let portVal = profile.portfolio || profile.customAnswers?.['portfolio'] || profile.customAnswers?.['website'] || profile.cachedAnswers?.['portfolio'];
+          if (!portVal && profile.github) portVal = profile.github;
+          
+          if (!portVal && meta.required && 'page' in target) {
+            portVal = await AutoApplyEngine.promptUserForMissingField(target as Page, 'Portfolio / Website URL', 'portfolio', profile) || '';
+          }
+          if (portVal) {
+            await humanType(target, input, portVal);
+            filled++;
+            continue;
+          }
+        }
+
+        // 3. GitHub Profile
+        if (ATS_FIELD_ALIASES.github.some(k => combined.includes(k))) {
+          if (profile.github) {
+            await humanType(target, input, profile.github);
+            filled++;
+            continue;
+          }
+        }
+
+        // 4. LinkedIn Profile
+        if (ATS_FIELD_ALIASES.linkedin.some(k => combined.includes(k))) {
+          if (profile.linkedin) {
+            await humanType(target, input, profile.linkedin);
+            filled++;
+            continue;
+          }
+        }
+
+        // 5. First Name
         if (ATS_FIELD_ALIASES.firstName.some(k => combined.includes(k)) && profile.firstName) {
           await humanType(target, input, profile.firstName);
           filled++;
-        } else if (ATS_FIELD_ALIASES.lastName.some(k => combined.includes(k)) && profile.lastName) {
+          continue;
+        }
+
+        // 6. Last Name
+        if (ATS_FIELD_ALIASES.lastName.some(k => combined.includes(k)) && profile.lastName) {
           await humanType(target, input, profile.lastName);
           filled++;
-        } else if (ATS_FIELD_ALIASES.fullName.some(k => combined.includes(k)) && (profile.fullName || profile.firstName)) {
+          continue;
+        }
+
+        // 7. Full Name
+        if (ATS_FIELD_ALIASES.fullName.some(k => combined.includes(k)) && (profile.fullName || profile.firstName)) {
           await humanType(target, input, profile.fullName || `${profile.firstName} ${profile.lastName}`.trim());
           filled++;
-        } else if (ATS_FIELD_ALIASES.email.some(k => combined.includes(k)) || meta.type === 'email') {
+          continue;
+        }
+
+        // 8. Email Address
+        if (ATS_FIELD_ALIASES.email.some(k => combined.includes(k)) || meta.type === 'email') {
           if (profile.email) {
             await humanType(target, input, profile.email);
             filled++;
+            continue;
           }
-        } else if (ATS_FIELD_ALIASES.phone.some(k => combined.includes(k)) || meta.type === 'tel') {
+        }
+
+        // 9. Phone Number
+        if (ATS_FIELD_ALIASES.phone.some(k => combined.includes(k)) || meta.type === 'tel') {
           if (profile.phone) {
             await humanType(target, input, profile.phone);
             filled++;
+            continue;
           }
-        } else if (ATS_FIELD_ALIASES.linkedin.some(k => combined.includes(k)) && profile.linkedin) {
-          await humanType(target, input, profile.linkedin);
+        }
+
+        // 10. Desired Salary / Compensation
+        if (ATS_FIELD_ALIASES.salary.some(k => combined.includes(k))) {
+          const salVal = profile.salary || 'Competitive / Market Rate';
+          await humanType(target, input, salVal);
           filled++;
-        } else if (ATS_FIELD_ALIASES.github.some(k => combined.includes(k)) && profile.github) {
-          await humanType(target, input, profile.github);
+          continue;
+        }
+
+        // 11. Notice Period / Earliest Start Date
+        if (ATS_FIELD_ALIASES.noticePeriod.some(k => combined.includes(k))) {
+          const notVal = profile.noticePeriod || 'Immediately / 2 weeks';
+          await humanType(target, input, notVal);
           filled++;
+          continue;
+        }
+
+        // 12. Dynamic SQLite Cached Answers Check
+        if (profile.cachedAnswers) {
+          for (const [qKey, aVal] of Object.entries(profile.cachedAnswers)) {
+            if (combined.includes(qKey.toLowerCase()) && aVal) {
+              await humanType(target, input, aVal);
+              filled++;
+              break;
+            }
+          }
         }
       } catch {}
     }
     return filled;
-  }
-
-  private static async fillSelectDropdowns(target: Page | Frame, profile: MasterProfile): Promise<number> {
-    let count = 0;
-    const selects = await target.$$('select, [role="combobox"], div.select__control, button[aria-haspopup="listbox"]').catch(() => []);
-
-    for (const select of selects) {
-      try {
-        const isVisible = await select.isVisible().catch(() => false);
-        if (!isVisible) continue;
-
-        const tagName = await select.evaluate((node: any) => (node.tagName || '').toLowerCase()).catch(() => '');
-
-        if (tagName === 'select') {
-          const selectMeta = await select.evaluate((el: HTMLSelectElement) => {
-            let labelText = '';
-            if (el.id) {
-              const labelEl = document.querySelector(`label[for="${el.id}"]`);
-              if (labelEl) labelText = labelEl.textContent || '';
-            }
-            if (!labelText) {
-              const parentLabel = el.closest('label');
-              if (parentLabel) labelText = parentLabel.textContent || '';
-            }
-            return {
-              name: (el.name || '').toLowerCase(),
-              id: (el.id || '').toLowerCase(),
-              label: labelText.toLowerCase(),
-            };
-          }).catch(() => ({ name: '', id: '', label: '' }));
-
-          const metaText = `${selectMeta.name} ${selectMeta.id} ${selectMeta.label}`;
-
-          const options = await select.$$eval('option', (opts: any[]) =>
-            opts.map(o => ({ value: o.value, text: (o.textContent || '').trim().toLowerCase() }))
-          ).catch(() => []);
-
-          if (options.length > 1) {
-            let chosenValue: string | null = null;
-
-            // 1. Sponsorship question: "Will you require sponsorship?" -> Choose "No"
-            if (metaText.includes('sponsor') || metaText.includes('visa')) {
-              const noOpt = options.find(o => o.text === 'no' || o.text.startsWith('no') || o.value.toLowerCase() === 'no');
-              if (noOpt) chosenValue = noOpt.value;
-            }
-
-            // 2. Authorization question: "Are you authorized to work?" -> Choose "Yes"
-            if (!chosenValue && (metaText.includes('authoriz') || metaText.includes('eligible') || metaText.includes('permit') || metaText.includes('legal'))) {
-              const yesOpt = options.find(o => o.text === 'yes' || o.text.startsWith('yes') || o.text.includes('authorized') || o.value.toLowerCase() === 'yes');
-              if (yesOpt) chosenValue = yesOpt.value;
-            }
-
-            // 3. Gender / Demographic questions -> Choose "Decline" / "Prefer not to say" or valid option
-            if (!chosenValue && (metaText.includes('gender') || metaText.includes('race') || metaText.includes('veteran') || metaText.includes('disability') || metaText.includes('eeo'))) {
-              const declineOpt = options.find(o => o.text.includes('decline') || o.text.includes('prefer not') || o.text.includes('choose not') || o.text.includes('not a protected') || o.text.includes('do not have'));
-              if (declineOpt) chosenValue = declineOpt.value;
-            }
-
-            // 4. Default: pick the first valid option
-            if (!chosenValue) {
-              const firstValid = options.find(o => o.value && o.value !== '' && !o.text.includes('select') && !o.text.includes('choose')) || options[1];
-              if (firstValid) chosenValue = firstValid.value;
-            }
-
-            if (chosenValue) {
-              await (select as any).selectOption(chosenValue).catch(() => {});
-              count++;
-            }
-          }
-        }
-      } catch {}
-    }
-    return count;
   }
 
   private static async answerOpenEndedFields(target: Page | Frame, profile: MasterProfile): Promise<number> {
@@ -1261,12 +1292,186 @@ export class AutoApplyEngine {
         const val = await ta.inputValue().catch(() => '');
         if (val && val.trim().length > 0) continue;
 
-        const defaultAnswer = profile.summaryText || 'Experienced software engineer skilled in building scalable applications with TypeScript, React, and cloud architectures.';
+        const meta = await ta.evaluate((el: HTMLTextAreaElement) => {
+          let labelText = '';
+          if (el.id) {
+            const labelEl = document.querySelector(`label[for="${el.id}"]`);
+            if (labelEl) labelText = labelEl.textContent || '';
+          }
+          if (!labelText) {
+            const parentLabel = el.closest('label');
+            if (parentLabel) labelText = parentLabel.textContent || '';
+          }
+          return {
+            name: (el.name || '').toLowerCase(),
+            id: (el.id || '').toLowerCase(),
+            placeholder: (el.placeholder || '').toLowerCase(),
+            ariaLabel: (el.getAttribute('aria-label') || '').toLowerCase(),
+            label: labelText.toLowerCase(),
+          };
+        }).catch(() => ({ name: '', id: '', placeholder: '', ariaLabel: '', label: '' }));
+
+        const combined = `${meta.name} ${meta.id} ${meta.placeholder} ${meta.ariaLabel} ${meta.label}`.toLowerCase();
+
+        // 1. Projects & Work Samples Question
+        if (ATS_FIELD_ALIASES.projects.some(k => combined.includes(k))) {
+          const projAnswer = profile.projectsUrl
+            ? `Key projects & code repositories available at: ${profile.projectsUrl}`
+            : profile.github
+            ? `Key projects & code repositories available on GitHub: ${profile.github}`
+            : 'Extensive portfolio and project links available upon request.';
+          await humanType(target, ta, projAnswer);
+          count++;
+          continue;
+        }
+
+        // 2. Cover Letter / Pitch Question
+        if (ATS_FIELD_ALIASES.coverLetter.some(k => combined.includes(k))) {
+          const coverLetter = profile.summaryText || 'I am excited to apply for this position. My background aligns closely with the technical and engineering requirements of the role.';
+          await humanType(target, ta, coverLetter);
+          count++;
+          continue;
+        }
+
+        // 3. Technical Skills / Tech Stack Question
+        if (combined.includes('skill') || combined.includes('stack') || combined.includes('technolog')) {
+          const techAnswer = profile.techStack || 'TypeScript, React, Node.js, Python, PostgreSQL, Cloud Architectures';
+          await humanType(target, ta, techAnswer);
+          count++;
+          continue;
+        }
+
+        // 4. Default concise candidate response (Never outputs raw summary to URL/project fields)
+        const defaultAnswer = profile.summaryText || 'Experienced software engineer skilled in building scalable applications with TypeScript, React, and modern cloud architectures.';
         await humanType(target, ta, defaultAnswer);
         count++;
       } catch {}
     }
     return count;
+  }
+
+  /**
+   * Opens an interactive Copilot Chat prompt inside the browser viewport
+   * to ask the user for a required missing field (e.g. project URL, portfolio link, custom answer).
+   * Automatically caches the answer in SQLite when submitted so the user is never asked again!
+   */
+  public static async promptUserForMissingField(
+    page: Page,
+    fieldLabel: string,
+    fieldKey: string,
+    profile: MasterProfile
+  ): Promise<string | null> {
+    if (profile.cachedAnswers && profile.cachedAnswers[fieldKey]) {
+      return profile.cachedAnswers[fieldKey];
+    }
+    if (profile.customAnswers && profile.customAnswers[fieldKey]) {
+      return profile.customAnswers[fieldKey];
+    }
+
+    try {
+      await page.bringToFront().catch(() => {});
+
+      const userValue = await page.evaluate(async ({ label, key }) => {
+        return new Promise<string | null>((resolve) => {
+          let container = document.getElementById('nomadic-copilot-input-container');
+          if (container) container.remove();
+
+          container = document.createElement('div');
+          container.id = 'nomadic-copilot-input-container';
+          container.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 340px;
+            background: #09090b;
+            color: #ffffff;
+            border: 1px solid #27272a;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1);
+            z-index: 2147483647;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            animation: nomadicFadeIn 0.2s ease-out;
+          `;
+
+          container.innerHTML = `
+            <style>
+              @keyframes nomadicFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            </style>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 13px; font-weight: 700; color: #38bdf8;">⚡ Nomadic Copilot</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; background: #0369a1; color: #e0f2fe; padding: 2px 6px; border-radius: 9999px;">Input Needed</span>
+            </div>
+            <p style="font-size: 12px; color: #cbd5e1; margin: 0 0 12px 0; line-height: 1.4;">
+              Please provide your <strong>${label}</strong>:
+            </p>
+            <form id="nomadic-prompt-form" style="margin: 0;">
+              <input 
+                id="nomadic-prompt-input" 
+                type="text" 
+                placeholder="Type your answer here..."
+                style="width: 100%; box-sizing: border-box; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; padding: 10px 12px; color: #ffffff; font-size: 12px; outline: none; margin-bottom: 10px;"
+                autofocus
+              />
+              <div style="display: flex; gap: 8px;">
+                <button 
+                  type="submit" 
+                  id="nomadic-prompt-submit" 
+                  style="flex: 1; background: #ffffff; color: #09090b; font-weight: 700; font-size: 12px; padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer;"
+                >
+                  Save &amp; Fill →
+                </button>
+                <button 
+                  type="button" 
+                  id="nomadic-prompt-skip" 
+                  style="background: transparent; color: #94a3b8; font-weight: 600; font-size: 12px; padding: 8px 10px; border-radius: 8px; border: 1px solid #27272a; cursor: pointer;"
+                >
+                  Skip
+                </button>
+              </div>
+            </form>
+          `;
+
+          document.body.appendChild(container);
+
+          const inputEl = document.getElementById('nomadic-prompt-input') as HTMLInputElement;
+          inputEl?.focus();
+
+          const formEl = document.getElementById('nomadic-prompt-form');
+          formEl?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const val = inputEl?.value?.trim() || '';
+            container?.remove();
+            resolve(val || null);
+          });
+
+          const skipBtn = document.getElementById('nomadic-prompt-skip');
+          skipBtn?.addEventListener('click', () => {
+            container?.remove();
+            resolve(null);
+          });
+
+          setTimeout(() => {
+            container?.remove();
+            resolve(null);
+          }, 25000);
+        });
+      }, { label: fieldLabel, key: fieldKey });
+
+      if (userValue && userValue.trim().length > 0) {
+        const cleanVal = userValue.trim();
+        if (profile.onAnswerResolved) {
+          profile.onAnswerResolved(fieldKey, cleanVal);
+        }
+        if (!profile.cachedAnswers) profile.cachedAnswers = {};
+        profile.cachedAnswers[fieldKey] = cleanVal;
+        return cleanVal;
+      }
+    } catch {}
+
+    return null;
   }
 
   private static async uploadResumeIfPresent(target: Page | Frame, profile: MasterProfile): Promise<boolean> {
