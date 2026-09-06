@@ -49,10 +49,10 @@ export default function Download() {
     }
 
     // Direct high-speed CDN release installer download
-    const downloadUrl = 'https://github.com/snipy09/JobMaxxer/releases/download/v1.0.0/Nomadic.Setup.1.0.0.exe';
+    const downloadUrl = 'https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.Setup.1.0.2.exe';
     const link = document.createElement('a');
     link.href = downloadUrl;
-    link.download = 'Nomadic-Setup-1.0.0.exe';
+    link.download = 'Nomadic-Setup-1.0.2.exe';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -69,7 +69,7 @@ export default function Download() {
       {/* Top Announcement */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-[11px] sm:text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950 shrink-0" />
-        <span>Official Download Portal · Nomadic v1.0.0 Windows x64 Native Installer</span>
+        <span>Official Download Portal · Nomadic v1.0.2 Windows x64 Native Installer</span>
       </div>
 
       {/* Main Navigation */}
@@ -101,7 +101,7 @@ export default function Download() {
         <div className="text-center max-w-2xl mx-auto space-y-4 animate-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-[11px] sm:text-xs font-mono text-ink-600 shadow-fine">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Version 1.0.0 Stable Release · Clean Installer</span>
+            <span>Version 1.0.2 Stable Release · Clean Installer</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-ink-950 leading-tight">
