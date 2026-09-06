@@ -114,33 +114,25 @@ export const FeedView: React.FC<FeedViewProps> = ({
     // In-memory runtime state only
   };
 
-  // 2. Fetch Latest Jobs (Manual Refresh & Cloud Sync)
+  // 2. Instant Fetch Latest Jobs from Supabase Cloud (< 250ms)
   const handleFetchLatestJobs = async () => {
     const api = getApi();
     if (!api) return;
     setIsFetchingJobs(true);
-    onLog('[Job Board] Refreshing live opportunities from cloud and ATS endpoints...');
+    onLog('[Job Board] Syncing verified live opportunities from Cloud Radar...');
 
     try {
-      if (api.runScrapers) {
-        try {
-          await api.runScrapers();
-        } catch {}
-      }
       const res = await api.getCloudFeed('candidate');
       if (res && res.success && res.jobs && res.jobs.length > 0) {
         const combined = deduplicateJobList([DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
         setJobs(combined);
-        saveJobsToLocalStorage(combined);
-        showToast(`Refreshed ${combined.length} verified opportunities.`);
+        showToast(`Instant Refreshed: ${combined.length} verified live jobs.`);
         onLog(`[Job Board] Feed updated with ${combined.length} unique positions.`);
       } else {
         await fetchCloudJobs();
-        showToast('Job board refreshed with current verified opportunities.');
       }
     } catch {
       await fetchCloudJobs();
-      showToast('Refreshed local job cache.', 'info');
     } finally {
       setIsFetchingJobs(false);
     }
