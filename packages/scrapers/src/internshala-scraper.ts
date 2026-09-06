@@ -482,29 +482,7 @@ export async function scrapeInternshala(): Promise<InternshalaJob[]> {
     console.warn('[Internshala Live Parser] Warning:', err?.message);
   }
 
-  // 2. Add verified direct ATS tech openings
-  VERIFIED_INDIAN_TECH_OPENINGS.forEach((item, idx) => {
-    discoveredCount++;
-    jobs.push({
-      company: item.company,
-      title: item.title,
-      location: item.location,
-      salary: item.stipend,
-      stipendOrSalary: item.stipend,
-      applyUrl: item.applyUrl,
-      canonicalUrl: item.applyUrl,
-      source: 'Verified Direct Openings',
-      description: `Verified direct opening at ${item.company}. Key skills: ${item.skills}. Direct ATS application link.`,
-      jobHash: computeJobHash(item.company, item.title, item.applyUrl),
-      employmentType: item.title.toLowerCase().includes('intern') ? 'internship' : 'job',
-      workplaceType: item.location.toLowerCase().includes('remote') ? 'remote' : 'hybrid',
-      experienceLevel: 'entry',
-      createdAt: new Date(now - (idx + 10) * 120000).toISOString(),
-    });
-    successCount++;
-  });
-
-  // 3. Jobicy Developer Placements Stream
+  // 2. Jobicy Developer Placements Stream (Live API)
   try {
     const res = await fetch('https://jobicy.com/api/v2/remote-jobs?count=25&tag=dev', {
       headers: BROWSER_HEADERS,

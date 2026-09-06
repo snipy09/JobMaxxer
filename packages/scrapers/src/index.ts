@@ -173,8 +173,8 @@ export async function runAllScrapers(
   ];
 
   const [atsJobs, internshalaJobs, naukriJobs, indeedJobs, webJobs, nicheJobs, rssJobs] = await Promise.all([
-    withTimeout(scrapeAtsApis(), 15000, []),
-    withTimeout(scrapeInternshala().catch(() => []), 10000, []),
+    withTimeout(scrapeAtsApis(), 35000, []),
+    withTimeout(scrapeInternshala().catch(() => []), 15000, []),
     withTimeout(scrapeNaukriIndia().catch(() => []), 10000, []),
     withTimeout(scrapeIndeedIndia().catch(() => []), 10000, []),
     withTimeout(scrapeWebSearchIndexes(['react', 'typescript', 'python', 'intern', 'bangalore', 'india']), 10000, []),
@@ -208,7 +208,7 @@ export async function runAllScrapers(
   }
 
   // Pre-resolve direct application form URLs and purge dead 404 links
-  const verifiedJobs = await batchResolveAndFilterJobs(deduplicated, 12);
+  const verifiedJobs = await batchResolveAndFilterJobs(deduplicated, 35);
 
   // Split into targeted pools: Indian Jobs, Remote Jobs, Internshala Jobs, and Other
   const indiaPool: RawJob[] = [];

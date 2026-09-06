@@ -30,30 +30,8 @@ const INDIAN_TECH_CAREER_ROSTER: Array<{
  * Scrapes verified Indian tech direct ATS listings
  */
 export async function scrapeNaukriIndia(): Promise<RawJob[]> {
-  const jobs: RawJob[] = [];
-  const now = Date.now();
-
-  for (let i = 0; i < INDIAN_TECH_CAREER_ROSTER.length; i++) {
-    const item = INDIAN_TECH_CAREER_ROSTER[i];
-    const hash = computeJobHash(item.company, item.title, item.applyUrl);
-
-    jobs.push({
-      company: item.company,
-      title: item.title,
-      location: item.location,
-      salary: item.salary,
-      description: `Verified high-signal opening at ${item.company}. Experience: ${item.exp}. Tech Stack & Skills: ${item.skills}. Location: ${item.location}. Direct ATS application supported.`,
-      applyUrl: item.applyUrl,
-      source: item.source,
-      jobHash: hash,
-      workplaceType: item.location.toLowerCase().includes('remote') ? 'remote' : 'hybrid',
-      employmentType: 'job',
-      experienceLevel: item.exp.includes('0') ? 'entry' : item.exp.includes('3') ? 'mid' : 'senior',
-      createdAt: new Date(now - i * 60000).toISOString(),
-    });
-  }
-
-  return jobs;
+  // Direct ATS API queries already provide live verified tech openings
+  return [];
 }
 
 /**

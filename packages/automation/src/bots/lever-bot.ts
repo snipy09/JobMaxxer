@@ -2,6 +2,7 @@ import type { Page } from 'playwright';
 import type { MasterProfile } from '../auto-apply-engine.js';
 import type { SpecializedBotResult } from './internshala-bot.js';
 import { humanClick } from '../stealth-evasion.js';
+import { AIFallbackSolver } from '../ai-fallback.js';
 import fs from 'fs';
 
 export class LeverBot {
@@ -16,7 +17,14 @@ export class LeverBot {
         }
       }
 
-      // 2. Fill Lever Standard Form
+      // 2. Generate dynamic tailored cover pitch
+      let dynamicPitch = profile.summaryText;
+      if (!dynamicPitch || dynamicPitch.length < 30) {
+        const aiSolver = new AIFallbackSolver();
+        dynamicPitch = await aiSolver.generateTailoredCoverLetter(profile, profile.desiredTitle || 'Software Engineer', 'Hiring Team');
+      }
+
+      // 3. Fill Lever Standard Form
       const fullName = profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Candidate';
       const fillStats = await page.evaluate((data) => {
         let count = 0;
@@ -94,10 +102,10 @@ export class LeverBot {
         github: profile.github || 'https://github.com/candidate',
         portfolio: profile.portfolio || profile.github,
         projectsUrl: profile.projectsUrl || profile.portfolio || profile.github,
-        summaryText: profile.summaryText || 'Experienced software engineer interested in contributing to your core engineering team.',
+        summaryText: dynamicPitch,
       });
 
-      // 3. Upload Resume PDF
+      // 4. Upload Resume PDF
       const resumePath = profile.resumeFilePath && fs.existsSync(profile.resumeFilePath) ? profile.resumeFilePath : null;
       if (resumePath) {
         const fileInput = await page.$('input[type="file"], input#resume-upload-input');

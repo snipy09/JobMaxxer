@@ -1,6 +1,7 @@
 import type { Page } from 'playwright';
 import type { MasterProfile } from '../auto-apply-engine.js';
 import { humanClick } from '../stealth-evasion.js';
+import { AIFallbackSolver } from '../ai-fallback.js';
 import fs from 'fs';
 
 export interface SpecializedBotResult {
@@ -28,6 +29,13 @@ export class InternshalaBot {
         }
       }
 
+      // 1. Generate tailored AI cover letter if not provided
+      let dynamicCoverLetter = profile.summaryText;
+      if (!dynamicCoverLetter || dynamicCoverLetter.length < 30) {
+        const aiSolver = new AIFallbackSolver();
+        dynamicCoverLetter = await aiSolver.generateTailoredCoverLetter(profile, 'Software Development Intern', 'Hiring Team');
+      }
+
       // 2. Solve Internshala Assessment & Radio Questions + Cover Letter
       const fillStats = await page.evaluate((candidate) => {
         let filled = 0;
@@ -50,9 +58,7 @@ export class InternshalaBot {
         const textareas = Array.from(document.querySelectorAll<HTMLTextAreaElement>('textarea, #cover_letter, [name="cover_letter"]'));
         textareas.forEach((ta) => {
           if (!ta.value || ta.value.trim().length === 0) {
-            const whyHire = candidate.summaryText ||
-              `I have hands-on experience in ${candidate.techStack || 'software development'} and have built several production-ready applications. I am excited about contributing to your team and am available to start immediately.`;
-            setNativeValue(ta, whyHire);
+            setNativeValue(ta, candidate.summaryText);
             filled++;
           }
         });
@@ -116,7 +122,7 @@ export class InternshalaBot {
 
         return filled;
       }, {
-        summaryText: profile.summaryText,
+        summaryText: dynamicCoverLetter,
         techStack: profile.techStack,
         projectsUrl: profile.projectsUrl || profile.portfolio || profile.github,
         portfolio: profile.portfolio || profile.github,

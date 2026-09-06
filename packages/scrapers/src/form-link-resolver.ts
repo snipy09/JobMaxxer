@@ -77,7 +77,12 @@ export async function resolveDirectFormUrl(rawUrl: string, companyName?: string)
         candidateFormUrl = `https://jobs.ashbyhq.com/${parts[0]}/${parts[1]}/application`;
       }
     } else if (host.includes('greenhouse.io') && pathname.includes('/jobs/')) {
-      if (!parsed.hash.includes('app')) {
+      const cleanPath = pathname.split('#')[0];
+      const segments = cleanPath.split('/').filter(Boolean);
+      // Canonical format: https://boards.greenhouse.io/<company>/jobs/<id>#app
+      if (segments.length >= 3 && segments[1] === 'jobs') {
+        candidateFormUrl = `https://boards.greenhouse.io/${segments[0]}/jobs/${segments[2]}#app`;
+      } else if (!parsed.hash.includes('app')) {
         parsed.hash = '#app';
         candidateFormUrl = parsed.toString();
       }
