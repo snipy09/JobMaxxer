@@ -245,6 +245,19 @@ export interface ElectronAPI {
   openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
 
   // AI Generation Handlers
+  generateAiOutreachEmail: (params: {
+    role?: string;
+    company?: string;
+    recipientName?: string;
+    tone?: string;
+    skills?: string;
+    candidateName?: string;
+  }) => Promise<{
+    success: boolean;
+    subject?: string;
+    body?: string;
+    error?: string;
+  }>;
   generateAiOnboardingProfile: (params: {
     targetRole: string;
     experienceLevel?: string;

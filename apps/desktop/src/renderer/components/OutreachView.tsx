@@ -160,6 +160,54 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
     }
   };
 
+  const [generatingAiEmail, setGeneratingAiEmail] = useState<boolean>(false);
+  const [selectedAiTone, setSelectedAiTone] = useState<string>('High-Impact Direct Pitch');
+
+  const handleGenerateAiEmail = async (tone?: string) => {
+    const isFreeOrLearner = !currentUser?.tier || currentUser?.tier === 'free' || currentUser?.tier === 'learner_pro';
+    if (isFreeOrLearner) {
+      onOpenUpgrade?.('AI Cold Outreach Generator (Seeker Pro / Max)');
+      return;
+    }
+
+    const api = getApi();
+    if (!api || !api.generateAiOutreachEmail) return;
+
+    setGeneratingAiEmail(true);
+    const chosenTone = tone || selectedAiTone;
+
+    try {
+      const targetCompany = firstSelectedContact?.company || 'Top Tech Team';
+      const targetRole = profile.desiredTitle || 'Software Engineer';
+      const targetRecipient = firstSelectedContact?.name || 'Hiring Manager';
+      const candidateName = `${profile.firstName} ${profile.lastName}`.trim() || 'Candidate';
+      const skills = profile.techStack || 'TypeScript, React, Node.js, Python, PostgreSQL';
+
+      const res = await api.generateAiOutreachEmail({
+        role: targetRole,
+        company: targetCompany,
+        recipientName: targetRecipient,
+        tone: chosenTone,
+        skills,
+        candidateName,
+      });
+
+      if (res && res.success && res.subject && res.body) {
+        setCustomSubject(res.subject);
+        setCustomBody(res.body);
+        setOutreachToast({
+          success: true,
+          message: `✓ AI generated high-converting "${chosenTone}" outreach email!`,
+        });
+        onLog(`[AI Outreach] Generated personalized ${chosenTone} outreach template.`);
+      }
+    } catch (err: any) {
+      onLog(`[AI Outreach] Generation notice: ${err?.message || err}`);
+    } finally {
+      setGeneratingAiEmail(false);
+    }
+  };
+
   const handleVerifyEmail = async (email: string) => {
     const api = getApi();
     if (!api) return;
@@ -562,9 +610,69 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
         {/* Right 5 Cols: Template Editor & Live Preview */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 shadow-xs space-y-4 sticky top-6">
+            
+            {/* AI Generator Action Bar (Seeker Pro / Max Gated) */}
+            <div className="p-3 bg-powder-50/60 dark:bg-powder-950/40 border border-powder-200/80 dark:border-powder-800/80 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1">
+                    <span>⚡ AI Cold Email Generator</span>
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-powder-200/80 dark:bg-powder-800 text-powder-900 dark:text-powder-200 font-bold">
+                    PRO / MAX
+                  </span>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiEmail()}
+                  disabled={generatingAiEmail}
+                  className="px-3 py-1.5 bg-black dark:bg-white text-white dark:text-black rounded-lg text-[11px] font-bold flex items-center gap-1.5 hover:opacity-90 transition shadow-xs disabled:opacity-50"
+                  title="Generate high-converting personalized email using AI"
+                >
+                  {generatingAiEmail ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Writing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✨ Write with AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Tone Quick Selector */}
+              <div className="flex items-center gap-1 flex-wrap pt-1">
+                {[
+                  'High-Impact Direct Pitch',
+                  'Referral Request',
+                  'Portfolio Showcase',
+                  'Startup Value-Add',
+                ].map((tone) => (
+                  <button
+                    key={tone}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAiTone(tone);
+                      handleGenerateAiEmail(tone);
+                    }}
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition ${
+                      selectedAiTone === tone
+                        ? 'bg-powder-600 text-white font-bold'
+                        : 'bg-white/80 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                    }`}
+                  >
+                    {tone}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
               <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase font-mono tracking-wider">
-                Outreach Message Composer
+                Outreach Composer
               </span>
 
               <div className="flex gap-1.5">

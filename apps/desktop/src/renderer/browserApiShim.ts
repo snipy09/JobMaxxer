@@ -373,6 +373,15 @@ export function createBrowserApiShim(): ElectronAPI {
       return { success: true, id: newApp.id };
     },
 
+    generateAiOutreachEmail: async (params: any) => {
+      emitLog(`[AI Outreach] Drafting personalized email for ${params.role || 'Engineering'} at ${params.company || 'Target Company'}...`);
+      return {
+        success: true,
+        subject: `Referral Request — ${params.role || 'Software Engineer'} at ${params.company || 'your team'}`,
+        body: `Hi {{name}},\n\nI hope you're having a productive week! I came across the ${params.role || 'Software Engineer'} role at ${params.company || 'your team'} and wanted to connect. With strong background in ${params.skills || 'TypeScript, React, Node.js'}, I'd be very grateful for a quick referral or any guidance on navigating the application process.\n\nWould you be open to a quick 5-minute chat?\n\nBest regards,\n{{senderName}}`
+      };
+    },
+
     generateAiOnboardingProfile: async (params: any) => {
       emitLog(`[AI Onboarding] Analyzing profile for ${params.targetRole}...`);
       const targetRole = params.targetRole || 'Full Stack Engineer';
