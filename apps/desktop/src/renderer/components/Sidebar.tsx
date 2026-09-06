@@ -3,7 +3,7 @@ import {
   PanelLeftClose, PanelLeft,
   BookOpen, MessageSquare, Settings as SettingsIcon,
   Briefcase, Mail, LayoutGrid, Terminal, Shield, Compass,
-  Target, Activity, TrendingUp, Layers
+  Target, Activity, TrendingUp, Layers, LogOut
 } from 'lucide-react';
 import { TabType, HeartbeatStatus, AppUser, PersonaTrack } from '../types';
 
@@ -15,6 +15,7 @@ interface SidebarProps {
   currentUser?: AppUser | null;
   activeTrack?: PersonaTrack;
   onOpenUpgrade?: () => void;
+  onLogout?: () => void;
 }
 
 interface NavSection {
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   activeTrack = 'learner',
   onOpenUpgrade,
+  onLogout,
 }) => {
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
@@ -151,8 +153,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </div>
 
-      {/* Footer Area with Collapse Toggle Button */}
-      <div className="p-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+      {/* Footer Area with Subscription, Sign Out, and Collapse Toggle */}
+      <div className="p-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
         {/* Subscription Plan Indicator */}
         {!collapsed && (
           <div className="px-2.5 py-1 text-[10px] font-mono text-slate-400 flex items-center justify-between">
@@ -161,15 +163,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Collapse / Expand Button */}
-        <button
-          type="button"
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-        >
-          {collapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-        </button>
+        {/* Action Buttons Row (Sign Out + Collapse) */}
+        <div className={`flex items-center gap-1 ${collapsed ? 'flex-col' : ''}`}>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className={`rounded-xl text-xs font-semibold text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center ${
+                collapsed ? 'p-2 justify-center w-full' : 'px-3 py-2 flex-1 gap-2 text-left'
+              }`}
+              title="Sign Out of Nomadic"
+            >
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              {!collapsed && <span>Log Out</span>}
+            </button>
+          )}
+
+          {/* Collapse / Expand Button */}
+          <button
+            type="button"
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          >
+            {collapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
     </aside>
   );

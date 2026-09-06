@@ -275,11 +275,22 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('nomadic_user');
-    localStorage.removeItem('hirestack_user');
-    localStorage.removeItem('jobmaxxer_user');
+    try {
+      localStorage.removeItem('nomadic_user');
+      localStorage.removeItem('hirestack_user');
+      localStorage.removeItem('jobmaxxer_user');
+      localStorage.removeItem('nomadic_active_track');
+      localStorage.removeItem('nomadic_last_tab_learner');
+      localStorage.removeItem('nomadic_last_tab_seeker');
+      sessionStorage.clear();
+      const api = getApi();
+      if (api && (api as any).authLogout) {
+        (api as any).authLogout();
+      }
+    } catch {}
+    setActiveTrack('learner');
     setActiveTab('learner-roadmaps');
-    addLog('[Auth] Signed out.');
+    addLog('[Auth] Signed out successfully.');
   };
 
   const handleSaveProfile = async (updatedProfile?: MasterProfile): Promise<boolean> => {
@@ -422,6 +433,7 @@ export default function App() {
           logsCount={logs.length}
           currentUser={currentUser}
           onOpenUpgrade={() => handleOpenUpgrade()}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Sub-view Container */}

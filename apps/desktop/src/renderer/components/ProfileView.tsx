@@ -817,6 +817,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </span>
                 </div>
 
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-950 dark:text-white block">
+                      Authenticated User
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                      {currentUser?.email || formData.email || 'Anonymous'}
+                    </span>
+                  </div>
+
+                  {onLogout && (
+                    <button
+                      type="button"
+                      onClick={onLogout}
+                      className="px-3.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  )}
+                </div>
+
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                   <span className="text-xs font-bold text-slate-950 dark:text-white block">
                     Local Storage Footprint
