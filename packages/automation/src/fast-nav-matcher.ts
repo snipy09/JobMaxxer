@@ -25,6 +25,9 @@ const BLOCKED_PROMO_TEXTS = [
   'launchpad',
   'short-term courses',
   'trending courses',
+  'data science',
+  'full stack course',
+  'iit & iim',
   'learn ',
 ];
 
@@ -39,6 +42,7 @@ const BLOCKED_PROMO_PATHS = [
   '/pricing',
   '/blog',
   '/short-term-courses',
+  'native_ad',
 ];
 
 /**
@@ -88,10 +92,19 @@ export async function runFastLocalNavMatcher(
 ): Promise<FastNavResult> {
   const currentUrl = page.url() || '';
   const isDetailPage = isDirectJobDetailPage(currentUrl);
+  const isInternshala = currentUrl.toLowerCase().includes('internshala.com');
   const frames = [page, ...page.frames()];
 
   for (const frame of frames) {
     try {
+      // 0. Remove promotional native ad banners and course widgets from DOM
+      await frame.evaluate(() => {
+        const adElements = document.querySelectorAll(
+          '[class*="native_ad"], [class*="launchpad"], [class*="specialization"], [class*="banner_container"], [id*="native_ad"], a[href*="trainings.internshala.com"], [class*="training_container"]'
+        );
+        adElements.forEach(el => el.remove());
+      }).catch(() => {});
+
       // 1. Check if an application form is ALREADY open and visible in DOM
       const isFormVisible = await frame.evaluate(() => {
         const formInput = document.querySelector(
@@ -108,27 +121,33 @@ export async function runFastLocalNavMatcher(
         return { triggered: true, action: 'form_already_present' };
       }
 
-      // 2. High-Priority "Apply" Button Scanner (Prioritizes genuine apply CTAs)
-      const primaryApplySelectors = [
-        '#apply_now_button',
-        'button#apply_now_button',
-        'a#apply_now_button',
-        '.apply_now_button',
-        'button.apply_now_button',
-        'a.postings-btn',
-        'button[data-qa="apply-button"]',
-        'button.apply-button',
-        '#apply_button',
-        'button:has-text("Apply now")',
-        'a:has-text("Apply now")',
-        'button:has-text("Apply for this job")',
-        'a:has-text("Apply for this job")',
-        'button:has-text("Apply with Resume")',
-        'button:has-text("Apply")',
-        'a[href$="/apply"]',
-        'a[href$="/application"]',
-        'a[href*="/apply?"]',
-      ];
+      // 2. High-Priority "Apply" Button Scanner
+      // For Internshala: Strictly use verified Internshala apply CTA buttons
+      const primaryApplySelectors = isInternshala
+        ? [
+            '#apply_now_button',
+            'button#apply_now_button',
+            'a#apply_now_button',
+            '.apply_now_button',
+            'button.apply_now_button',
+            'a[id="apply_now_button"]',
+          ]
+        : [
+            '#apply_now_button',
+            'button#apply_now_button',
+            'a.postings-btn',
+            'button[data-qa="apply-button"]',
+            'button.apply-button',
+            '#apply_button',
+            'button:has-text("Apply for this job")',
+            'a:has-text("Apply for this job")',
+            'button:has-text("Apply with Resume")',
+            'button:has-text("Apply now")',
+            'a:has-text("Apply now")',
+            'a[href$="/apply"]',
+            'a[href$="/application"]',
+            'a[href*="/apply?"]',
+          ];
 
       for (const sel of primaryApplySelectors) {
         try {

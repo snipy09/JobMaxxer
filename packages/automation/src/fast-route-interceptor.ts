@@ -3,6 +3,7 @@ import type { Page, BrowserContext } from 'playwright';
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'media', 'font', 'imageset']);
 
 const BLOCKED_TRACKER_DOMAINS = [
+  'trainings.internshala.com',
   'google-analytics.com',
   'googletagmanager.com',
   'googleadservices.com',
