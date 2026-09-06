@@ -43,6 +43,17 @@ import {
 
 export {
   AutoApplyEngine,
+  ATS_PORTALS,
+  getATSConfig,
+  type ATSPortal,
+  FormFiller,
+  type CandidateProfile,
+  type FillFormResult,
+  ApplicationNavigator,
+  type NavigationResult,
+  FormSubmitter,
+  type SubmitResult,
+  AIFallbackSolver,
   answerCustomQuestion,
   answerCustomQuestionWithGroq,
   callGeminiFlash,

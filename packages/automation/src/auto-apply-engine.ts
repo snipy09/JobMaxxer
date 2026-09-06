@@ -28,6 +28,11 @@ import { enableFastRouteInterception } from './fast-route-interceptor.js';
 import { runFastLocalNavMatcher } from './fast-nav-matcher.js';
 import { executeInstantBatchFormFill } from './fast-batch-filler.js';
 import { executeDeterministicFormSolve } from './deterministic-form-solver.js';
+import { getATSConfig, ATSPortal } from './ats-portals.js';
+import { FormFiller, CandidateProfile } from './form-filler.js';
+import { ApplicationNavigator } from './navigator.js';
+import { FormSubmitter } from './submitter.js';
+import { AIFallbackSolver } from './ai-fallback.js';
 
 export interface MasterProfile {
   firstName: string;
@@ -401,9 +406,16 @@ export class AutoApplyEngine {
       };
 
       // ── HIGH-SPEED DETERMINISTIC AUTONOMOUS PIPELINE (Max 3 Fast Passes, <= 2s Total) ──
+      const atsConfig = getATSConfig(url);
       let totalFieldsFilled = 0;
       let isSubmitted = false;
       const MAX_DETERMINISTIC_PASSES = 3;
+
+      await AutoApplyEngine.emitStatus(page, {
+        phase: 'navigating',
+        message: `Applying to ${atsConfig.name}...`,
+        colorState: 'grey'
+      }, onProgress);
 
       for (let pass = 1; pass <= MAX_DETERMINISTIC_PASSES; pass++) {
         await page.waitForTimeout(100);
@@ -460,7 +472,7 @@ export class AutoApplyEngine {
           isSubmitted = true;
           await AutoApplyEngine.emitStatus(page, {
             phase: 'success',
-            message: 'Confirmed Application Submitted Successfully! ✓',
+            message: `Confirmed Application Submitted to ${atsConfig.name}! ✓`,
             colorState: 'green'
           }, onProgress);
           return {
@@ -471,7 +483,7 @@ export class AutoApplyEngine {
         // 5. Check for Login Wall & Sign-Up Gatekeepers
         const loginCheck = await AutoApplyEngine.detectLoginRequired(page);
         if (loginCheck.requiresLogin) {
-          const portalLabel = loginCheck.portalName || 'Job Portal';
+          const portalLabel = loginCheck.portalName || atsConfig.name || 'Job Portal';
           await AutoApplyEngine.emitStatus(page, {
             phase: 'user_input_required',
             message: `Account Required — Please sign in / register on ${portalLabel}`,
@@ -511,52 +523,38 @@ export class AutoApplyEngine {
           };
         }
 
-        // 7. Fast Nav Matcher (Check if page has an "Apply" button / CTA to click first)
-        const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
-        if (fastNav.triggered && fastNav.action !== 'form_already_present') {
-          await AutoApplyEngine.emitStatus(page, {
-            phase: 'navigating',
-            message: `Opening Application Form (${fastNav.action.replace(/_/g, ' ')})...`,
-            colorState: 'grey'
-          }, onProgress);
-
-          await page.waitForTimeout(500);
-
-          // Check if clicking Apply opened a new popup/tab
-          const allOpenPages = session.context.pages();
-          if (allOpenPages.length > 1) {
-            const latestPage = allOpenPages[allOpenPages.length - 1];
-            if (latestPage && !latestPage.isClosed() && latestPage !== page) {
-              page = latestPage;
-              await injectStealthScripts(page);
-              await enableFastRouteInterception(page);
-              await page.bringToFront().catch(() => {});
-            }
-          }
-          await page.waitForLoadState('domcontentloaded').catch(() => {});
+        // 7. Navigation Engine (ApplicationNavigator) — Click Apply / Open Modal / Bind to Tab
+        const nav = new ApplicationNavigator(page, atsConfig);
+        const navResult = await nav.navigateToApplicationForm();
+        if (navResult.formPage && navResult.formPage !== page && !navResult.formPage.isClosed()) {
+          page = navResult.formPage;
         }
 
-        // 8. Instant Form Solve on the Application Form / Modal (< 20ms)
-        const solveResult = await executeDeterministicFormSolve(page, profile);
-        if (solveResult.filledCount > 0) {
-          totalFieldsFilled += solveResult.filledCount;
+        // 8. Form Filling Engine (FormFiller) — Pure Deterministic Universal Form Solver
+        const filler = new FormFiller(page, atsConfig, profile);
+        const fillResult = await filler.fillFormDeterministic();
+        if (fillResult.fieldsFilled > 0) {
+          totalFieldsFilled += fillResult.fieldsFilled;
           await AutoApplyEngine.emitStatus(page, {
             phase: 'filling',
-            message: `Instant Form Filled (${solveResult.filledCount} fields & questions solved)...`,
+            message: `Form Filled (${fillResult.fieldsFilled} fields, radios & checkboxes solved)...`,
             colorState: 'green'
           }, onProgress);
+        }
 
-          if (solveResult.submitClicked) {
-            await page.waitForTimeout(600);
-            const isConfirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled) || solveResult.isConfirmed;
-            if (isConfirmed) {
-              isSubmitted = true;
+        // 9. Submission Engine (FormSubmitter) — Click Submit & Verify Confirmation
+        if (totalFieldsFilled > 0) {
+          const submitter = new FormSubmitter(page, atsConfig);
+          const submitResult = await submitter.submitAndVerify();
+          if (submitResult.submitted) {
+            isSubmitted = true;
+            if (submitResult.confirmed) {
               break;
             }
           }
         }
 
-        // 9. Multi-Step Stepper Advance (e.g. Next -> Review -> Submit)
+        // 10. Multi-Step Stepper Advance (e.g. Next -> Review -> Submit)
         const advanced = await AutoApplyEngine.advanceApplicationStepper(page);
         if (advanced) {
           await AutoApplyEngine.emitStatus(page, {
