@@ -8,6 +8,7 @@ import { scrapeNaukriIndia, scrapeIndeedIndia } from './indian-portals-scraper.t
 import { computeJobHash } from './hasher.ts';
 import { scrapeRecruiterLeads, type RecruiterLead } from './recruiter-scraper.ts';
 import { getScraperSupabase } from './env-helper.ts';
+import { batchResolveAndFilterJobs } from './form-link-resolver.ts';
 
 export {
   scrapeAtsApis,
@@ -20,6 +21,7 @@ export {
   scrapeIndeedIndia,
   scrapeRecruiterLeads,
   computeJobHash,
+  batchResolveAndFilterJobs,
   type RawJob,
   type InternshalaJob,
   type RecruiterLead
@@ -205,13 +207,16 @@ export async function runAllScrapers(
     }
   }
 
+  // Pre-resolve direct application form URLs and purge dead 404 links
+  const verifiedJobs = await batchResolveAndFilterJobs(deduplicated, 12);
+
   // Split into targeted pools: Indian Jobs, Remote Jobs, Internshala Jobs, and Other
   const indiaPool: RawJob[] = [];
   const remotePool: RawJob[] = [];
   const internshalaPool: RawJob[] = [];
   const otherPool: RawJob[] = [];
 
-  for (const j of deduplicated) {
+  for (const j of verifiedJobs) {
     if (isIndiaJob(j)) {
       indiaPool.push(j);
     } else if (isInternshalaJob(j)) {
