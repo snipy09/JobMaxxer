@@ -1,6 +1,6 @@
 /**
  * Built-in High-Speed AI Engine (Google Gemini 2.0 / 1.5 Flash & Groq LLaMA)
- * Fully supports custom user Gemini API keys, environment keys, and pre-configured fallbacks.
+ * Fully supports custom user Gemini API keys, environment keys, multimodal vision, and pre-configured fallbacks.
  */
 export const BUILTIN_GEMINI_KEYS: string[] = [
   process.env.GEMINI_API_KEY || '',
@@ -11,6 +11,40 @@ export const BUILTIN_GEMINI_KEYS: string[] = [
 ].filter(k => typeof k === 'string' && k.trim().length > 0);
 
 const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
+
+export interface SemanticElement {
+  id: string;
+  tag: string;
+  type?: string;
+  name?: string;
+  placeholder?: string;
+  label?: string;
+  value?: string;
+  ariaLabel?: string;
+  options?: string[];
+  role?: string;
+}
+
+export interface AIFormActionPlan {
+  pageState: 'listing_page' | 'application_form' | 'login_required' | 'captcha_detected' | 'submission_confirmed' | 'unknown';
+  fillActions: Array<{
+    elementId: string;
+    value: string;
+    fieldPurpose: string;
+  }>;
+  selectActions: Array<{
+    elementId: string;
+    selectedOption: string;
+  }>;
+  checkboxActions: Array<{
+    elementId: string;
+    checked: boolean;
+  }>;
+  uploadResumeElementId?: string;
+  clickActionElementId?: string;
+  nextStepType?: 'advance_next' | 'submit_application' | 'open_job' | 'none';
+  statusMessage: string;
+}
 
 export async function callGeminiFlash(
   prompt: string,
@@ -47,6 +81,63 @@ export async function callGeminiFlash(
       } catch (err) {
         // Failover to next model or key
       }
+    }
+  }
+  return '';
+}
+
+/**
+ * Multimodal Vision API call for Gemini 2.0 Flash
+ */
+export async function callGeminiVision(
+  prompt: string,
+  base64Image: string,
+  systemInstruction?: string,
+  customApiKey?: string
+): Promise<string> {
+  const keysToTry = [
+    ...(customApiKey ? [customApiKey.trim()] : []),
+    ...BUILTIN_GEMINI_KEYS,
+  ].filter(Boolean);
+
+  const cleanBase64 = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+
+  for (const key of Array.from(new Set(keysToTry))) {
+    if (!key) continue;
+    for (const model of ['gemini-2.0-flash', 'gemini-1.5-flash']) {
+      try {
+        const payload: any = {
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: cleanBase64
+                  }
+                }
+              ]
+            }
+          ]
+        };
+
+        if (systemInstruction) {
+          payload.systemInstruction = { parts: [{ text: systemInstruction }] };
+        }
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text && text.trim().length > 0) return text.trim();
+        }
+      } catch {}
     }
   }
   return '';
@@ -141,6 +232,69 @@ export async function generateStructuredAIContent<T = any>(
   }
 
   return null;
+}
+
+/**
+ * AI Multimodal Vision Planner: inspects screenshot + semantic DOM elements
+ * and returns the optimal form fill/advance action plan.
+ */
+export async function generateAIVisionActionPlan(
+  candidateProfile: Record<string, any>,
+  screenshotBase64: string,
+  elements: SemanticElement[],
+  options: { geminiKey?: string } = {}
+): Promise<AIFormActionPlan | null> {
+  const systemInstruction = `You are the Nomadic Autonomous Application Decision Engine.
+Your job is to visually analyze the application screen and semantic DOM elements, and output an exact action plan in JSON format.
+
+Output Schema:
+{
+  "pageState": "listing_page" | "application_form" | "login_required" | "captcha_detected" | "submission_confirmed" | "unknown",
+  "fillActions": [
+    { "elementId": "element_id_from_list", "value": "value_to_type", "fieldPurpose": "first_name" | "email" | "custom_answer" etc. }
+  ],
+  "selectActions": [
+    { "elementId": "element_id_from_list", "selectedOption": "option_text_or_value" }
+  ],
+  "checkboxActions": [
+    { "elementId": "element_id_from_list", "checked": true }
+  ],
+  "uploadResumeElementId": "file_input_id_if_present",
+  "clickActionElementId": "button_or_link_id_to_click",
+  "nextStepType": "advance_next" | "submit_application" | "open_job" | "none",
+  "statusMessage": "Short human readable summary of action"
+}`;
+
+  const prompt = `Candidate Profile:
+${JSON.stringify(candidateProfile, null, 2)}
+
+Interactive DOM Elements on Current Screen:
+${JSON.stringify(elements.slice(0, 80), null, 2)}
+
+Inspect the attached screenshot and element list. Generate the precise action plan to complete the application.`;
+
+  try {
+    const rawAiResponse = await callGeminiVision(
+      prompt,
+      screenshotBase64,
+      systemInstruction,
+      options.geminiKey
+    );
+
+    if (rawAiResponse) {
+      const parsed = extractJsonFromAiResponse<AIFormActionPlan>(rawAiResponse);
+      if (parsed && parsed.pageState) {
+        return parsed;
+      }
+    }
+  } catch {}
+
+  // Fallback to text reasoning if vision call is unavailable
+  return generateStructuredAIContent<AIFormActionPlan>(
+    prompt,
+    systemInstruction,
+    options
+  );
 }
 
 /**

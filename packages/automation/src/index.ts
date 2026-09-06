@@ -8,12 +8,22 @@ import {
   answerCustomQuestion,
   answerCustomQuestionWithGroq,
   callGeminiFlash,
+  callGeminiVision,
+  generateAIVisionActionPlan,
   generateStructuredAIContent,
   extractJsonFromAiResponse,
   matchResumeWithJob,
   generateCoverLetter,
   BUILTIN_GEMINI_KEYS,
+  type SemanticElement,
+  type AIFormActionPlan,
 } from './groq-ai.ts';
+import {
+  capturePageVisionAndDOM,
+  executeNomadicFill,
+  executeNomadicSelect,
+  executeNomadicClick,
+} from './ai-vision-inspector.ts';
 import { ATS_FIELD_ALIASES } from './alias-dictionary.ts';
 import {
   findChromeExecutable,
@@ -28,6 +38,8 @@ export {
   answerCustomQuestion,
   answerCustomQuestionWithGroq,
   callGeminiFlash,
+  callGeminiVision,
+  generateAIVisionActionPlan,
   generateStructuredAIContent,
   extractJsonFromAiResponse,
   matchResumeWithJob,
@@ -37,6 +49,10 @@ export {
   findChromeExecutable,
   ensureChromeForTesting,
   launchExternalStealthBrowser,
+  capturePageVisionAndDOM,
+  executeNomadicFill,
+  executeNomadicSelect,
+  executeNomadicClick,
 };
 
 export type {
@@ -45,4 +61,6 @@ export type {
   ResumeItem,
   BrowserLaunchOptions,
   BrowserSession,
+  SemanticElement,
+  AIFormActionPlan,
 };
