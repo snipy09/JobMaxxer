@@ -1,4 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
+
+// Polyfill globalThis.WebSocket for Node.js / Electron environments
+if (typeof globalThis.WebSocket === 'undefined') {
+  try {
+    (globalThis as any).WebSocket = WebSocket;
+  } catch {}
+}
 
 export interface UserProfile {
   id: string;
@@ -52,14 +60,16 @@ export interface CloudUserData {
 }
 
 export function getSupabaseClient(supabaseUrl: string, supabaseKey: string) {
-  const isBrowser = typeof window !== 'undefined' && typeof (window as any).WebSocket !== 'undefined';
+  const wsImplementation = typeof WebSocket !== 'undefined' ? WebSocket : (globalThis as any).WebSocket;
   return createClient(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
     },
-    ...(isBrowser ? {} : { realtime: { transport: null as any } }),
+    realtime: {
+      transport: wsImplementation,
+    },
   });
 }
 

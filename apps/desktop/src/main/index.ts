@@ -4,6 +4,13 @@ import fs from 'fs';
 import http from 'http';
 import https from 'https';
 import crypto from 'crypto';
+import WebSocket from 'ws';
+
+if (typeof globalThis.WebSocket === 'undefined') {
+  try {
+    (globalThis as any).WebSocket = WebSocket;
+  } catch {}
+}
 import {
   initLocalDatabase,
   getDb,
