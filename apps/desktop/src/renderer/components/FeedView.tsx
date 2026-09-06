@@ -26,7 +26,7 @@ const DEMO_TEST_JOB: Job = {
   company: 'Nomadic Labs',
   location: 'Remote · Global',
   source: 'Verified Demo ATS',
-  applyUrl: 'https://httpbin.org/post',
+  applyUrl: 'https://demo.nomadic.app/test-application',
   score: 98,
   employmentType: 'job',
   workplaceType: 'remote',

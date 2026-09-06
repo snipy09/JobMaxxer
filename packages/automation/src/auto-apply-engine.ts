@@ -1339,14 +1339,84 @@ export class AutoApplyEngine {
     url: string,
     onProgress?: ProgressCallback
   ): Promise<ApplyResult> {
-    await AutoApplyEngine.emitStatus(page, { phase: 'filling', message: 'Simulating AI auto-apply on test job...', colorState: 'grey' }, onProgress);
-    await page.waitForTimeout(1500);
+    // Render clean interactive test application UI
+    await page.setContent(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Nomadic Labs — Candidate Application (Test Portal)</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #09090b; color: #f8fafc; padding: 40px; display: flex; justify-content: center; }
+            .card { background: #18181b; border: 1px solid #27272a; border-radius: 16px; width: 100%; max-width: 600px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+            h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #ffffff; }
+            p { font-size: 13px; color: #a1a1aa; margin-bottom: 24px; }
+            .field { margin-bottom: 16px; }
+            label { display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; }
+            input, textarea, select { width: 100%; background: #27272a; border: 1px solid #3f3f46; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #ffffff; box-sizing: border-box; outline: none; }
+            input:focus { border-color: #38bdf8; }
+            .btn { width: 100%; background: #ffffff; color: #09090b; font-weight: 700; font-size: 13px; padding: 12px; border-radius: 8px; border: none; cursor: pointer; margin-top: 12px; }
+            .badge { display: inline-block; background: #0284c7; color: #ffffff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 9999px; margin-bottom: 12px; }
+            .success-banner { display: none; background: #052e16; border: 1px solid #166534; border-radius: 8px; padding: 16px; text-align: center; margin-top: 20px; }
+            .success-banner h3 { color: #4ade80; font-size: 15px; margin: 0 0 4px 0; }
+            .success-banner p { color: #86efac; font-size: 12px; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <span class="badge">VERIFIED ATS DEMO SIMULATOR</span>
+            <h1>Senior Product / Software Specialist</h1>
+            <p>Nomadic Labs · Global Remote · Engineering Platform</p>
+            <form id="demo-form" onsubmit="event.preventDefault(); document.getElementById('success-msg').style.display='block';">
+              <div class="field">
+                <label>Full Name</label>
+                <input id="fullName" name="fullName" placeholder="Your Name" />
+              </div>
+              <div class="field">
+                <label>Email Address</label>
+                <input id="email" name="email" type="email" placeholder="email@domain.com" />
+              </div>
+              <div class="field">
+                <label>Phone Number</label>
+                <input id="phone" name="phone" placeholder="+1 (555) 000-0000" />
+              </div>
+              <div class="field">
+                <label>LinkedIn Profile URL</label>
+                <input id="linkedin" name="linkedin" placeholder="https://linkedin.com/in/username" />
+              </div>
+              <div class="field">
+                <label>Work Authorization</label>
+                <select id="workAuth">
+                  <option value="yes">Authorized to work in country</option>
+                  <option value="no">Require Visa Sponsorship</option>
+                </select>
+              </div>
+              <button type="submit" id="submitBtn" class="btn">Submit Application</button>
+            </form>
+            <div id="success-msg" class="success-banner">
+              <h3>✓ Application Submitted Successfully!</h3>
+              <p>Your candidate profile and resume have been recorded in the demo portal.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `).catch(() => {});
+
+    await AutoApplyEngine.emitStatus(page, { phase: 'filling', message: 'Nomadic AI filling application fields...', colorState: 'grey' }, onProgress);
+
+    // Rapid populate fields with candidate profile
+    const nameVal = profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Candidate';
+    await page.fill('#fullName', nameVal).catch(() => {});
+    await page.fill('#email', profile.email || 'candidate@nomadic.app').catch(() => {});
+    await page.fill('#phone', profile.phone || '+1 (555) 019-2834').catch(() => {});
+    await page.fill('#linkedin', profile.linkedin || 'https://linkedin.com/in/candidate').catch(() => {});
+    await page.waitForTimeout(400);
 
     await AutoApplyEngine.emitStatus(page, { phase: 'uploading', message: 'Attaching candidate PDF resume...', colorState: 'grey' }, onProgress);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(300);
 
-    await AutoApplyEngine.emitStatus(page, { phase: 'submitting', message: 'Submitting test application...', colorState: 'grey' }, onProgress);
-    await page.waitForTimeout(1500);
+    await AutoApplyEngine.emitStatus(page, { phase: 'submitting', message: 'Submitting completed application...', colorState: 'grey' }, onProgress);
+    await page.click('#submitBtn').catch(() => {});
+    await page.waitForTimeout(400);
 
     await AutoApplyEngine.emitStatus(page, { phase: 'success', message: 'Demo Application Submitted Successfully!', colorState: 'green' }, onProgress);
 
