@@ -65,17 +65,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
   currentUser,
   onOpenUpgrade,
 }) => {
-  // 1. Synchronously initialize jobs from LocalStorage so page transitions NEVER wipe the feed
-  const [jobs, setJobs] = useState<Job[]>(() => {
-    try {
-      const cached = localStorage.getItem('nomadic_saved_jobs_feed');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return [DEMO_TEST_JOB];
-  });
+  // 1. In-Memory Fresh Feed: Never persist stale feed across app closures so fresh live jobs fetch on every launch
+  const [jobs, setJobs] = useState<Job[]>([DEMO_TEST_JOB]);
 
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -118,11 +109,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
     setTimeout(() => setToastNotification(null), 3500);
   };
 
-  // Helper to persist jobs in localStorage
+  // Helper to persist jobs (Session only)
   const saveJobsToLocalStorage = (jobList: Job[]) => {
-    try {
-      localStorage.setItem('nomadic_saved_jobs_feed', JSON.stringify(jobList));
-    } catch {}
+    // In-memory runtime state only
   };
 
   // 2. Fetch Latest Jobs (Manual Refresh & Cloud Sync)
