@@ -22,31 +22,14 @@ export interface AtsBoardConfig {
 }
 
 export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
-  // Top Indian Tech & Local Startups / Unicorns
+  // Verified Live Indian Tech Unicorns & Scaleups
   { name: 'Postman', type: 'greenhouse', boardId: 'postman' },
-  { name: 'Razorpay', type: 'lever', boardId: 'razorpay' },
-  { name: 'BrowserStack', type: 'greenhouse', boardId: 'browserstack' },
-  { name: 'Hasura', type: 'greenhouse', boardId: 'hasura' },
-  { name: 'Freshworks', type: 'greenhouse', boardId: 'freshworks' },
-  { name: 'CleverTap', type: 'greenhouse', boardId: 'clevertap' },
-  { name: 'Juspay', type: 'greenhouse', boardId: 'juspay' },
-  { name: 'Zeta', type: 'greenhouse', boardId: 'zeta' },
   { name: 'InMobi', type: 'greenhouse', boardId: 'inmobi' },
-  { name: 'Swiggy', type: 'lever', boardId: 'swiggy' },
-  { name: 'Zomato', type: 'greenhouse', boardId: 'zomato' },
-  { name: 'CRED', type: 'greenhouse', boardId: 'cred' },
-  { name: 'Meesho', type: 'greenhouse', boardId: 'meesho' },
+  { name: 'Meesho', type: 'lever', boardId: 'meesho' },
   { name: 'Groww', type: 'greenhouse', boardId: 'groww' },
-  { name: 'Urban Company', type: 'greenhouse', boardId: 'urbancompany' },
-  { name: 'Sprinto', type: 'lever', boardId: 'sprinto' },
-  { name: 'Darwinbox', type: 'greenhouse', boardId: 'darwinbox' },
-  { name: 'Whatfix', type: 'greenhouse', boardId: 'whatfix' },
-  { name: 'MoEngage', type: 'greenhouse', boardId: 'moengage' },
   { name: 'SigNoz', type: 'ashby', boardId: 'signoz' },
-  { name: 'Appwrite', type: 'ashby', boardId: 'appwrite' },
-  { name: 'Khatabook', type: 'greenhouse', boardId: 'khatabook' },
 
-  // Fast-Growing YC & Global Tech Scaleups
+  // Fast-Growing Developer AI & YC Scaleups
   { name: 'Supabase', type: 'ashby', boardId: 'supabase' },
   { name: 'Linear', type: 'ashby', boardId: 'linear' },
   { name: 'Modal', type: 'ashby', boardId: 'modal' },
@@ -55,23 +38,34 @@ export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
   { name: 'Perplexity', type: 'ashby', boardId: 'perplexity' },
   { name: 'Replit', type: 'ashby', boardId: 'replit' },
   { name: 'Ramp', type: 'ashby', boardId: 'ramp' },
-  { name: 'Brex', type: 'greenhouse', boardId: 'brex' },
+
+  // Top Global & Remote Engineering Hubs
   { name: 'Scale AI', type: 'greenhouse', boardId: 'scaleai' },
   { name: 'Vercel', type: 'greenhouse', boardId: 'vercel' },
-  { name: 'Discord', type: 'greenhouse', boardId: 'discord' },
-  { name: 'Checkr', type: 'greenhouse', boardId: 'checkr' },
-  { name: 'Webflow', type: 'greenhouse', boardId: 'webflow' },
   { name: 'Figma', type: 'greenhouse', boardId: 'figma' },
   { name: 'Reddit', type: 'greenhouse', boardId: 'reddit' },
-  { name: 'Gusto', type: 'greenhouse', boardId: 'gusto' },
   { name: 'Stripe', type: 'greenhouse', boardId: 'stripe' },
   { name: 'Anthropic', type: 'greenhouse', boardId: 'anthropic' },
   { name: 'Datadog', type: 'greenhouse', boardId: 'datadog' },
   { name: 'Cloudflare', type: 'greenhouse', boardId: 'cloudflare' },
+  { name: 'Canonical', type: 'greenhouse', boardId: 'canonical' },
+  { name: 'Twilio', type: 'greenhouse', boardId: 'twilio' },
+  { name: 'Airbnb', type: 'greenhouse', boardId: 'airbnb' },
+  { name: 'Elastic', type: 'greenhouse', boardId: 'elastic' },
   { name: 'GitLab', type: 'greenhouse', boardId: 'gitlab' },
   { name: 'Coinbase', type: 'greenhouse', boardId: 'coinbase' },
+  { name: 'Brex', type: 'greenhouse', boardId: 'brex' },
+  { name: 'Checkr', type: 'greenhouse', boardId: 'checkr' },
+  { name: 'Webflow', type: 'greenhouse', boardId: 'webflow' },
+  { name: 'Gusto', type: 'greenhouse', boardId: 'gusto' },
   { name: 'Flexport', type: 'greenhouse', boardId: 'flexport' },
   { name: 'Affirm', type: 'greenhouse', boardId: 'affirm' },
+  { name: 'Lyft', type: 'greenhouse', boardId: 'lyft' },
+  { name: 'Robinhood', type: 'greenhouse', boardId: 'robinhood' },
+  { name: 'Pinterest', type: 'greenhouse', boardId: 'pinterest' },
+  { name: 'Square', type: 'greenhouse', boardId: 'block' },
+  { name: 'Okta', type: 'greenhouse', boardId: 'okta' },
+  { name: 'MongoDB', type: 'greenhouse', boardId: 'mongodb' },
 ];
 
 export async function scrapeAtsApis(
