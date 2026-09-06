@@ -26,6 +26,7 @@ import {
 } from './stealth-evasion.js';
 import { enableFastRouteInterception } from './fast-route-interceptor.js';
 import { runFastLocalNavMatcher } from './fast-nav-matcher.js';
+import { executeInstantBatchFormFill } from './fast-batch-filler.js';
 
 export interface MasterProfile {
   firstName: string;
@@ -534,6 +535,26 @@ export class AutoApplyEngine {
           }
           await page.waitForLoadState('domcontentloaded').catch(() => {});
           continue;
+        }
+
+        // G. Instant In-Memory Batch Form Fill (< 15ms)
+        const batchFill = await executeInstantBatchFormFill(page, profile);
+        if (batchFill.filledCount > 0) {
+          totalFieldsFilled += batchFill.filledCount;
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'filling',
+            message: `Instant Form Filled (${batchFill.filledCount} fields & radio questions populated)...`,
+            colorState: 'green'
+          }, onProgress);
+
+          if (batchFill.submitClicked) {
+            await page.waitForTimeout(800);
+            const isConfirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled);
+            if (isConfirmed) {
+              isSubmitted = true;
+              break;
+            }
+          }
         }
 
         // E. AI Vision Inspection (Screenshot + Interactive DOM Tree)
