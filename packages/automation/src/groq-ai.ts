@@ -241,6 +241,37 @@ export async function generateStructuredAIContent<T = any>(
  * AI Multimodal Vision Planner: inspects screenshot + semantic DOM elements
  * and returns the optimal form fill/advance action plan.
  */
+/**
+ * Tier 2: Text-Only Semantic Element Resolver (120ms, 0 MB Photos)
+ * Sends a compact 2KB text JSON of candidate interactive links to Gemini Flash
+ * to identify the exact job posting link, filter, or apply button.
+ */
+export async function resolveTargetElementWithTextAI(
+  targetRole: string,
+  elements: Array<{ id: string; tag: string; label: string; text?: string; role?: string }>,
+  options: { geminiKey?: string } = {}
+): Promise<{ targetElementId?: string; action?: string; searchQuery?: string } | null> {
+  const prompt = `Target Job Title: "${targetRole}"
+
+Interactive Elements on Page:
+${JSON.stringify(elements.slice(0, 50), null, 2)}
+
+Which element should be clicked to navigate to or open the application form for "${targetRole}"?
+Return JSON: {"targetElementId": "id_from_list", "action": "click"}`;
+
+  const system = `You are a high-speed web navigation assistant. Choose the best interactive element matching the target job title. Return valid JSON only.`;
+
+  return await generateStructuredAIContent<{ targetElementId?: string; action?: string; searchQuery?: string }>(
+    prompt,
+    system,
+    options
+  );
+}
+
+/**
+ * AI Decision Planner: Uses Text-First reasoning (< 150ms) by default,
+ * and falls back to vision only if text representation is ambiguous.
+ */
 export async function generateAIVisionActionPlan(
   candidateProfile: Record<string, any>,
   screenshotBase64: string,
@@ -248,7 +279,7 @@ export async function generateAIVisionActionPlan(
   options: { geminiKey?: string } = {}
 ): Promise<AIFormActionPlan | null> {
   const systemInstruction = `You are the Nomadic Autonomous Application & Navigation AI Decision Engine.
-Your job is to visually inspect the screenshot and interactive DOM elements, determine the exact state of the page, and output an action plan to reach and complete the job application.
+Your job is to inspect interactive DOM elements, determine the exact state of the page, and output an action plan to reach and complete the job application.
 
 Page Classification Guide:
 - "listing_or_homepage": The browser opened a company homepage, career portal index, or search page. Action: set actionType="click_element" with clickTargetElementId of the "Apply" / "Careers" / "View Job" link, or actionType="search_job" with searchQuery.
@@ -286,30 +317,39 @@ ${JSON.stringify(candidateProfile, null, 2)}
 Interactive DOM Elements on Current Screen:
 ${JSON.stringify(elements.slice(0, 80), null, 2)}
 
-Inspect the attached screenshot and element list. Generate the precise action plan to complete the application.`;
+Generate the precise action plan to complete the application.`;
 
-  try {
-    const rawAiResponse = await callGeminiVision(
-      prompt,
-      screenshotBase64,
-      systemInstruction,
-      options.geminiKey
-    );
-
-    if (rawAiResponse) {
-      const parsed = extractJsonFromAiResponse<AIFormActionPlan>(rawAiResponse);
-      if (parsed && parsed.pageState) {
-        return parsed;
-      }
-    }
-  } catch {}
-
-  // Fallback to text reasoning if vision call is unavailable
-  return generateStructuredAIContent<AIFormActionPlan>(
+  // 1. Ultra-fast Text-First Decision (120ms - 0 MB payload)
+  const textPlan = await generateStructuredAIContent<AIFormActionPlan>(
     prompt,
     systemInstruction,
     options
   );
+
+  if (textPlan && textPlan.pageState) {
+    return textPlan;
+  }
+
+  // 2. Fallback to Multimodal Vision only if text is inconclusive and image is provided
+  if (screenshotBase64 && screenshotBase64.length > 50) {
+    try {
+      const rawAiResponse = await callGeminiVision(
+        prompt,
+        screenshotBase64,
+        systemInstruction,
+        options.geminiKey
+      );
+
+      if (rawAiResponse) {
+        const parsed = extractJsonFromAiResponse<AIFormActionPlan>(rawAiResponse);
+        if (parsed && parsed.pageState) {
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+
+  return null;
 }
 
 /**

@@ -5,6 +5,7 @@ import os from 'os';
 import {
   generateStructuredAIContent,
   generateAIVisionActionPlan,
+  resolveTargetElementWithTextAI,
   callGeminiVision,
   type SemanticElement,
   type AIFormActionPlan
@@ -23,6 +24,9 @@ import {
   humanClick,
   handleCloudflareTurnstile
 } from './stealth-evasion.js';
+import { transformToDirectApplyUrl } from './direct-url-transformer.js';
+import { enableFastRouteInterception } from './fast-route-interceptor.js';
+import { runFastLocalNavMatcher } from './fast-nav-matcher.js';
 
 export interface MasterProfile {
   firstName: string;
@@ -311,30 +315,33 @@ export class AutoApplyEngine {
 
     let page: Page | null = null;
     try {
+      const targetUrl = transformToDirectApplyUrl(url);
       const session = await getOrLaunchExternalSession();
       page = await session.context.newPage();
       await injectStealthScripts(page);
+      await enableFastRouteInterception(page);
 
       // Handle popup windows from "Apply with..." links
       page.on('popup', async (popup) => {
         try {
           await injectStealthScripts(popup);
+          await enableFastRouteInterception(popup);
           await popup.waitForLoadState('domcontentloaded').catch(() => {});
           page = popup;
           await page?.bringToFront().catch(() => {});
         } catch {}
       });
 
-      if (typeof onProgress === 'function') onProgress({ phase: 'navigating', message: `Opening: ${url}`, colorState: 'grey' });
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      if (typeof onProgress === 'function') onProgress({ phase: 'navigating', message: `Opening: ${targetUrl}`, colorState: 'grey' });
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
       await page.bringToFront().catch(() => {});
 
-      await AutoApplyEngine.emitStatus(page, { phase: 'navigating', message: 'Nomadic AI Vision & Navigation Loop Active', colorState: 'grey' }, onProgress);
+      await AutoApplyEngine.emitStatus(page, { phase: 'navigating', message: 'Nomadic Lightning-Fast AI Engine Active', colorState: 'grey' }, onProgress);
 
       // Handle Built-in Demo Test Job
-      const isDemoTest = url.includes('httpbin.org') || url.includes('nomadic-demo') || url.includes('test-job');
+      const isDemoTest = targetUrl.includes('httpbin.org') || targetUrl.includes('nomadic-demo') || targetUrl.includes('test-job');
       if (isDemoTest) {
-        return await AutoApplyEngine.handleDemoTestApplication(page, profile, url, onProgress);
+        return await AutoApplyEngine.handleDemoTestApplication(page, profile, targetUrl, onProgress);
       }
 
       // Candidate profile context for AI vision planner
@@ -354,7 +361,7 @@ export class AutoApplyEngine {
         customAnswers: profile.customAnswers || {},
       };
 
-      // ── MULTI-TURN AI VISION AUTONOMOUS LOOP (Up to 8 turns) ───────────────
+      // ── MULTI-TURN LIGHTNING-FAST AUTONOMOUS LOOP (Up to 8 turns) ─────────
       let totalFieldsFilled = 0;
       let turn = 0;
       const MAX_TURNS = 8;
@@ -362,7 +369,7 @@ export class AutoApplyEngine {
 
       while (turn < MAX_TURNS) {
         turn++;
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(200);
 
         // A. Anti-Bot / Cloudflare Turnstile Check
         const cfResult = await handleCloudflareTurnstile(page);
@@ -386,7 +393,7 @@ export class AutoApplyEngine {
             colorState: 'green'
           }, onProgress);
           return {
-            url, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: Math.max(1, totalFieldsFilled)
+            url: targetUrl, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: Math.max(1, totalFieldsFilled)
           };
         }
 
@@ -400,7 +407,7 @@ export class AutoApplyEngine {
             actionRequired: 'Solve CAPTCHA'
           }, onProgress);
           return {
-            url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
+            url: targetUrl, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
             error: 'CAPTCHA challenge detected (left open in browser)',
           };
         }
@@ -419,16 +426,28 @@ export class AutoApplyEngine {
           if (loggedIn) {
             await AutoApplyEngine.emitStatus(page, {
               phase: 'navigating',
-              message: 'Sign-In Verified! Resuming AI navigation...',
+              message: 'Sign-In Verified! Resuming instant navigation...',
               colorState: 'grey'
             }, onProgress);
             continue;
           } else {
             return {
-              url, success: false, submitted: false, prefilled: false, captchaDetected: false, requiresLogin: true, fieldsFilledCount: 0,
+              url: targetUrl, success: false, submitted: false, prefilled: false, captchaDetected: false, requiresLogin: true, fieldsFilledCount: 0,
               error: 'Sign-in required on job portal (left open in browser)',
             };
           }
+        }
+
+        // E. Tier 1: Local Fast Navigation & Search Matcher (10ms - 0 AI, 0 Photos)
+        const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
+        if (fastNav.triggered && fastNav.action !== 'form_already_present') {
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'navigating',
+            message: `Instant Match: ${fastNav.action.replace(/_/g, ' ')}...`,
+            colorState: 'grey'
+          }, onProgress);
+          await page.waitForTimeout(350);
+          continue;
         }
 
         // E. AI Vision Inspection (Screenshot + Interactive DOM Tree)
