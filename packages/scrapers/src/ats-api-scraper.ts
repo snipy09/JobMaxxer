@@ -17,55 +17,38 @@ export interface RawJob {
 
 export interface AtsBoardConfig {
   name: string;
-  type: 'greenhouse' | 'lever' | 'ashby';
+  type: 'lever' | 'ashby';
   boardId: string;
 }
 
 export const DEFAULT_TOP_TECH_BOARDS: AtsBoardConfig[] = [
-  // Verified Live Indian Tech Unicorns & Scaleups
-  { name: 'Postman', type: 'greenhouse', boardId: 'postman' },
-  { name: 'InMobi', type: 'greenhouse', boardId: 'inmobi' },
-  { name: 'Meesho', type: 'lever', boardId: 'meesho' },
-  { name: 'Groww', type: 'greenhouse', boardId: 'groww' },
-  { name: 'SigNoz', type: 'ashby', boardId: 'signoz' },
-
-  // Fast-Growing Developer AI & YC Scaleups
-  { name: 'Supabase', type: 'ashby', boardId: 'supabase' },
-  { name: 'Linear', type: 'ashby', boardId: 'linear' },
-  { name: 'Modal', type: 'ashby', boardId: 'modal' },
-  { name: 'Resend', type: 'ashby', boardId: 'resend' },
-  { name: 'Cursor', type: 'ashby', boardId: 'cursor' },
+  // ── 1. Verified Live AI & Modern Developer Unicorns (Ashby - 100% Direct Form Application)
+  { name: 'OpenAI', type: 'ashby', boardId: 'openai' },
   { name: 'Perplexity', type: 'ashby', boardId: 'perplexity' },
-  { name: 'Replit', type: 'ashby', boardId: 'replit' },
+  { name: 'ElevenLabs', type: 'ashby', boardId: 'elevenlabs' },
+  { name: 'Cursor', type: 'ashby', boardId: 'cursor' },
+  { name: 'Supabase', type: 'ashby', boardId: 'supabase' },
+  { name: 'Cohere', type: 'ashby', boardId: 'cohere' },
+  { name: 'Cognition', type: 'ashby', boardId: 'cognition' },
   { name: 'Ramp', type: 'ashby', boardId: 'ramp' },
+  { name: 'LangChain', type: 'ashby', boardId: 'langchain' },
+  { name: 'Linear', type: 'ashby', boardId: 'linear' },
+  { name: 'Replit', type: 'ashby', boardId: 'replit' },
+  { name: 'Modal', type: 'ashby', boardId: 'modal' },
+  { name: 'SigNoz', type: 'ashby', boardId: 'signoz' },
+  { name: 'Braintrust', type: 'ashby', boardId: 'braintrust' },
+  { name: 'Anyscale', type: 'ashby', boardId: 'anyscale' },
+  { name: 'Midjourney', type: 'ashby', boardId: 'midjourney' },
+  { name: 'PostHog', type: 'ashby', boardId: 'posthog' },
+  { name: 'Resend', type: 'ashby', boardId: 'resend' },
+  { name: 'LlamaIndex', type: 'ashby', boardId: 'llamaindex' },
+  { name: 'CharacterAI', type: 'ashby', boardId: 'character' },
+  { name: 'Pinecone', type: 'ashby', boardId: 'pinecone' },
 
-  // Top Global & Remote Engineering Hubs
-  { name: 'Scale AI', type: 'greenhouse', boardId: 'scaleai' },
-  { name: 'Vercel', type: 'greenhouse', boardId: 'vercel' },
-  { name: 'Figma', type: 'greenhouse', boardId: 'figma' },
-  { name: 'Reddit', type: 'greenhouse', boardId: 'reddit' },
-  { name: 'Stripe', type: 'greenhouse', boardId: 'stripe' },
-  { name: 'Anthropic', type: 'greenhouse', boardId: 'anthropic' },
-  { name: 'Datadog', type: 'greenhouse', boardId: 'datadog' },
-  { name: 'Cloudflare', type: 'greenhouse', boardId: 'cloudflare' },
-  { name: 'Canonical', type: 'greenhouse', boardId: 'canonical' },
-  { name: 'Twilio', type: 'greenhouse', boardId: 'twilio' },
-  { name: 'Airbnb', type: 'greenhouse', boardId: 'airbnb' },
-  { name: 'Elastic', type: 'greenhouse', boardId: 'elastic' },
-  { name: 'GitLab', type: 'greenhouse', boardId: 'gitlab' },
-  { name: 'Coinbase', type: 'greenhouse', boardId: 'coinbase' },
-  { name: 'Brex', type: 'greenhouse', boardId: 'brex' },
-  { name: 'Checkr', type: 'greenhouse', boardId: 'checkr' },
-  { name: 'Webflow', type: 'greenhouse', boardId: 'webflow' },
-  { name: 'Gusto', type: 'greenhouse', boardId: 'gusto' },
-  { name: 'Flexport', type: 'greenhouse', boardId: 'flexport' },
-  { name: 'Affirm', type: 'greenhouse', boardId: 'affirm' },
-  { name: 'Lyft', type: 'greenhouse', boardId: 'lyft' },
-  { name: 'Robinhood', type: 'greenhouse', boardId: 'robinhood' },
-  { name: 'Pinterest', type: 'greenhouse', boardId: 'pinterest' },
-  { name: 'Square', type: 'greenhouse', boardId: 'block' },
-  { name: 'Okta', type: 'greenhouse', boardId: 'okta' },
-  { name: 'MongoDB', type: 'greenhouse', boardId: 'mongodb' },
+  // ── 2. Verified Live Tech Leaders (Lever - 100% Direct /apply Form Endpoints)
+  { name: 'Palantir', type: 'lever', boardId: 'palantir' },
+  { name: 'Spotify', type: 'lever', boardId: 'spotify' },
+  { name: 'Meesho', type: 'lever', boardId: 'meesho' },
 ];
 
 export async function scrapeAtsApis(
@@ -140,10 +123,10 @@ export async function scrapeAtsApis(
               const applyUrl = item.jobUrl || `https://jobs.ashbyhq.com/${board.boardId}/${item.id}`;
               if (!applyUrl || typeof applyUrl !== 'string') continue;
               const hash = computeJobHash(board.name, item.title, applyUrl);
-              const loc = item.location || 'Remote / Unspecified';
-              const titleLower = item.title.toLowerCase();
+              const loc = typeof item.location === 'string' ? item.location : (item.location?.name || 'Remote / Unspecified');
+              const titleLower = (item.title || '').toLowerCase();
               const isIntern = titleLower.includes('intern') || titleLower.includes('trainee');
-              const isRemote = loc.toLowerCase().includes('remote') || titleLower.includes('remote');
+              const isRemote = String(loc).toLowerCase().includes('remote') || titleLower.includes('remote');
 
               jobs.push({
                 company: board.name,
