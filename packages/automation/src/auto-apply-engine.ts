@@ -440,28 +440,30 @@ export class AutoApplyEngine {
           };
         }
 
-        // E. Check for Login Wall
-        const isLoginRequired = await AutoApplyEngine.detectLoginRequired(page);
-        if (isLoginRequired) {
+        // E. Check for Login Wall & Sign-Up Gatekeepers
+        const loginCheck = await AutoApplyEngine.detectLoginRequired(page);
+        if (loginCheck.requiresLogin) {
+          const portalLabel = loginCheck.portalName || 'Job Portal';
           await AutoApplyEngine.emitStatus(page, {
             phase: 'user_input_required',
-            message: 'Sign-In Required — Please log in to your account',
+            message: `Account Required — Please sign in / register on ${portalLabel}`,
             colorState: 'red',
-            actionRequired: 'Sign in to portal'
+            actionRequired: `Sign in to ${portalLabel}`
           }, onProgress);
 
+          await page.bringToFront().catch(() => {});
           const loggedIn = await AutoApplyEngine.waitForLoginComplete(page, onProgress);
           if (loggedIn) {
             await AutoApplyEngine.emitStatus(page, {
               phase: 'navigating',
-              message: 'Sign-In Verified! Resuming instant navigation...',
+              message: `Sign-In Verified on ${portalLabel}! Resuming application...`,
               colorState: 'grey'
             }, onProgress);
             continue;
           } else {
             return {
               url, success: false, submitted: false, prefilled: false, captchaDetected: false, requiresLogin: true, fieldsFilledCount: 0,
-              error: 'Sign-in required on job portal (left open in browser)',
+              error: `Sign-in required on ${portalLabel} (left open in browser)`,
             };
           }
         }
@@ -907,31 +909,77 @@ export class AutoApplyEngine {
     }
   }
 
-  public static async detectLoginRequired(page: Page): Promise<boolean> {
+  public static async detectLoginRequired(page: Page): Promise<{ requiresLogin: boolean; portalName?: string }> {
     try {
       const currentUrl = page.url().toLowerCase();
       if (
         currentUrl.includes('/login') ||
         currentUrl.includes('/signin') ||
         currentUrl.includes('/auth') ||
+        currentUrl.includes('/register') ||
+        currentUrl.includes('/signup') ||
         currentUrl.includes('accounts.google.com')
       ) {
-        return true;
+        const portal = currentUrl.includes('internshala') ? 'Internshala' :
+                       currentUrl.includes('naukri') ? 'Naukri' :
+                       currentUrl.includes('workday') ? 'Workday' : 'Job Portal';
+        return { requiresLogin: true, portalName: portal };
       }
 
       const targets = AutoApplyEngine.getAllFrames(page);
       for (const target of targets) {
-        const hasLogin = await target.evaluate(() => {
+        const check = await target.evaluate(() => {
           const body = (document.body?.innerText || '').toLowerCase();
+          const title = (document.title || '').toLowerCase();
+
+          const loginSignatures = [
+            'sign up now to unlock',
+            'sign up with google',
+            'sign up with email',
+            'register now to access',
+            'register to apply',
+            'sign in to apply',
+            'log in to apply',
+            'login to continue',
+            'please log in',
+            'create an account to apply',
+            'sign in with your account',
+            'enter your password',
+          ];
+
+          for (const sig of loginSignatures) {
+            if (body.includes(sig) || title.includes(sig)) {
+              return { requiresLogin: true, match: sig };
+            }
+          }
+
+          const hasModal = Boolean(
+            document.querySelector('#registration_modal, #login_modal, .registration_modal, .login_modal, [id*="signup-modal"], [class*="signup-modal"]')
+          );
+          if (hasModal) {
+            return { requiresLogin: true, match: 'modal_detected' };
+          }
+
           const hasPw = Boolean(document.querySelector('input[type="password"]'));
-          const hasLoginText = body.includes('sign in to apply') || body.includes('log in to continue') || body.includes('create an account to apply');
-          return hasPw && hasLoginText;
-        });
-        if (hasLogin) return true;
+          const hasLoginText = body.includes('sign in') || body.includes('log in') || body.includes('register');
+          if (hasPw && hasLoginText) {
+            return { requiresLogin: true, match: 'password_input' };
+          }
+
+          return { requiresLogin: false };
+        }).catch(() => ({ requiresLogin: false }));
+
+        if (check.requiresLogin) {
+          const portal = currentUrl.includes('internshala') ? 'Internshala' :
+                         currentUrl.includes('naukri') ? 'Naukri' :
+                         currentUrl.includes('workday') ? 'Workday' :
+                         currentUrl.includes('lever') ? 'Lever' : 'Job Portal';
+          return { requiresLogin: true, portalName: portal };
+        }
       }
-      return false;
+      return { requiresLogin: false };
     } catch {
-      return false;
+      return { requiresLogin: false };
     }
   }
 
@@ -941,8 +989,8 @@ export class AutoApplyEngine {
 
     while ((Date.now() - start) / 1000 < maxWaitSeconds) {
       if (page.isClosed()) return false;
-      const stillLogin = await AutoApplyEngine.detectLoginRequired(page);
-      if (!stillLogin) return true;
+      const check = await AutoApplyEngine.detectLoginRequired(page);
+      if (!check.requiresLogin) return true;
       await page.waitForTimeout(2000);
     }
     return false;

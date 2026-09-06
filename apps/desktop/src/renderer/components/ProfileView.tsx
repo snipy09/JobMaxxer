@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   User, FileText, CheckCircle2, Shield,
   Save, AlertCircle, RefreshCw, Key, Database,
-  ArrowRight, ExternalLink, Sparkles, Check, ChevronRight
+  ArrowRight, ExternalLink, Sparkles, Check, ChevronRight,
+  Globe, Laptop, Lock, UserCheck
 } from 'lucide-react';
 import { MasterProfile, getApi, AppUser } from '../types';
 
@@ -47,7 +48,7 @@ interface ProfileViewProps {
   saving?: boolean;
 }
 
-type SettingsSection = 'profile' | 'resumes' | 'answers' | 'automation' | 'account';
+type SettingsSection = 'profile' | 'resumes' | 'answers' | 'portals' | 'automation' | 'account';
 
 /**
  * Normalizes any partial, legacy, or undefined profile structure into a guaranteed typed contract.
@@ -348,6 +349,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Auto-Apply Answers</span>
                 </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSection('portals')}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-between ${
+                  activeSection === 'portals'
+                    ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Globe className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Portal Logins &amp; Setup</span>
+                </div>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                  Auth
+                </span>
               </button>
             </div>
           </div>
@@ -744,7 +763,196 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           )}
 
-          {/* SECTION D: AI & Automation Status */}
+          {/* SECTION D: Portal Logins & Setup */}
+          {activeSection === 'portals' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div>
+                <h2 className="text-base font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-blue-500" />
+                  <span>Job Portal Logins &amp; Prerequisites</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Sign into your job portal accounts once in your Chrome browser. Nomadic inherits your active sessions and saved cookies so you never get blocked by login or registration popups during auto-apply.
+                </p>
+              </div>
+
+              {/* How it works info banner */}
+              <div className="p-4 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-2xl flex items-start gap-3">
+                <Laptop className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs text-blue-900 dark:text-blue-200">
+                  <span className="font-bold">1-Time Browser Session Setup</span>
+                  <p className="text-blue-700 dark:text-blue-300 leading-relaxed">
+                    Click each portal below to open it in Google Chrome. Sign in with your candidate email and select <strong>"Remember Me"</strong>. All future applications will complete automatically without asking you to log in again.
+                  </p>
+                </div>
+              </div>
+
+              {/* Portals Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* 1. Internshala */}
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                        <span>Internshala</span>
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
+                        Indian Tech &amp; Interns
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Required for applying to verified Indian startups, tech internships, stipends, and fresher developer positions.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const api = getApi();
+                        if (api && api.openExternalUrl) api.openExternalUrl('https://internshala.com/login/user');
+                        else window.open('https://internshala.com/login/user', '_blank');
+                      }}
+                      className="flex-1 py-2 px-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Sign In</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const api = getApi();
+                        if (api && api.openExternalUrl) api.openExternalUrl('https://internshala.com/registration/student');
+                        else window.open('https://internshala.com/registration/student', '_blank');
+                      }}
+                      className="py-2 px-3 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all"
+                    >
+                      <span>Register</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Google / Gmail */}
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                        <span>Google Account</span>
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold">
+                        1-Click OAuth
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Enables instantaneous 1-click Google Single-Sign-On across Lever, Greenhouse, Workday, and ATS portals.
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const api = getApi();
+                        if (api && api.openExternalUrl) api.openExternalUrl('https://accounts.google.com');
+                        else window.open('https://accounts.google.com', '_blank');
+                      }}
+                      className="w-full py-2 px-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Sign in to Google</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. LinkedIn */}
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                        <span>LinkedIn</span>
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 font-bold">
+                        Recruiter Outreach
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Required for viewing verified recruiter contacts, direct LinkedIn Easy Apply, and hiring manager outreach.
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const api = getApi();
+                        if (api && api.openExternalUrl) api.openExternalUrl('https://www.linkedin.com/login');
+                        else window.open('https://www.linkedin.com/login', '_blank');
+                      }}
+                      className="w-full py-2 px-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Sign in to LinkedIn</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Naukri */}
+                <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                        <span>Naukri</span>
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold">
+                        Indian Tech Corporates
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Essential for Indian tech hub opportunities across Bengaluru, NCR, Hyderabad, and Pune.
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const api = getApi();
+                        if (api && api.openExternalUrl) api.openExternalUrl('https://www.naukri.com/nlogin/login');
+                        else window.open('https://www.naukri.com/nlogin/login', '_blank');
+                      }}
+                      className="w-full py-2 px-3 bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Sign in to Naukri</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Status Verification Checklist */}
+              <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-2.5">
+                <span className="text-xs font-bold text-slate-950 dark:text-white">Pre-Application Checklist:</span>
+                <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 font-sans">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Candidate Profile &amp; contact details saved under <strong>Candidate Details</strong>.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>PDF Resume uploaded and set as default under <strong>Resumes &amp; CVs</strong>.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Logged into your preferred job portals above in Google Chrome.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION E: AI & Automation Status */}
           {activeSection === 'automation' && (
             <div className="space-y-6 animate-fadeIn">
               <div>
