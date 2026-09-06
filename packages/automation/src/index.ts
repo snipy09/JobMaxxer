@@ -30,7 +30,6 @@ import {
   humanClick,
   handleCloudflareTurnstile,
 } from './stealth-evasion.ts';
-import { transformToDirectApplyUrl } from './direct-url-transformer.ts';
 import { enableFastRouteInterception } from './fast-route-interceptor.ts';
 import { runFastLocalNavMatcher } from './fast-nav-matcher.ts';
 import { ATS_FIELD_ALIASES } from './alias-dictionary.ts';
@@ -66,7 +65,6 @@ export {
   humanType,
   humanClick,
   handleCloudflareTurnstile,
-  transformToDirectApplyUrl,
   enableFastRouteInterception,
   runFastLocalNavMatcher,
   resolveTargetElementWithTextAI,

@@ -24,7 +24,6 @@ import {
   humanClick,
   handleCloudflareTurnstile
 } from './stealth-evasion.js';
-import { transformToDirectApplyUrl } from './direct-url-transformer.js';
 import { enableFastRouteInterception } from './fast-route-interceptor.js';
 import { runFastLocalNavMatcher } from './fast-nav-matcher.js';
 
@@ -315,7 +314,6 @@ export class AutoApplyEngine {
 
     let page: Page | null = null;
     try {
-      const targetUrl = transformToDirectApplyUrl(url);
       const session = await getOrLaunchExternalSession();
       page = await session.context.newPage();
       await injectStealthScripts(page);
@@ -332,16 +330,31 @@ export class AutoApplyEngine {
         } catch {}
       });
 
-      if (typeof onProgress === 'function') onProgress({ phase: 'navigating', message: `Opening: ${targetUrl}`, colorState: 'grey' });
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+      if (typeof onProgress === 'function') onProgress({ phase: 'navigating', message: `Opening: ${url}`, colorState: 'grey' });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 35000 });
       await page.bringToFront().catch(() => {});
 
       await AutoApplyEngine.emitStatus(page, { phase: 'navigating', message: 'Nomadic Lightning-Fast AI Engine Active', colorState: 'grey' }, onProgress);
 
       // Handle Built-in Demo Test Job
-      const isDemoTest = targetUrl.includes('httpbin.org') || targetUrl.includes('nomadic-demo') || targetUrl.includes('test-job');
+      const isDemoTest = url.includes('httpbin.org') || url.includes('nomadic-demo') || url.includes('test-job');
       if (isDemoTest) {
-        return await AutoApplyEngine.handleDemoTestApplication(page, profile, targetUrl, onProgress);
+        return await AutoApplyEngine.handleDemoTestApplication(page, profile, url, onProgress);
+      }
+
+      // Check for 404 / Expired / Closed page immediately
+      const initialErrorCheck = await AutoApplyEngine.detect404OrExpiredPage(page);
+      if (initialErrorCheck.is404) {
+        await AutoApplyEngine.emitStatus(page, {
+          phase: 'cancelled',
+          message: 'Job Posting Closed or Not Found (404)',
+          colorState: 'red',
+          actionRequired: 'Job Expired'
+        }, onProgress);
+        return {
+          url, success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0,
+          error: 'Job posting closed or not found (404)',
+        };
       }
 
       // Candidate profile context for AI vision planner
@@ -383,9 +396,24 @@ export class AutoApplyEngine {
           await page.waitForTimeout(1500);
         }
 
-        // B. Check for Confirmed Submission
-        const confirmed = await AutoApplyEngine.isPageConfirmedSubmission(page);
-        if (confirmed) {
+        // B. Check for 404 / Expired page
+        const errorCheck = await AutoApplyEngine.detect404OrExpiredPage(page);
+        if (errorCheck.is404) {
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'cancelled',
+            message: 'Job Posting Closed or Not Found (404)',
+            colorState: 'red',
+            actionRequired: 'Job Expired'
+          }, onProgress);
+          return {
+            url, success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0,
+            error: 'Job posting closed or not found (404)',
+          };
+        }
+
+        // C. Check for Confirmed Submission
+        const confirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled);
+        if (confirmed && totalFieldsFilled > 0) {
           isSubmitted = true;
           await AutoApplyEngine.emitStatus(page, {
             phase: 'success',
@@ -393,11 +421,11 @@ export class AutoApplyEngine {
             colorState: 'green'
           }, onProgress);
           return {
-            url: targetUrl, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: Math.max(1, totalFieldsFilled)
+            url, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: totalFieldsFilled
           };
         }
 
-        // C. Check for CAPTCHA wall
+        // D. Check for CAPTCHA wall
         const captchaDetected = await AutoApplyEngine.detectCaptcha(page);
         if (captchaDetected) {
           await AutoApplyEngine.emitStatus(page, {
@@ -407,12 +435,12 @@ export class AutoApplyEngine {
             actionRequired: 'Solve CAPTCHA'
           }, onProgress);
           return {
-            url: targetUrl, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
+            url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
             error: 'CAPTCHA challenge detected (left open in browser)',
           };
         }
 
-        // D. Check for Login Wall
+        // E. Check for Login Wall
         const isLoginRequired = await AutoApplyEngine.detectLoginRequired(page);
         if (isLoginRequired) {
           await AutoApplyEngine.emitStatus(page, {
@@ -432,13 +460,13 @@ export class AutoApplyEngine {
             continue;
           } else {
             return {
-              url: targetUrl, success: false, submitted: false, prefilled: false, captchaDetected: false, requiresLogin: true, fieldsFilledCount: 0,
+              url, success: false, submitted: false, prefilled: false, captchaDetected: false, requiresLogin: true, fieldsFilledCount: 0,
               error: 'Sign-in required on job portal (left open in browser)',
             };
           }
         }
 
-        // E. Tier 1: Local Fast Navigation & Search Matcher (10ms - 0 AI, 0 Photos)
+        // F. Tier 1: Local Fast Navigation & Search Matcher (10ms - 0 AI, 0 Photos)
         const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
         if (fastNav.triggered && fastNav.action !== 'form_already_present') {
           await AutoApplyEngine.emitStatus(page, {
@@ -606,14 +634,14 @@ export class AutoApplyEngine {
       }
 
       // H. Final Result Evaluation
-      if (isSubmitted) {
+      if (isSubmitted && totalFieldsFilled > 0) {
         await AutoApplyEngine.emitStatus(page, {
           phase: 'success',
           message: 'Confirmed Application Submitted Successfully!',
           colorState: 'green'
         }, onProgress);
         return {
-          url, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: Math.max(1, totalFieldsFilled),
+          url, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: totalFieldsFilled,
         };
       }
 
@@ -629,16 +657,17 @@ export class AutoApplyEngine {
         };
       }
 
-      // If on external portal, leave open cleanly
+      // If on external portal with 0 fields filled
       await AutoApplyEngine.emitStatus(page, {
-        phase: 'user_input_required',
-        message: 'Job Portal Opened — Ready for Candidate Review',
-        colorState: 'green',
-        actionRequired: 'Review Job'
+        phase: 'cancelled',
+        message: 'No Application Form Found on Portal',
+        colorState: 'red',
+        actionRequired: 'Review Portal Manually'
       }, onProgress);
 
       return {
-        url, success: true, submitted: false, prefilled: true, captchaDetected: false, fieldsFilledCount: 1,
+        url, success: false, submitted: false, prefilled: false, captchaDetected: false, fieldsFilledCount: 0,
+        error: 'No application form inputs found on page',
       };
     } catch (err: any) {
       if (typeof onProgress === 'function') onProgress({ phase: 'cancelled', message: `Notice: ${err?.message}`, colorState: 'grey' });
@@ -754,11 +783,68 @@ export class AutoApplyEngine {
   }
 
   /**
+   * Detects if the current page is an HTTP 404 / 410, closed listing, or expired error page.
+   */
+  public static async detect404OrExpiredPage(page: Page): Promise<{ is404: boolean; reason?: string }> {
+    try {
+      const errorSignatures = [
+        "sorry, we couldn't find anything here",
+        "the job posting you're looking for might have closed",
+        "404 error",
+        "404 not found",
+        "404 - not found",
+        "page not found",
+        "page does not exist",
+        "job not found",
+        "this job has expired",
+        "this internship has expired",
+        "no longer accepting applications",
+        "position has been filled",
+        "job is no longer available",
+        "looks like you crashed",
+        "application closed for this",
+        "no such job",
+        "no such internship",
+      ];
+
+      const targets = AutoApplyEngine.getAllFrames(page);
+      for (const target of targets) {
+        const isError = await target.evaluate((sigs) => {
+          const title = (document.title || '').toLowerCase();
+          const body = (document.body?.innerText || '').toLowerCase();
+
+          for (const sig of sigs) {
+            if (title.includes(sig) || body.includes(sig)) {
+              return { is404: true, reason: sig };
+            }
+          }
+
+          const h1Text = Array.from(document.querySelectorAll('h1, h2, h3')).map(h => (h.textContent || '').toLowerCase()).join(' ');
+          if (h1Text.includes('404') || h1Text.includes('not found') || h1Text.includes('page not found') || h1Text.includes('expired')) {
+            return { is404: true, reason: '404_heading' };
+          }
+
+          return { is404: false };
+        }, errorSignatures).catch(() => ({ is404: false }));
+
+        if (isError.is404) return isError;
+      }
+      return { is404: false };
+    } catch {
+      return { is404: false };
+    }
+  }
+
+  /**
    * Checks if the DOM currently confirms successful application submission.
    */
-  public static async isPageConfirmedSubmission(page: Page): Promise<boolean> {
+  public static async isPageConfirmedSubmission(page: Page, fieldsFilledCount: number = 0): Promise<boolean> {
     try {
-      return await page.evaluate(() => {
+      // 404 / error pages must never be confirmed
+      const errCheck = await AutoApplyEngine.detect404OrExpiredPage(page);
+      if (errCheck.is404) return false;
+
+      return await page.evaluate((filled) => {
         const text = (document.body?.innerText || '').toLowerCase();
         const successPhrases = [
           'thank you for applying',
@@ -770,8 +856,13 @@ export class AutoApplyEngine {
           'your application was sent',
           'thanks for applying',
         ];
-        return successPhrases.some(phrase => text.includes(phrase));
-      });
+        const hasSuccessText = successPhrases.some(phrase => text.includes(phrase));
+        const hasSuccessContainer = Boolean(
+          document.querySelector('.application-confirmation, .success-message, [data-qa="success-message"], #application_confirmation, .submission-success')
+        );
+
+        return hasSuccessContainer || (hasSuccessText && (filled > 0 || !document.querySelector('input, select, textarea')));
+      }, fieldsFilledCount);
     } catch {
       return false;
     }

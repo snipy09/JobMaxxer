@@ -340,7 +340,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Bengaluru / Remote',
     stipend: '₹35,000 /month',
     skills: 'React, TypeScript, TailwindCSS',
-    applyUrl: 'https://jobs.lever.co/razorpay/intern-frontend',
+    applyUrl: 'https://jobs.lever.co/razorpay',
   },
   {
     title: 'Backend Engineering Intern (Node.js / Go)',
@@ -348,7 +348,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Bengaluru, Karnataka',
     stipend: '₹40,000 /month',
     skills: 'Node.js, Golang, PostgreSQL, Redis',
-    applyUrl: 'https://jobs.lever.co/swiggy/intern-backend',
+    applyUrl: 'https://jobs.lever.co/swiggy',
   },
   {
     title: 'Full Stack Development Intern',
@@ -356,7 +356,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Bengaluru, Karnataka',
     stipend: '₹45,000 /month',
     skills: 'TypeScript, React, Node.js, AWS',
-    applyUrl: 'https://boards.greenhouse.io/cred/jobs/fullstack-intern',
+    applyUrl: 'https://boards.greenhouse.io/cred',
   },
   {
     title: 'Software Development Engineer Intern (SDE)',
@@ -364,7 +364,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Gurgaon / Delhi NCR',
     stipend: '₹35,000 /month',
     skills: 'Java, Python, System Design',
-    applyUrl: 'https://boards.greenhouse.io/zomato/jobs/sde-intern',
+    applyUrl: 'https://boards.greenhouse.io/zomato',
   },
   {
     title: 'AI / Machine Learning Intern',
@@ -372,7 +372,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Bengaluru / Remote',
     stipend: '₹40,000 /month',
     skills: 'Python, PyTorch, LLMs, NLP',
-    applyUrl: 'https://boards.greenhouse.io/inmobi/jobs/ai-ml-intern',
+    applyUrl: 'https://boards.greenhouse.io/inmobi',
   },
   {
     title: 'Data Analyst / Engineering Intern',
@@ -380,7 +380,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Bengaluru, Karnataka',
     stipend: '₹30,000 /month',
     skills: 'SQL, Python, Spark, Tableau',
-    applyUrl: 'https://boards.greenhouse.io/groww/jobs/data-analyst-intern',
+    applyUrl: 'https://boards.greenhouse.io/groww',
   },
   {
     title: 'DevOps & Cloud Infrastructure Intern',
@@ -388,7 +388,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Bengaluru / Remote',
     stipend: '₹35,000 /month',
     skills: 'Docker, Kubernetes, AWS, CI/CD',
-    applyUrl: 'https://boards.greenhouse.io/postman/jobs/devops-intern',
+    applyUrl: 'https://boards.greenhouse.io/postman',
   },
   {
     title: 'Frontend Systems Engineering Intern',
@@ -396,7 +396,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Mumbai / Remote',
     stipend: '₹35,000 /month',
     skills: 'React, JavaScript, Web Performance',
-    applyUrl: 'https://boards.greenhouse.io/browserstack/jobs/frontend-intern',
+    applyUrl: 'https://boards.greenhouse.io/browserstack',
   },
   {
     title: 'Mobile App Developer Intern (Flutter / React Native)',
@@ -404,7 +404,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Mumbai, Maharashtra',
     stipend: '₹30,000 /month',
     skills: 'Flutter, React Native, Mobile SDKs',
-    applyUrl: 'https://jobs.lever.co/zepto/mobile-intern',
+    applyUrl: 'https://jobs.lever.co/zepto',
   },
   {
     title: 'Cloud Backend Developer Intern',
@@ -412,7 +412,7 @@ const VERIFIED_INDIAN_TECH_OPENINGS: Array<{
     location: 'Bengaluru / Remote',
     stipend: '₹40,000 /month',
     skills: 'GraphQL, PostgreSQL, Node.js',
-    applyUrl: 'https://boards.greenhouse.io/hasura/jobs/backend-intern',
+    applyUrl: 'https://boards.greenhouse.io/hasura',
   },
 ];
 
