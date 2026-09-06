@@ -1768,7 +1768,7 @@ ipcMain.handle('send-outreach', async (
       }
     }
 
-    // 2. Automated Direct Dispatch via Playwright Chrome Session
+    // 2. Automated Direct Background Sequential Dispatch via Playwright Chrome Session
     try {
       const { chromium } = await import('playwright');
       const os = await import('os');
@@ -1779,57 +1779,79 @@ ipcMain.handle('send-outreach', async (
       const chromeUserData = path.join(localAppData, 'Google', 'Chrome', 'User Data');
 
       if (fs.existsSync(chromeUserData)) {
-        log(`[Outreach Bot] Connecting to Chrome profile to dispatch emails automatically...`);
+        log(`[Outreach Bot] Launching background sequential outreach session for ${verifiedContacts.length} contacts...`);
+        
+        // Launch Chrome off-screen without focus stealing so user can multitask uninterrupted
         const context = await chromium.launchPersistentContext(chromeUserData, {
           headless: false,
           channel: 'chrome',
-          args: ['--no-first-run', '--no-default-browser-check'],
+          args: [
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--window-position=3500,3500', // Positions off-screen to avoid stealing visual focus
+            '--window-size=800,600',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+          ],
         });
 
         let sentCount = 0;
-        const page = await context.newPage();
 
+        // Process strictly ONE BY ONE sequentially
         for (let i = 0; i < verifiedContacts.length; i++) {
           const vc = verifiedContacts[i];
+          log(`[Outreach Bot] (${i + 1}/${verifiedContacts.length}) Opening background composer for ${vc.name || vc.email} (${vc.company || 'Company'})...`);
+          
           const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
             vc.email
           )}&su=${encodeURIComponent(vc.subject)}&body=${encodeURIComponent(vc.body)}`;
 
+          let page: any = null;
           try {
-            await page.goto(gmailUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            await page.waitForTimeout(1200);
+            page = await context.newPage();
+            await page.goto(gmailUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+            await page.waitForTimeout(1400);
 
-            // Trigger Send button in Gmail (Ctrl+Enter or click Send)
+            // Trigger Send action in Gmail
             await page.keyboard.press('Control+Enter').catch(() => {});
-            await page.waitForTimeout(800);
+            await page.waitForTimeout(600);
 
-            // Backup: check Send button click
+            // Secondary Send button trigger if still present
             const sendBtn = await page.$('div[role="button"][data-tooltip*="Send"], div[aria-label*="Send"], div.T-I.J-J5-Ji.aoO.v7.T-I-atl.L3');
             if (sendBtn) {
               await sendBtn.click().catch(() => {});
+              await page.waitForTimeout(600);
             }
 
             sentCount++;
-            logUserActivityDb('outreach', `Automatically sent outreach email to ${vc.name || vc.email} at ${vc.company || 'Company'}`);
-            if (i < verifiedContacts.length - 1) {
-              await page.waitForTimeout(1200);
-            }
+            logUserActivityDb('outreach', `Sent outreach email to ${vc.name || vc.email} at ${vc.company || 'Company'}`);
+            log(`[Outreach Bot] (${i + 1}/${verifiedContacts.length}) Sent email to ${vc.email} ✓`);
           } catch (itemErr) {
             log(`[Outreach Bot] Notice for ${vc.email}: ${itemErr}`);
+          } finally {
+            if (page && !page.isClosed()) {
+              await page.close().catch(() => {});
+            }
+          }
+
+          // Natural human spacing before opening next background composer
+          if (i < verifiedContacts.length - 1) {
+            await new Promise(r => setTimeout(r, 1800));
           }
         }
 
-        await page.close().catch(() => {});
+        await context.close().catch(() => {});
         if (sentCount > 0) {
-          log(`[Outreach] Dispatched ${sentCount} outreach emails directly via Chrome ✓`);
+          log(`[Outreach] Successfully finished background sequential outreach: ${sentCount}/${verifiedContacts.length} sent ✓`);
           return { success: true, sent: sentCount, mode: 'automated_chrome' };
         }
       }
     } catch (chromeErr: any) {
-      log(`[Outreach] Chrome direct sending notice: ${chromeErr?.message || chromeErr}. Falling back to default browser drafts.`);
+      log(`[Outreach] Chrome direct background sending notice: ${chromeErr?.message || chromeErr}. Falling back to default browser drafts.`);
     }
 
-    // 3. Open Drafts in User's Default Browser with staggered delay
+    // 3. Open Drafts in User's Default Browser sequentially with staggered delay
     log(`[Outreach Deep-Link] Opening ${verifiedContacts.length} compose drafts in system default browser...`);
     for (let i = 0; i < verifiedContacts.length; i++) {
       const vc = verifiedContacts[i];
@@ -1838,7 +1860,7 @@ ipcMain.handle('send-outreach', async (
       )}&su=${encodeURIComponent(vc.subject)}&body=${encodeURIComponent(vc.body)}`;
       await shell.openExternal(gmailUrl);
       if (i < verifiedContacts.length - 1) {
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 600));
       }
       logUserActivityDb('outreach', `Prepared draft outreach for ${vc.name || vc.email} at ${vc.company || 'Company'}`);
     }
