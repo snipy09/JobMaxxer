@@ -27,6 +27,7 @@ import {
 import { enableFastRouteInterception } from './fast-route-interceptor.js';
 import { runFastLocalNavMatcher } from './fast-nav-matcher.js';
 import { executeInstantBatchFormFill } from './fast-batch-filler.js';
+import { executeDeterministicFormSolve } from './deterministic-form-solver.js';
 
 export interface MasterProfile {
   firstName: string;
@@ -399,17 +400,15 @@ export class AutoApplyEngine {
         customAnswers: profile.customAnswers || {},
       };
 
-      // ── MULTI-TURN LIGHTNING-FAST AUTONOMOUS LOOP (Up to 8 turns) ─────────
+      // ── HIGH-SPEED DETERMINISTIC AUTONOMOUS PIPELINE (Max 3 Fast Passes, <= 2s Total) ──
       let totalFieldsFilled = 0;
-      let turn = 0;
-      const MAX_TURNS = 8;
       let isSubmitted = false;
+      const MAX_DETERMINISTIC_PASSES = 3;
 
-      while (turn < MAX_TURNS) {
-        turn++;
-        await page.waitForTimeout(200);
+      for (let pass = 1; pass <= MAX_DETERMINISTIC_PASSES; pass++) {
+        await page.waitForTimeout(100);
 
-        // A. Anti-Bot / Cloudflare Turnstile Check
+        // 1. Anti-Bot / Cloudflare Turnstile Check
         const cfResult = await handleCloudflareTurnstile(page);
         if (cfResult.detected && !cfResult.resolved) {
           await AutoApplyEngine.emitStatus(page, {
@@ -421,7 +420,7 @@ export class AutoApplyEngine {
           await page.waitForTimeout(1500);
         }
 
-        // B. Check for 404 / Expired page
+        // 2. Check for 404 / Expired page
         const errorCheck = await AutoApplyEngine.detect404OrExpiredPage(page);
         if (errorCheck.is404) {
           await AutoApplyEngine.emitStatus(page, {
@@ -436,7 +435,7 @@ export class AutoApplyEngine {
           };
         }
 
-        // B2. Check for WAF / Security Access Restrictions
+        // 3. Check for WAF / Security Access Restrictions
         const wafLoopCheck = await AutoApplyEngine.detectWafOrAccessRestricted(page);
         if (wafLoopCheck.isBlocked) {
           await AutoApplyEngine.emitStatus(page, {
@@ -455,7 +454,7 @@ export class AutoApplyEngine {
           }
         }
 
-        // C. Check for Confirmed Submission
+        // 4. Check for Confirmed Submission
         const confirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled);
         if (confirmed && totalFieldsFilled > 0) {
           isSubmitted = true;
@@ -469,22 +468,7 @@ export class AutoApplyEngine {
           };
         }
 
-        // D. Check for CAPTCHA wall
-        const captchaDetected = await AutoApplyEngine.detectCaptcha(page);
-        if (captchaDetected) {
-          await AutoApplyEngine.emitStatus(page, {
-            phase: 'user_input_required',
-            message: 'CAPTCHA Challenge Detected — Solve to proceed',
-            colorState: 'red',
-            actionRequired: 'Solve CAPTCHA'
-          }, onProgress);
-          return {
-            url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
-            error: 'CAPTCHA challenge detected (left open in browser)',
-          };
-        }
-
-        // E. Check for Login Wall & Sign-Up Gatekeepers
+        // 5. Check for Login Wall & Sign-Up Gatekeepers
         const loginCheck = await AutoApplyEngine.detectLoginRequired(page);
         if (loginCheck.requiresLogin) {
           const portalLabel = loginCheck.portalName || 'Job Portal';
@@ -512,44 +496,34 @@ export class AutoApplyEngine {
           }
         }
 
-        // F. Tier 1: Local Fast Navigation & Search Matcher (10ms - 0 AI, 0 Photos)
-        const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
-        if (fastNav.triggered && fastNav.action !== 'form_already_present') {
+        // 6. Check for CAPTCHA wall
+        const captchaDetected = await AutoApplyEngine.detectCaptcha(page);
+        if (captchaDetected) {
           await AutoApplyEngine.emitStatus(page, {
-            phase: 'navigating',
-            message: `Instant Match: ${fastNav.action.replace(/_/g, ' ')}...`,
-            colorState: 'grey'
+            phase: 'user_input_required',
+            message: 'CAPTCHA Challenge Detected — Solve to proceed',
+            colorState: 'red',
+            actionRequired: 'Solve CAPTCHA'
           }, onProgress);
-          
-          await page.waitForTimeout(600);
-          // Check if clicking Apply opened a new popup/tab or redirected to an external ATS form
-          const allOpenPages = session.context.pages();
-          if (allOpenPages.length > 1) {
-            const latestPage = allOpenPages[allOpenPages.length - 1];
-            if (latestPage && !latestPage.isClosed() && latestPage !== page) {
-              page = latestPage;
-              await injectStealthScripts(page);
-              await enableFastRouteInterception(page);
-              await page.bringToFront().catch(() => {});
-            }
-          }
-          await page.waitForLoadState('domcontentloaded').catch(() => {});
-          continue;
+          return {
+            url, success: false, submitted: false, prefilled: false, captchaDetected: true, fieldsFilledCount: 0,
+            error: 'CAPTCHA challenge detected (left open in browser)',
+          };
         }
 
-        // G. Instant In-Memory Batch Form Fill (< 15ms)
-        const batchFill = await executeInstantBatchFormFill(page, profile);
-        if (batchFill.filledCount > 0) {
-          totalFieldsFilled += batchFill.filledCount;
+        // 7. Instant Form Solve (Single-Pass V8 Execution in < 20ms)
+        const solveResult = await executeDeterministicFormSolve(page, profile);
+        if (solveResult.filledCount > 0) {
+          totalFieldsFilled += solveResult.filledCount;
           await AutoApplyEngine.emitStatus(page, {
             phase: 'filling',
-            message: `Instant Form Filled (${batchFill.filledCount} fields & radio questions populated)...`,
+            message: `Instant Form Filled (${solveResult.filledCount} fields & questions solved)...`,
             colorState: 'green'
           }, onProgress);
 
-          if (batchFill.submitClicked) {
-            await page.waitForTimeout(800);
-            const isConfirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled);
+          if (solveResult.submitClicked) {
+            await page.waitForTimeout(600);
+            const isConfirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled) || solveResult.isConfirmed;
             if (isConfirmed) {
               isSubmitted = true;
               break;
@@ -557,156 +531,47 @@ export class AutoApplyEngine {
           }
         }
 
-        // E. AI Vision Inspection (Screenshot + Interactive DOM Tree)
-        await AutoApplyEngine.emitStatus(page, {
-          phase: 'filling',
-          message: `AI Vision analyzing application screen (Step ${turn}/${MAX_TURNS})...`,
-          colorState: 'grey'
-        }, onProgress);
-
-        const visionCapture = await capturePageVisionAndDOM(page);
-        const aiPlan = await generateAIVisionActionPlan(
-          candidateProfileForAI,
-          visionCapture.screenshotBase64,
-          visionCapture.elements,
-          { geminiKey: profile.geminiApiKey }
-        );
-
-        // F. Execute AI Plan Decisions
-        if (aiPlan) {
-          if (aiPlan.statusMessage) {
+        // 8. If no fields filled yet, run Fast Nav Matcher (Click Apply / Open Application modal in 10ms)
+        if (totalFieldsFilled === 0) {
+          const fastNav = await runFastLocalNavMatcher(page, profile.desiredTitle);
+          if (fastNav.triggered && fastNav.action !== 'form_already_present') {
             await AutoApplyEngine.emitStatus(page, {
-              phase: 'filling',
-              message: `AI: ${aiPlan.statusMessage}`,
+              phase: 'navigating',
+              message: `Triggering: ${fastNav.action.replace(/_/g, ' ')}...`,
               colorState: 'grey'
             }, onProgress);
-          }
 
-          // Case 1: AI confirms submission is complete
-          if (aiPlan.pageState === 'submission_confirmed' || aiPlan.actionType === 'done') {
-            isSubmitted = true;
-            await AutoApplyEngine.emitStatus(page, {
-              phase: 'success',
-              message: 'Confirmed Application Submitted Successfully! ✓',
-              colorState: 'green'
-            }, onProgress);
-            return {
-              url, success: true, submitted: true, prefilled: true, captchaDetected: false, fieldsFilledCount: Math.max(1, totalFieldsFilled)
-            };
-          }
+            await page.waitForTimeout(400);
 
-          // Case 2: AI navigates from homepage / listing / job description by clicking Apply or Job link
-          if (
-            aiPlan.pageState === 'listing_or_homepage' ||
-            aiPlan.pageState === 'job_description' ||
-            aiPlan.actionType === 'click_element' ||
-            aiPlan.clickTargetElementId
-          ) {
-            const targetId = aiPlan.clickTargetElementId || aiPlan.clickActionElementId;
-            if (targetId) {
-              await AutoApplyEngine.emitStatus(page, {
-                phase: 'navigating',
-                message: 'AI navigating to job application form...',
-                colorState: 'grey'
-              }, onProgress);
-              const clicked = await executeNomadicClick(page, targetId);
-              if (clicked) {
-                await page.waitForTimeout(600);
-                continue;
+            // Check if clicking Apply opened a new popup/tab
+            const allOpenPages = session.context.pages();
+            if (allOpenPages.length > 1) {
+              const latestPage = allOpenPages[allOpenPages.length - 1];
+              if (latestPage && !latestPage.isClosed() && latestPage !== page) {
+                page = latestPage;
+                await injectStealthScripts(page);
+                await enableFastRouteInterception(page);
+                await page.bringToFront().catch(() => {});
               }
             }
-          }
-
-          // Case 3: AI fills form inputs (Rapid Fast)
-          let filledInTurn = 0;
-          if (Array.isArray(aiPlan.fillActions)) {
-            for (const fillAct of aiPlan.fillActions) {
-              if (fillAct.elementId && fillAct.value) {
-                const ok = await executeNomadicFill(page, fillAct.elementId, fillAct.value);
-                if (ok) filledInTurn++;
-              }
-            }
-          }
-
-          // Select dropdowns
-          if (Array.isArray(aiPlan.selectActions)) {
-            for (const selAct of aiPlan.selectActions) {
-              if (selAct.elementId && selAct.selectedOption) {
-                const ok = await executeNomadicSelect(page, selAct.elementId, selAct.selectedOption);
-                if (ok) filledInTurn++;
-              }
-            }
-          }
-
-          // Checkboxes
-          if (Array.isArray(aiPlan.checkboxActions)) {
-            for (const cbAct of aiPlan.checkboxActions) {
-              if (cbAct.elementId) {
-                const ok = await executeNomadicCheckbox(page, cbAct.elementId, cbAct.checked ?? true);
-                if (ok) filledInTurn++;
-              }
-            }
-          }
-
-          // Upload resume
-          if (aiPlan.uploadResumeElementId) {
-            const resumePath = ensureFallbackResumePath(profile);
-            const uploaded = await executeNomadicUploadResume(page, aiPlan.uploadResumeElementId, resumePath);
-            if (uploaded) filledInTurn++;
-          }
-
-          totalFieldsFilled += filledInTurn;
-
-          // Case 4: Advance multi-step stepper or submit
-          if (aiPlan.nextStepType === 'advance_next' || aiPlan.actionType === 'advance_step') {
-            const nextButton = await AutoApplyEngine.findNextStepButton(page);
-            if (nextButton) {
-              await AutoApplyEngine.emitStatus(page, { phase: 'advancing', message: 'Advancing to next step...', colorState: 'grey' }, onProgress);
-              await humanClick(page, nextButton);
-              await page.waitForTimeout(600);
-              continue;
-            }
-          }
-
-          if (aiPlan.nextStepType === 'submit_application' || aiPlan.actionType === 'submit') {
-            await AutoApplyEngine.emitStatus(page, { phase: 'submitting', message: 'Submitting completed application...', colorState: 'grey' }, onProgress);
-            const submitClicked = await AutoApplyEngine.submitForm(page);
-            if (submitClicked) {
-              await page.waitForTimeout(1000);
-              const finalConfirm = await AutoApplyEngine.isPageConfirmedSubmission(page);
-              if (finalConfirm) {
-                isSubmitted = true;
-              }
-              break;
-            }
+            await page.waitForLoadState('domcontentloaded').catch(() => {});
+            continue;
           }
         }
 
-        // G. Complementary Fallback: If no fields filled by AI, try deterministic heuristic fill
-        if (totalFieldsFilled === 0) {
-          await AutoApplyEngine.openApplicationFormIfRequired(page);
-          const heuristicFilled = await AutoApplyEngine.fillHeuristicFormFields(page, profile);
-          totalFieldsFilled += heuristicFilled;
-        }
-
-        // Check if we can find and click Next or Submit
-        const nextBtn = await AutoApplyEngine.findNextStepButton(page);
-        if (nextBtn) {
-          await humanClick(page, nextBtn);
-          await page.waitForTimeout(600);
+        // 9. Multi-Step Stepper Advance (e.g. Next -> Review -> Submit)
+        const advanced = await AutoApplyEngine.advanceApplicationStepper(page);
+        if (advanced) {
+          await AutoApplyEngine.emitStatus(page, {
+            phase: 'filling',
+            message: 'Advancing to next application step...',
+            colorState: 'grey'
+          }, onProgress);
+          await page.waitForTimeout(400);
           continue;
         }
 
-        const submitBtn = await AutoApplyEngine.findSubmitButton(page);
-        if (submitBtn && totalFieldsFilled > 0) {
-          await AutoApplyEngine.emitStatus(page, { phase: 'submitting', message: 'Submitting application...', colorState: 'grey' }, onProgress);
-          await humanClick(page, submitBtn);
-          await page.waitForTimeout(1000);
-          isSubmitted = await AutoApplyEngine.isPageConfirmedSubmission(page);
-          break;
-        }
-
-        // If nothing to advance and fields filled, we are ready
+        // If form fields were filled, we are done
         if (totalFieldsFilled > 0) {
           break;
         }
