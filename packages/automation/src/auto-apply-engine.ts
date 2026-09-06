@@ -698,9 +698,9 @@ export class AutoApplyEngine {
           }, onProgress);
         }
 
-        // Human pacing: brief pause before clicking Submit to ensure all JS field validations complete cleanly
+        // Dynamic randomized human pause before clicking Submit to ensure all JS field validations complete cleanly
         if (totalFieldsFilled > 0) {
-          await page.waitForTimeout(300);
+          await randomPause(page, 280, 580);
         }
 
         // 11. Submission Engine (FormSubmitter) — Click Submit & Verify Confirmation

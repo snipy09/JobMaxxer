@@ -106,6 +106,25 @@ export async function injectStealthScripts(target: Page | Frame): Promise<void> 
 }
 
 /**
+ * Executes a randomized human pause with micro-jitter to completely evade bot timing heuristics.
+ */
+export async function randomPause(page?: Page | Frame | null, minMs: number = 220, maxMs: number = 520): Promise<void> {
+  const delay = Math.floor(minMs + Math.random() * (maxMs - minMs));
+  if (page && typeof page.waitForTimeout === 'function') {
+    await page.waitForTimeout(delay);
+  } else {
+    await new Promise(r => setTimeout(r, delay));
+  }
+}
+
+/**
+ * Returns a randomized millisecond integer between min and max.
+ */
+export function getRandomDelay(minMs: number = 200, maxMs: number = 500): number {
+  return Math.floor(minMs + Math.random() * (maxMs - minMs));
+}
+
+/**
  * Rapid-Fast Element Value Setter & Form Filler (< 5ms per field).
  * Instantly populates inputs/textareas while cleanly triggering DOM change and input events.
  */

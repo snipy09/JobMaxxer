@@ -1,7 +1,7 @@
 import type { Page } from 'playwright';
 import type { MasterProfile } from '../auto-apply-engine.js';
 import type { SpecializedBotResult } from './internshala-bot.js';
-import { humanClick } from '../stealth-evasion.js';
+import { humanClick, randomPause } from '../stealth-evasion.js';
 import { AIFallbackSolver } from '../ai-fallback.js';
 import fs from 'fs';
 
@@ -13,7 +13,7 @@ export class LeverBot {
         const applyBtn = await page.$('a.postings-btn, a[href$="/apply"], button:has-text("Apply for this job")');
         if (applyBtn) {
           await humanClick(page, applyBtn);
-          await page.waitForTimeout(400);
+          await randomPause(page, 300, 600);
         }
       }
 
@@ -122,7 +122,7 @@ export class LeverBot {
       if (submitBtn) {
         await humanClick(page, submitBtn);
         isSubmitted = true;
-        await page.waitForTimeout(600);
+        await randomPause(page, 450, 800);
         isConfirmed = await page.evaluate(() => {
           const body = (document.body?.innerText || '').toLowerCase();
           return body.includes('thank you') || body.includes('application received') || body.includes('submitted');

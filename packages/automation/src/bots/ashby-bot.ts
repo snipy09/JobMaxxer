@@ -1,7 +1,7 @@
 import type { Page } from 'playwright';
 import type { MasterProfile } from '../auto-apply-engine.js';
 import type { SpecializedBotResult } from './internshala-bot.js';
-import { humanClick } from '../stealth-evasion.js';
+import { humanClick, randomPause } from '../stealth-evasion.js';
 import fs from 'fs';
 
 export class AshbyBot {
@@ -71,7 +71,7 @@ export class AshbyBot {
       if (submitBtn) {
         await humanClick(page, submitBtn);
         isSubmitted = true;
-        await page.waitForTimeout(600);
+        await randomPause(page, 450, 800);
         isConfirmed = await page.evaluate(() => {
           const body = (document.body?.innerText || '').toLowerCase();
           return body.includes('application submitted') || body.includes('thank you for applying') || body.includes('received');

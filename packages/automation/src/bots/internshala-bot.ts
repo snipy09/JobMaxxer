@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
 import type { MasterProfile } from '../auto-apply-engine.js';
-import { humanClick } from '../stealth-evasion.js';
+import { humanClick, randomPause } from '../stealth-evasion.js';
 import { AIFallbackSolver } from '../ai-fallback.js';
 import fs from 'fs';
 
@@ -25,7 +25,7 @@ export class InternshalaBot {
         const isVis = typeof applyBtn.isVisible === 'function' ? await applyBtn.isVisible().catch(() => false) : true;
         if (isVis) {
           await humanClick(page, applyBtn);
-          await page.waitForTimeout(500);
+          await randomPause(page, 350, 650);
         }
       }
 
@@ -146,7 +146,7 @@ export class InternshalaBot {
       if (submitBtn) {
         await humanClick(page, submitBtn);
         isSubmitted = true;
-        await page.waitForTimeout(600);
+        await randomPause(page, 450, 800);
 
         isConfirmed = await page.evaluate(() => {
           const body = (document.body?.innerText || '').toLowerCase();
