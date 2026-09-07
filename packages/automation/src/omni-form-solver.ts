@@ -179,7 +179,7 @@ export class OmniFormSolver {
         }
         const parentLabel = el.closest('label');
         if (parentLabel) text += ' ' + parentLabel.textContent;
-        const formGroup = el.closest('.form-group, .question, .field, [class*="field"], [class*="question"], div');
+        const formGroup = el.closest('.form-group, .question, .field, [class*="field"], [class*="question"]');
         if (formGroup) {
           const header = formGroup.querySelector('label, h3, h4, .label, [class*="label"], [class*="title"], legend');
           if (header) text += ' ' + header.textContent;
@@ -233,17 +233,21 @@ export class OmniFormSolver {
           return 'custom_textarea';
         }
 
-        // Text & Other Inputs
-        if (l.includes('first name') || l.includes('firstname') || l.includes('first_name') || l.includes('fname')) return 'first_name';
-        if (l.includes('last name') || l.includes('lastname') || l.includes('last_name') || l.includes('lname') || l.includes('surname')) return 'last_name';
-        if (l.includes('full name') || l.includes('fullname') || l.includes('your name') || l.includes('candidate name') || l.includes('name')) return 'full_name';
+        // Text & Other Inputs (Order matters)
         if (type === 'email' || l.includes('email') || l.includes('e-mail')) return 'email';
         if (type === 'tel' || l.includes('phone') || l.includes('mobile') || l.includes('contact')) return 'phone';
         if (l.includes('linkedin')) return 'linkedin';
         if (l.includes('github')) return 'github';
         if (l.includes('portfolio') || l.includes('personal website') || l.includes('work sample') || l.includes('project')) return 'portfolio';
-        if (l.includes('website') || l.includes('site')) return 'website';
+        if (l.includes('website') || l.includes('site') || l.includes('link')) return 'website';
         if (l.includes('twitter') || l.includes('x.com')) return 'twitter';
+        
+        if (l.includes('company') || l.includes('employer') || l.includes('organization')) return 'current_company';
+
+        if (l.includes('first name') || l.includes('firstname') || l.includes('first_name') || l.includes('fname')) return 'first_name';
+        if (l.includes('last name') || l.includes('lastname') || l.includes('last_name') || l.includes('lname') || l.includes('surname')) return 'last_name';
+        if (l.includes('full name') || l.includes('fullname') || l.includes('your name') || l.includes('candidate name') || l.includes('legal name') || l.includes('preferred name') || (l.includes('name') && !l.includes('company'))) return 'full_name';
+        
         if (l.includes('start typing') || (l.includes('location') && (l.includes('located') || l.includes('where')))) return 'location_search';
         if (l.includes('city')) return 'city';
         if (l.includes('state') || l.includes('province')) return 'state';
@@ -430,18 +434,21 @@ export class OmniFormSolver {
           case 'graduation_year': {
             const valToSet = (candidateProfileData as any)[field.category];
             if (valToSet) {
+              await elHandle.fill(valToSet).catch(() => {});
+              // Also dispatch events just in case
               await elHandle.evaluate((el: HTMLElement, val: string) => {
                 const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
                 const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
                 if (setter) {
-                  setter.call(el, val);
+                  try { setter.call(el, val); } catch {}
                 } else {
                   (el as any).value = val;
                 }
                 el.dispatchEvent(new Event('input', { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
                 el.dispatchEvent(new Event('blur', { bubbles: true }));
-              }, valToSet);
+              }, valToSet).catch(() => {});
+              
               result.fieldsFilled++;
             }
             break;
@@ -598,7 +605,7 @@ export class OmniFormSolver {
 
     // ── PASS 8: PRE-SUBMIT REMEDIATION PASS (Catches any remaining required/empty fields) ──
     try {
-      const remainingUnfilled = await page.$$('input:invalid, textarea:invalid, select:invalid, [required]:not(:checked)');
+      const remainingUnfilled = await page.$$('input:invalid, textarea:invalid, select:invalid, [required]:not(:checked), [aria-required="true"]');
       for (const un of remainingUnfilled) {
         try {
           const isReq = await un.evaluate(el => (el as any).required || el.getAttribute('aria-required') === 'true').catch(() => false);
@@ -621,6 +628,9 @@ export class OmniFormSolver {
               result.resumeUploaded = true;
             }
           } else if (tag === 'textarea' || tag === 'input') {
+            const valLength = await un.evaluate((el: HTMLInputElement | HTMLTextAreaElement) => (el.value || '').trim().length).catch(() => 0);
+            if (valLength > 0) continue; // If it's already filled (even if invalid), don't overwrite with hallucinated AI text
+
             const label = await un.evaluate(el => {
               return el.closest('.form-group, .question, label')?.textContent || (el as any).placeholder || (el as any).name || 'Application detail';
             }).catch(() => 'Application detail');
@@ -630,8 +640,12 @@ export class OmniFormSolver {
               company: resolvedCompany,
               userProfile: profile,
             });
-            await un.fill(answer).catch(() => {});
-            result.fieldsFilled++;
+            
+            // Check if Answer is just a generic fallback before applying it
+            if (answer && answer.length > 5) {
+               await un.fill(answer).catch(() => {});
+               result.fieldsFilled++;
+            }
           }
         } catch {}
       }

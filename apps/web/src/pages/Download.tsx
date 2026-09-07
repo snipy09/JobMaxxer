@@ -71,7 +71,7 @@ export default function Download() {
       {/* Top Announcement */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-[11px] sm:text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950 shrink-0" />
-        <span>Official Download Portal · Nomadic v1.0.3 Windows x64 Native Release</span>
+        <span>Official Download Portal · Nomadic v1.0.4 Windows x64 Native Release</span>
       </div>
 
       {/* Main Navigation */}
@@ -103,7 +103,7 @@ export default function Download() {
         <div className="text-center max-w-2xl mx-auto space-y-4 animate-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-[11px] sm:text-xs font-mono text-ink-600 shadow-fine">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Version 1.0.3 Verified Release</span>
+            <span>Version 1.0.4 Verified Release</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-ink-950 leading-tight">
@@ -167,8 +167,8 @@ export default function Download() {
             <div className="space-y-3 pt-4 border-t border-ink-100">
               {/* Primary Download Button */}
               <a
-                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.3/Nomadic.Setup.1.0.3.exe"
-                onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.3/Nomadic.Setup.1.0.3.exe', 'Nomadic.Setup.1.0.3.exe')}
+                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.4/Nomadic.Setup.1.0.4.exe"
+                onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.4/Nomadic.Setup.1.0.4.exe', 'Nomadic.Setup.1.0.4.exe')}
                 className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95 text-center"
               >
                 <DownloadIcon className="w-4 h-4" />
@@ -178,8 +178,8 @@ export default function Download() {
               {/* Alternative Download Links */}
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <a
-                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.3/Nomadic.1.0.3.exe"
-                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.3/Nomadic.1.0.3.exe', 'Nomadic.1.0.3.exe')}
+                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.4/Nomadic.1.0.4.exe"
+                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.4/Nomadic.1.0.4.exe', 'Nomadic.1.0.4.exe')}
                   className="py-2.5 px-3 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
                   title="Run directly without running an installer"
                 >
@@ -188,8 +188,8 @@ export default function Download() {
                 </a>
 
                 <a
-                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.3/Nomadic-1.0.3-win.zip"
-                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.3/Nomadic-1.0.3-win.zip', 'Nomadic-1.0.3-win.zip')}
+                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.4/Nomadic-1.0.4-win.zip"
+                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.4/Nomadic-1.0.4-win.zip', 'Nomadic-1.0.4-win.zip')}
                   className="py-2.5 px-3 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
                   title="Download zip archive"
                 >
@@ -199,7 +199,7 @@ export default function Download() {
               </div>
 
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
-                <span>Release: v1.0.3 Stable</span>
+                <span>Release: v1.0.4 Stable</span>
                 <span>SHA-256 Verified</span>
               </div>
             </div>
@@ -348,7 +348,7 @@ export default function Download() {
               <span className="text-xs font-mono font-bold text-ink-400">STEP 01</span>
               <h4 className="font-bold text-sm text-ink-950">Download Release</h4>
               <p className="text-ink-600 leading-relaxed">
-                Click the download button above to get <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic.Setup.1.0.3.exe</code> (or the Portable Zip).
+                Click the download button above to get <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic.Setup.1.0.4.exe</code> (or the Portable Zip).
               </p>
             </div>
 

@@ -607,38 +607,8 @@ export class AutoApplyEngine {
             }
           }
 
-          // Case B: AI fills fields directly
-          if (Array.isArray(aiPlan.fillActions) && aiPlan.fillActions.length > 0) {
-            let filledByAi = 0;
-            for (const act of aiPlan.fillActions) {
-              if (!act.elementId || !act.value) continue;
-              try {
-                const targetNode = await page.$(`[data-nomadic-id="${act.elementId}"]`);
-                if (targetNode) {
-                  if (act.fieldType === 'file' || act.value === 'RESUME_ATTACHMENT') {
-                    const rPath = profile.resumeFilePath && fs.existsSync(profile.resumeFilePath) ? profile.resumeFilePath : null;
-                    if (rPath) {
-                      await targetNode.setInputFiles(rPath).catch(() => {});
-                      filledByAi++;
-                    }
-                  } else if (act.fieldType === 'radio') {
-                    await targetNode.check().catch(() => {});
-                    filledByAi++;
-                  } else if (act.fieldType === 'checkbox') {
-                    await targetNode.check().catch(() => {});
-                    filledByAi++;
-                  } else if (act.fieldType === 'select') {
-                    await targetNode.selectOption({ label: act.value }).catch(() => {});
-                    filledByAi++;
-                  } else {
-                    await targetNode.fill(act.value).catch(() => {});
-                    filledByAi++;
-                  }
-                }
-              } catch {}
-            }
-            totalFieldsFilled += filledByAi;
-          }
+          // [REMOVED CASE B] — AI Pilot Engine directly filling fields is highly prone to hallucination (e.g., pasting cover letters into Name fields).
+          // Form filling is now handled exclusively by the 100% deterministic OmniFormSolver in Step 10b.
 
           // Case C: AI triggers Submit Button
           if (aiPlan.submitButtonElementId && totalFieldsFilled > 0) {
