@@ -36,6 +36,7 @@ import { AIFallbackSolver } from './ai-fallback.js';
 import { extractSemanticDOM, type SemanticDOMSnapshot } from './semantic-dom-extractor.js';
 import { generateAIPilotPlan, type AIPilotPlan } from './ai-pilot-engine.js';
 import { dispatchSpecializedPortalBot } from './bots/bot-dispatcher.js';
+import { OmniFormSolver, getOrCreateValidResumePdf } from './omni-form-solver.js';
 
 export interface MasterProfile {
   firstName: string;
@@ -224,30 +225,7 @@ async function getOrLaunchExternalSession(): Promise<ExternalBrowserSession> {
  * Creates or retrieves a verified fallback PDF resume file so file uploads never fail.
  */
 function ensureFallbackResumePath(profile: MasterProfile): string {
-  if (profile.resumeFilePath && fs.existsSync(profile.resumeFilePath)) {
-    return profile.resumeFilePath;
-  }
-  if (Array.isArray(profile.resumes) && profile.resumes.length > 0) {
-    const def = profile.resumes.find(r => r.isDefault) || profile.resumes[0];
-    if (def?.filePath && fs.existsSync(def.filePath)) {
-      return def.filePath;
-    }
-  }
-
-  const tmpDir = os.tmpdir();
-  const resumePath = path.join(tmpDir, 'Nomadic_Candidate_Resume.pdf');
-  if (!fs.existsSync(resumePath)) {
-    const content = `Candidate Name: ${profile.firstName || 'Candidate'} ${profile.lastName || 'Applicant'}
-Email: ${profile.email || 'candidate@nomadic.app'}
-Phone: ${profile.phone || '+1 (555) 019-2834'}
-Target Role: ${profile.desiredTitle || 'Software Engineer'}
-Skills: ${profile.techStack || 'TypeScript, React, Node.js, Python, PostgreSQL, Cloud'}
-Summary: ${profile.summaryText || 'Experienced engineer building high performance applications.'}`;
-    try {
-      fs.writeFileSync(resumePath, content, 'utf8');
-    } catch {}
-  }
-  return resumePath;
+  return getOrCreateValidResumePdf(profile);
 }
 
 export class AutoApplyEngine {
@@ -696,6 +674,17 @@ export class AutoApplyEngine {
             message: `AI Form Filled (${totalFieldsFilled} fields, radios & questions solved)...`,
             colorState: 'green'
           }, onProgress);
+        }
+
+        // 10b. OmniFormSolver Deep Sweep (Checkboxes, Terms, Consent, Custom Selects, Remaining Text Inputs)
+        const omniResult = await OmniFormSolver.solveEntireForm(
+          page,
+          profile,
+          profile.desiredTitle || 'Software Engineer',
+          atsConfig.name
+        );
+        if (omniResult.totalInteractions > 0) {
+          totalFieldsFilled += omniResult.totalInteractions;
         }
 
         // Dynamic randomized human pause before clicking Submit to ensure all JS field validations complete cleanly
