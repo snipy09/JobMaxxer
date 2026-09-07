@@ -115,6 +115,16 @@ export async function runFastLocalNavMatcher(
             '.apply_now_button',
             'button.apply_now_button',
             'a[id="apply_now_button"]',
+            'button:has-text("Apply now")',
+            'a:has-text("Apply now")',
+            'button:has-text("Apply Now")',
+            'a:has-text("Apply Now")',
+            'button.btn-primary:has-text("Apply")',
+            'a.btn-primary:has-text("Apply")',
+            '.buttons_container button',
+            '.buttons_container a',
+            '.action_buttons a, .action_buttons button',
+            'a[href*="/application/form"]',
           ]
         : [
             'button:has-text("Apply for this position")',
