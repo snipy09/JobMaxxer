@@ -175,7 +175,70 @@ export async function executeDeterministicFormSolve(
           } catch {}
         });
 
-        // 2. Radio Button Groups (Internshala, Workday, Indeed, Lever)
+        // 2. Radio Button Groups (Ashby, Internshala, Workday, Indeed, Lever)
+        const customRadioGroups = Array.from(document.querySelectorAll<HTMLElement>(
+          '[role="radiogroup"], fieldset, .ashby-question-container, .ashby-field-question, div:has(> label)'
+        ));
+
+        customRadioGroups.forEach((group) => {
+          const groupText = (group.textContent || '').toLowerCase();
+          const radioItems = Array.from(group.querySelectorAll<HTMLElement>(
+            'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"]'
+          ));
+
+          if (radioItems.length === 0) return;
+
+          const isAnyChecked = radioItems.some(r => {
+            if (r instanceof HTMLInputElement) return r.checked;
+            return r.getAttribute('aria-checked') === 'true' || r.classList.contains('selected') || r.classList.contains('active');
+          });
+
+          if (isAnyChecked) {
+            radios++;
+            return;
+          }
+
+          let chosenItem: HTMLElement | null = null;
+
+          if (groupText.includes('sponsor') || groupText.includes('visa')) {
+            chosenItem = radioItems.find(r => {
+              const txt = (r.textContent || (r as any).value || '').toLowerCase().trim();
+              return txt === 'no' || txt.startsWith('no') || txt.includes('not require') || txt === 'false';
+            }) || null;
+          }
+
+          if (!chosenItem) {
+            if (
+              groupText.includes('authoriz') || groupText.includes('eligible') ||
+              groupText.includes('office') || groupText.includes('3 days') ||
+              groupText.includes('agree') || groupText.includes('willing') ||
+              groupText.includes('laptop') || groupText.includes('relocat') ||
+              groupText.includes('available')
+            ) {
+              chosenItem = radioItems.find(r => {
+                const txt = (r.textContent || (r as any).value || '').toLowerCase().trim();
+                return txt === 'yes' || txt.startsWith('yes') || txt.includes('authorized') || txt === 'true';
+              }) || null;
+            }
+          }
+
+          if (!chosenItem && radioItems.length > 0) {
+            chosenItem = radioItems[0];
+          }
+
+          if (chosenItem) {
+            chosenItem.click();
+            if (chosenItem instanceof HTMLInputElement) {
+              chosenItem.checked = true;
+              chosenItem.dispatchEvent(new Event('input', { bubbles: true }));
+              chosenItem.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            chosenItem.setAttribute('aria-checked', 'true');
+            radios++;
+          }
+        });
+
+        // Fallback: sweep standard standalone input[type="radio"]
         const radioInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
         const radioGroups = new Map<string, HTMLInputElement[]>();
         radioInputs.forEach((r) => {

@@ -324,7 +324,7 @@ export class FormFiller {
   }
 
   /**
-   * STEP 3: Solve radio button groups deterministically
+   * STEP 3: Solve radio button groups deterministically (Handles standard inputs & custom ARIA buttons)
    */
   private async solveRadioGroups(frame: Page | Frame): Promise<number> {
     const patterns = this.atsConfig.radioBehavior.patterns.map(p => ({
@@ -335,16 +335,96 @@ export class FormFiller {
 
     return await frame.evaluate((data) => {
       let count = 0;
-      const radioInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
-      const radioGroups = new Map<string, HTMLInputElement[]>();
 
-      radioInputs.forEach((r) => {
-        const gName = r.name || 'group_' + (r.id || 'unnamed');
-        if (!radioGroups.has(gName)) radioGroups.set(gName, []);
-        radioGroups.get(gName)!.push(r);
+      // 1. Check custom and standard radio groups
+      const groups = Array.from(document.querySelectorAll<HTMLElement>(
+        '[role="radiogroup"], fieldset, .ashby-question-container, .ashby-field-question, div:has(> label)'
+      ));
+
+      groups.forEach((group) => {
+        const groupText = (group.textContent || '').toLowerCase();
+        const radioItems = Array.from(group.querySelectorAll<HTMLElement>(
+          'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"]'
+        ));
+
+        if (radioItems.length === 0) return;
+
+        const isAnyChecked = radioItems.some(r => {
+          if (r instanceof HTMLInputElement) return r.checked;
+          return r.getAttribute('aria-checked') === 'true' || r.classList.contains('selected') || r.classList.contains('active');
+        });
+
+        if (isAnyChecked) {
+          count++;
+          return;
+        }
+
+        let chosenItem: HTMLElement | null = null;
+
+        // A. Match against ATS patterns
+        for (const pat of data.patterns) {
+          const re = new RegExp(pat.regexStr, pat.flags);
+          if (re.test(groupText)) {
+            chosenItem = radioItems.find(r => {
+              const label = (r.textContent || (r as any).value || '').toLowerCase().trim();
+              return label.includes(pat.selectValue.toLowerCase());
+            }) || null;
+            if (chosenItem) break;
+          }
+        }
+
+        // B. Visa Sponsorship required -> Select "No"
+        if (!chosenItem && (groupText.includes('sponsor') || groupText.includes('visa'))) {
+          chosenItem = radioItems.find(r => {
+            const txt = (r.textContent || (r as any).value || '').toLowerCase().trim();
+            return txt === 'no' || txt.startsWith('no') || txt.includes('not require') || txt === 'false';
+          }) || null;
+        }
+
+        // C. Work Authorization, Office 3 days, Schedule, Agreement -> Select "Yes"
+        if (!chosenItem) {
+          if (
+            groupText.includes('authoriz') || groupText.includes('eligible') ||
+            groupText.includes('office') || groupText.includes('3 days') ||
+            groupText.includes('agree') || groupText.includes('willing') ||
+            groupText.includes('laptop') || groupText.includes('relocat') ||
+            groupText.includes('available')
+          ) {
+            chosenItem = radioItems.find(r => {
+              const txt = (r.textContent || (r as any).value || '').toLowerCase().trim();
+              return txt === 'yes' || txt.startsWith('yes') || txt.includes('authorized') || txt === 'true';
+            }) || null;
+          }
+        }
+
+        // D. Fallback: Select first radio option
+        if (!chosenItem && radioItems.length > 0) {
+          chosenItem = radioItems[0];
+        }
+
+        if (chosenItem) {
+          chosenItem.click();
+          if (chosenItem instanceof HTMLInputElement) {
+            chosenItem.checked = true;
+            chosenItem.dispatchEvent(new Event('input', { bubbles: true }));
+            chosenItem.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          chosenItem.setAttribute('aria-checked', 'true');
+          count++;
+        }
       });
 
-      radioGroups.forEach((groupRadios) => {
+      // 2. Also sweep standalone input[type="radio"] elements
+      const standaloneRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
+      const radioGroupsMap = new Map<string, HTMLInputElement[]>();
+
+      standaloneRadios.forEach((r) => {
+        const gName = r.name || 'group_' + (r.id || 'unnamed');
+        if (!radioGroupsMap.has(gName)) radioGroupsMap.set(gName, []);
+        radioGroupsMap.get(gName)!.push(r);
+      });
+
+      radioGroupsMap.forEach((groupRadios) => {
         try {
           if (groupRadios.some(r => r.checked)) {
             count++;
@@ -356,7 +436,6 @@ export class FormFiller {
 
           let chosenRadio: HTMLInputElement | null = null;
 
-          // 1. Check against ATS patterns
           for (const pat of data.patterns) {
             const re = new RegExp(pat.regexStr, pat.flags);
             if (re.test(containerText)) {
@@ -368,29 +447,18 @@ export class FormFiller {
             }
           }
 
-          // 2. Default contextual fallback: Visa sponsorship -> "No", Laptop/Schedule/Auth -> "Yes"
           if (!chosenRadio) {
             if (containerText.includes('sponsor') || containerText.includes('visa')) {
               chosenRadio = groupRadios.find(r => {
                 const txt = (r.labels?.[0]?.textContent || r.value || '').toLowerCase();
                 return txt.includes('no') || txt.startsWith('no') || txt.includes('false') || txt.includes('0');
               }) || null;
-            } else if (
-              containerText.includes('laptop') || containerText.includes('computer') ||
-              containerText.includes('internet') || containerText.includes('schedule') ||
-              containerText.includes('authoriz') || containerText.includes('project') ||
-              containerText.includes('agree') || containerText.includes('available')
-            ) {
+            } else {
               chosenRadio = groupRadios.find(r => {
                 const txt = (r.labels?.[0]?.textContent || r.value || r.parentElement?.textContent || '').toLowerCase();
                 return txt.includes('yes') || txt.startsWith('yes') || txt.includes('true') || txt.includes('agree') || txt.includes('1');
-              }) || null;
+              }) || groupRadios[0];
             }
-          }
-
-          // 3. Fallback: select first option
-          if (!chosenRadio && groupRadios.length > 0) {
-            chosenRadio = groupRadios[0];
           }
 
           if (chosenRadio) {
