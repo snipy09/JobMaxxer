@@ -197,24 +197,25 @@ export class OmniFormSolver {
           return 'resume_file';
         }
 
-        if (type === 'checkbox' || tagName === 'checkbox') {
+        if (type === 'checkbox' || tagName === 'checkbox' || el.getAttribute('role') === 'checkbox') {
           if (
             l.includes('agree') || l.includes('terms') || l.includes('privacy') ||
             l.includes('consent') || l.includes('certify') || l.includes('acknowledge') ||
-            l.includes('accept') || l.includes('policy') || l.includes('data')
+            l.includes('accept') || l.includes('policy') || l.includes('data') ||
+            l.includes('affirm') || l.includes('signature') || l.includes('electronic') || label.includes('*')
           ) {
             return 'terms_consent';
           }
           return 'unknown_checkbox';
         }
 
-        if (type === 'radio' || tagName === 'radiogroup') {
+        if (type === 'radio' || tagName === 'radiogroup' || el.getAttribute('role') === 'radiogroup') {
           if (l.includes('sponsor') || l.includes('visa')) return 'visa_sponsor_no';
-          if (l.includes('authoriz') || l.includes('eligible') || l.includes('legal') || l.includes('office') || l.includes('laptop') || l.includes('schedule') || l.includes('agree')) return 'work_auth_yes';
+          if (l.includes('authoriz') || l.includes('eligible') || l.includes('legal') || l.includes('office') || l.includes('laptop') || l.includes('schedule') || l.includes('agree') || l.includes('three days') || l.includes('3 days') || l.includes('require')) return 'work_auth_yes';
           return 'unknown_radio';
         }
 
-        if (tagName === 'select' || tagName === 'combobox') {
+        if (tagName === 'select' || tagName === 'combobox' || el.getAttribute('role') === 'combobox') {
           if (l.includes('gender') || l.includes('sex')) return 'eeo_gender';
           if (l.includes('race') || l.includes('ethnicity') || l.includes('hispanic')) return 'eeo_race';
           if (l.includes('veteran')) return 'eeo_veteran';
@@ -268,7 +269,7 @@ export class OmniFormSolver {
 
       // 1. Gather all inputs, textareas, selects
       const elements = Array.from(document.querySelectorAll<HTMLElement>(
-        'input, textarea, select, [role="radiogroup"], [role="checkbox"], [role="combobox"]'
+        'input, textarea, select, [role="radiogroup"], [role="checkbox"], [role="combobox"], .ashby-field-question, .form-group'
       ));
 
       elements.forEach((el) => {
@@ -309,15 +310,22 @@ export class OmniFormSolver {
             index: idx,
             isChecked: o.selected,
           }));
-        } else if (el.getAttribute('role') === 'radiogroup') {
+        } else if (tagName === 'div' && (el.classList.contains('ashby-field-question') || el.classList.contains('form-group') || el.getAttribute('role') === 'radiogroup')) {
           const radioItems = Array.from(el.querySelectorAll<HTMLElement>('button[role="radio"], [role="radio"], input[type="radio"]'));
-          options = radioItems.map((r, idx) => ({
-            text: r.textContent || (r as any).value || '',
-            value: (r as any).value || r.textContent || '',
-            index: idx,
-            isChecked: r.getAttribute('aria-checked') === 'true' || (r as any).checked,
-          }));
-          isFilled = options.some(o => o.isChecked);
+          const selectItems = Array.from(el.querySelectorAll<HTMLElement>('select'));
+          if (radioItems.length > 0) {
+            options = radioItems.map((r, idx) => ({
+              text: r.textContent || (r as any).value || '',
+              value: (r as any).value || r.textContent || '',
+              index: idx,
+              isChecked: r.getAttribute('aria-checked') === 'true' || (r as any).checked,
+            }));
+            isFilled = options.some(o => o.isChecked);
+          } else if (selectItems.length > 0) {
+             return; // Let the core select element be processed instead of the wrapper
+          } else {
+            return; // Empty wrapper
+          }
         } else if (el.getAttribute('role') === 'checkbox') {
           isFilled = el.getAttribute('aria-checked') === 'true' || el.classList.contains('checked');
         }
@@ -502,30 +510,77 @@ export class OmniFormSolver {
           case 'work_auth_yes':
           case 'visa_sponsor_no':
           case 'unknown_radio': {
-            await elHandle.evaluate((el: HTMLElement, cat: FieldSemanticCategory) => {
-              const radioItems = Array.from(el.querySelectorAll<HTMLElement>(
-                'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"]'
-              ));
-              if (radioItems.length === 0) return;
+            const isNative = await elHandle.evaluate(el => el instanceof HTMLInputElement && el.type === 'radio').catch(() => false);
 
-              let pick: HTMLElement | null = null;
-              if (cat === 'visa_sponsor_no') {
-                pick = radioItems.find(r => /no|not require|false/i.test(r.textContent || (r as any).value || '')) || null;
-              } else {
-                pick = radioItems.find(r => /yes|authorized|eligible|agree|true/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
-              }
+            if (isNative) {
+              const nameValue = await elHandle.getAttribute('name').catch(() => '');
+              if (nameValue) {
+                // Find all native radios with the same name
+                const allRadios = await page.$$(`input[type="radio"][name="${nameValue}"]`);
+                if (allRadios.length > 0) {
+                  let targetRadio = null;
+                  for (const r of allRadios) {
+                    const text = await r.evaluate(el => {
+                      const id = el.id;
+                      const labelText = id ? document.querySelector(`label[for="${id}"]`)?.textContent : '';
+                      return (labelText || el.closest('label')?.textContent || (el as any).value || '').toLowerCase();
+                    }).catch(() => '');
 
-              if (pick) {
-                pick.click();
-                if (pick instanceof HTMLInputElement) {
-                  pick.checked = true;
-                  pick.dispatchEvent(new Event('input', { bubbles: true }));
-                  pick.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (!text) continue;
+
+                    if (field.category === 'visa_sponsor_no') {
+                      if (/no|not require|false/i.test(text)) { targetRadio = r; break; }
+                    } else if (field.category === 'work_auth_yes') {
+                      if (/yes|authorized|eligible|agree|true/i.test(text)) { targetRadio = r; break; }
+                    }
+                  }
+                  
+                  if (!targetRadio && allRadios.length > 0) {
+                    // Fallback to evaluating purely visually if label association fails
+                    const isAnyChecked = await page.evaluate((name) => {
+                      const rs = Array.from(document.querySelectorAll(`input[type="radio"][name="${name}"]`));
+                      return rs.some(r => (r as HTMLInputElement).checked);
+                    }, nameValue).catch(() => false);
+                    
+                    if (!isAnyChecked) targetRadio = allRadios[0];
+                  }
+
+                  if (targetRadio) {
+                    await targetRadio.check().catch(() => {});
+                    await targetRadio.dispatchEvent('change').catch(() => {});
+                    result.radiosSelected++;
+                  }
                 }
-                pick.setAttribute('aria-checked', 'true');
               }
-            }, field.category);
-            result.radiosSelected++;
+            } else {
+              // Custom ARIA radiogroup
+              await elHandle.evaluate((el: HTMLElement, cat: FieldSemanticCategory) => {
+                const radioItems = Array.from(el.querySelectorAll<HTMLElement>(
+                  'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"]'
+                ));
+                if (radioItems.length === 0) return;
+
+                let pick: HTMLElement | null = null;
+                if (cat === 'visa_sponsor_no') {
+                  pick = radioItems.find(r => /no|not require|false/i.test(r.textContent || (r as any).value || '')) || null;
+                } else if (cat === 'work_auth_yes') {
+                  pick = radioItems.find(r => /yes|authorized|eligible|agree|true/i.test(r.textContent || (r as any).value || '')) || null;
+                }
+
+                if (!pick && radioItems.length > 0) pick = radioItems[0];
+
+                if (pick) {
+                  pick.click();
+                  if (pick instanceof HTMLInputElement) {
+                    pick.checked = true;
+                    pick.dispatchEvent(new Event('input', { bubbles: true }));
+                    pick.dispatchEvent(new Event('change', { bubbles: true }));
+                  }
+                  pick.setAttribute('aria-checked', 'true');
+                }
+              }, field.category);
+              result.radiosSelected++;
+            }
             break;
           }
 
@@ -534,28 +589,74 @@ export class OmniFormSolver {
           case 'eeo_veteran':
           case 'eeo_disability':
           case 'unknown_select': {
-            await elHandle.evaluate((el: HTMLElement, cat: FieldSemanticCategory) => {
-              if (el instanceof HTMLSelectElement) {
-                const options = Array.from(el.options);
-                if (options.length <= 1) return;
+            const isNative = await elHandle.evaluate(el => el instanceof HTMLSelectElement).catch(() => false);
+            
+            if (isNative) {
+              await elHandle.evaluate((el: HTMLElement, cat: FieldSemanticCategory) => {
+                if (el instanceof HTMLSelectElement) {
+                  const options = Array.from(el.options);
+                  if (options.length <= 1) return;
 
-                let bestIndex = -1;
-                if (cat === 'eeo_gender' || cat === 'eeo_race' || cat === 'eeo_veteran' || cat === 'eeo_disability') {
-                  bestIndex = options.findIndex(o => /prefer not|decline|specify|not a protected|no.*disability/i.test(o.text || o.value));
-                }
+                  let bestIndex = -1;
+                  if (cat === 'eeo_gender' || cat === 'eeo_race' || cat === 'eeo_veteran' || cat === 'eeo_disability') {
+                    bestIndex = options.findIndex(o => /prefer not|decline|specify|not a protected|no.*disability/i.test(o.text || o.value));
+                  }
 
-                if (bestIndex <= 0) {
-                  bestIndex = options.findIndex((o, idx) => idx > 0 && o.value && o.value !== '' && !/select|choose|please/i.test(o.text));
-                }
+                  if (bestIndex <= 0) {
+                    bestIndex = options.findIndex((o, idx) => idx > 0 && o.value && o.value !== '' && !/select|choose|please/i.test(o.text));
+                  }
 
-                if (bestIndex > 0) {
-                  el.selectedIndex = bestIndex;
-                  el.dispatchEvent(new Event('input', { bubbles: true }));
-                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                  if (bestIndex > 0) {
+                    el.selectedIndex = bestIndex;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                  }
                 }
-              }
-            }, field.category);
-            result.selectsSolved++;
+              }, field.category);
+              result.selectsSolved++;
+            } else {
+              // Custom Combobox / Dropdown (e.g. Ashby, Greenhouse custom fields)
+              try {
+                // Click to open dropdown list
+                await elHandle.click().catch(() => {});
+                await page.waitForTimeout(300);
+                
+                // Read all visible options
+                const optionsHandles = await page.$$('[role="option"], li, .ashby-option, .dropdown-item, .select-option, [data-qa="dropdown-option"]');
+                if (optionsHandles.length > 0) {
+                   // Search for preferred EEO/demographic answer
+                   let targetOpt = null;
+                   
+                   for (const opt of optionsHandles) {
+                     const text = (await opt.textContent().catch(() => ''))?.toLowerCase() || '';
+                     if (!text) continue;
+                     
+                     if (field.category.startsWith('eeo_')) {
+                        if (/prefer not|decline|specify|not a protected|no.*disability/i.test(text)) {
+                           targetOpt = opt;
+                           break;
+                        }
+                     } else if (field.category === 'work_auth_yes') {
+                        if (/yes|authorized|eligible/i.test(text)) { targetOpt = opt; break; }
+                     } else if (field.category === 'visa_sponsor_no') {
+                        if (/no|not require|do not/i.test(text)) { targetOpt = opt; break; }
+                     }
+                   }
+                   
+                   // Fallback: pick the second option (usually the first real answer after placeholder)
+                   if (!targetOpt && optionsHandles.length > 1) {
+                     targetOpt = optionsHandles[1];
+                   } else if (!targetOpt && optionsHandles.length === 1) {
+                     targetOpt = optionsHandles[0];
+                   }
+                   
+                   if (targetOpt) {
+                     await humanClick(page, targetOpt);
+                     result.selectsSolved++;
+                   }
+                }
+              } catch {}
+            }
             break;
           }
 
@@ -588,14 +689,19 @@ export class OmniFormSolver {
 
           case 'unknown_text': {
             if (field.isRequired || field.label.length > 3) {
-              // Ask AI for the optimal answer for this unknown field
+              const textVal = await elHandle.inputValue().catch(() => '');
+              if (textVal && textVal.length > 0) break; // Don't overwrite what was already filled
+              
               const aiAns = await aiSolver.answerCustomQuestion(field.label, {
                 jobTitle: resolvedTitle,
                 company: resolvedCompany,
                 userProfile: profile,
               });
-              await elHandle.fill(aiAns);
-              result.fieldsFilled++;
+              
+              if (aiAns && aiAns.length > 3) {
+                await elHandle.fill(aiAns).catch(() => {});
+                result.fieldsFilled++;
+              }
             }
             break;
           }
@@ -613,8 +719,19 @@ export class OmniFormSolver {
 
           const tag = await un.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
           const type = await un.evaluate(el => (el.getAttribute('type') || '').toLowerCase()).catch(() => '');
+          const isButtonOrRadio = await un.evaluate(el => el.getAttribute('role') === 'radio' || el.getAttribute('role') === 'radiogroup' || (el as any).type === 'radio').catch(() => false);
 
-          if (type === 'checkbox') {
+          if (isButtonOrRadio) {
+            // Already handled by Pass 4 (Radiogroups) but if empty:
+            await un.evaluate((el: HTMLElement) => {
+               const items = Array.from(el.querySelectorAll ? el.querySelectorAll<HTMLElement>('button[role="radio"], [role="radio"]') : [el]);
+               if (items.length > 0) {
+                 items[0].click();
+                 items[0].setAttribute('aria-checked', 'true');
+               }
+            }).catch(() => {});
+            result.radiosSelected++;
+          } else if (type === 'checkbox') {
             await un.evaluate((el: HTMLElement) => {
               if (el instanceof HTMLInputElement) el.checked = true;
               el.dispatchEvent(new Event('click', { bubbles: true }));
@@ -649,6 +766,27 @@ export class OmniFormSolver {
           }
         } catch {}
       }
+    } catch {}
+
+    // ── PASS 8b: DIRECT ASHBY & GREENHOUSE CUSTOM QUESTION SWEEP ──
+    try {
+       await page.evaluate(() => {
+         // Specifically target Greenhouse / Ashby custom inputs that use the autocomplete attribute
+         const customInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[autocomplete*="custom-question"]'));
+         for (const c of customInputs) {
+            if (!c.value || c.value.trim().length === 0) {
+               const proto = HTMLInputElement.prototype;
+               const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+               if (setter) {
+                  try { setter.call(c, 'https://github.com/candidate'); } catch {}
+               } else {
+                  c.value = 'https://github.com/candidate';
+               }
+               c.dispatchEvent(new Event('input', { bubbles: true }));
+               c.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+         }
+       }).catch(() => {});
     } catch {}
 
     result.totalInteractions =
