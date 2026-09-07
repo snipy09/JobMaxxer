@@ -596,6 +596,47 @@ export class OmniFormSolver {
       } catch {}
     }
 
+    // ── PASS 8: PRE-SUBMIT REMEDIATION PASS (Catches any remaining required/empty fields) ──
+    try {
+      const remainingUnfilled = await page.$$('input:invalid, textarea:invalid, select:invalid, [required]:not(:checked)');
+      for (const un of remainingUnfilled) {
+        try {
+          const isReq = await un.evaluate(el => (el as any).required || el.getAttribute('aria-required') === 'true').catch(() => false);
+          if (!isReq) continue;
+
+          const tag = await un.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
+          const type = await un.evaluate(el => (el.getAttribute('type') || '').toLowerCase()).catch(() => '');
+
+          if (type === 'checkbox') {
+            await un.evaluate((el: HTMLElement) => {
+              if (el instanceof HTMLInputElement) el.checked = true;
+              el.dispatchEvent(new Event('click', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            result.checkboxesChecked++;
+          } else if (type === 'file') {
+            const validPdf = getOrCreateValidResumePdf(profile);
+            if (validPdf && fs.existsSync(validPdf)) {
+              await un.setInputFiles(validPdf).catch(() => {});
+              result.resumeUploaded = true;
+            }
+          } else if (tag === 'textarea' || tag === 'input') {
+            const label = await un.evaluate(el => {
+              return el.closest('.form-group, .question, label')?.textContent || (el as any).placeholder || (el as any).name || 'Application detail';
+            }).catch(() => 'Application detail');
+
+            const answer = await aiSolver.answerCustomQuestion(label, {
+              jobTitle: resolvedTitle,
+              company: resolvedCompany,
+              userProfile: profile,
+            });
+            await un.fill(answer).catch(() => {});
+            result.fieldsFilled++;
+          }
+        } catch {}
+      }
+    } catch {}
+
     result.totalInteractions =
       result.fieldsFilled +
       result.checkboxesChecked +

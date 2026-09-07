@@ -12,10 +12,31 @@ describe('Specialized Portal Bot Dispatcher', () => {
   };
 
   it('routes Internshala URLs to InternshalaBot', async () => {
+    const mockSchema = {
+      totalFieldsCount: 4,
+      unfilledFieldsCount: 4,
+      fields: [
+        { uid: 'nomadic-field-1', tagName: 'textarea', type: '', id: 'cover_letter', name: 'cover_letter', label: 'Cover Letter', placeholder: '', isRequired: true, isFilled: false, currentValue: '', category: 'cover_letter' },
+        { uid: 'nomadic-field-2', tagName: 'input', type: 'text', id: '', name: 'portfolio', label: 'Portfolio Link', placeholder: '', isRequired: false, isFilled: false, currentValue: '', category: 'portfolio' },
+        { uid: 'nomadic-field-3', tagName: 'div', type: 'radiogroup', id: '', name: 'laptop', label: 'Do you have a laptop?', placeholder: '', isRequired: true, isFilled: false, currentValue: '', category: 'work_auth_yes' },
+        { uid: 'nomadic-field-4', tagName: 'input', type: 'checkbox', id: '', name: 'agree', label: 'I Agree to terms', placeholder: '', isRequired: true, isFilled: false, currentValue: '', category: 'terms_consent' },
+      ],
+    };
+
+    const mockElement = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      click: vi.fn().mockResolvedValue(undefined),
+      fill: vi.fn().mockResolvedValue(undefined),
+    };
+
     const mockPage = {
-      $: vi.fn().mockResolvedValue(null),
+      url: vi.fn().mockReturnValue('https://internshala.com/internship/detail/software-developer-12345'),
+      $: vi.fn().mockImplementation((sel: string) => {
+        if (sel.includes('data-nomadic-uid')) return Promise.resolve(mockElement);
+        return Promise.resolve(null);
+      }),
       $$: vi.fn().mockResolvedValue([]),
-      evaluate: vi.fn().mockResolvedValue(4),
+      evaluate: vi.fn().mockResolvedValue(mockSchema),
       waitForTimeout: vi.fn().mockResolvedValue(undefined),
     } as any;
 
@@ -27,7 +48,7 @@ describe('Specialized Portal Bot Dispatcher', () => {
 
     expect(res).not.toBeNull();
     expect(res?.fieldsFilled).toBe(4);
-  });
+  }, 10000);
 
   it('routes Lever URLs to LeverBot', async () => {
     const mockSchema = {

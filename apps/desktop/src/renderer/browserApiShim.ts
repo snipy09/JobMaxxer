@@ -199,6 +199,16 @@ export function createBrowserApiShim(): ElectronAPI {
       return { success: true, jobs };
     },
 
+    getCloudFeedPage: async (opts?: { page?: number; pageSize?: number }) => {
+      const page = opts?.page || 1;
+      const pageSize = opts?.pageSize || 36;
+      emitLog(`[Cloud Sync] Fetching Page ${page} (${pageSize} jobs) from Supabase...`);
+      const allJobs = await fetchLiveDatabaseJobs();
+      const start = (page - 1) * pageSize;
+      const jobs = allJobs.slice(start, start + pageSize);
+      return { success: true, jobs, totalCount: allJobs.length };
+    },
+
     launchSemiAuto: async (jobUrls: string[]) => {
       emitLog(`[AutoApply] Review Mode: Opening ${jobUrls.length} pre-filled tabs in Chrome...`);
       jobUrls.forEach(url => window.open(url, '_blank'));

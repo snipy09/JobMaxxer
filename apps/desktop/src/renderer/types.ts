@@ -207,6 +207,7 @@ export interface ElectronAPI {
   pickResumeFile: () => Promise<{ canceled: boolean; filePath?: string; fileName?: string }>;
   runScrapers: () => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
   getCloudFeed: (userId: string) => Promise<{ success: boolean; jobs: Job[]; error?: string }>;
+  getCloudFeedPage?: (options?: { page?: number; pageSize?: number }) => Promise<{ success: boolean; jobs: Job[]; totalCount?: number; error?: string }>;
   launchSemiAuto: (jobUrls: string[]) => Promise<{ success: boolean; error?: string; incompleteProfile?: boolean }>;
   launchAutonomous: (jobUrls: string[]) => Promise<{
     success: boolean;

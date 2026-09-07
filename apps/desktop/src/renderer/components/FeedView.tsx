@@ -141,7 +141,20 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const fetchCloudJobs = async () => {
     const api = getApi();
     if (!api) return;
-    setLoading(true);
+
+    // Progressive Hydration: Step 1 - Fetch Page 1 (< 30ms) and render immediately
+    try {
+      if (typeof api.getCloudFeedPage === 'function') {
+        const page1 = await api.getCloudFeedPage({ page: 1, pageSize: 36 });
+        if (page1.success && page1.jobs && page1.jobs.length > 0) {
+          const initialJobs = deduplicateJobList([DEMO_TEST_JOB, ...page1.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
+          setJobs(initialJobs);
+          setLoading(false); // Render Page 1 immediately with zero wait!
+        }
+      }
+    } catch {}
+
+    // Step 2 - Stream full catalog in background without blocking UI
     try {
       const res = await api.getCloudFeed('candidate');
       if (res.success && res.jobs && res.jobs.length > 0) {

@@ -2,6 +2,7 @@ import type { Page } from 'playwright';
 import type { MasterProfile } from '../auto-apply-engine.js';
 import { humanClick, randomPause } from '../stealth-evasion.js';
 import { AIFallbackSolver } from '../ai-fallback.js';
+import { OmniFormSolver } from '../omni-form-solver.js';
 import fs from 'fs';
 
 export interface SpecializedBotResult {
@@ -83,125 +84,14 @@ export class InternshalaBot {
         }
       }
 
-      // ── 3. GENERATE TAILORED AI COVER LETTER ──────────────────────────────
-      let dynamicCoverLetter = profile.summaryText;
-      if (!dynamicCoverLetter || dynamicCoverLetter.length < 30) {
-        dynamicCoverLetter = await aiSolver.generateTailoredCoverLetter(
-          profile,
-          profile.desiredTitle || 'Software Development Intern',
-          'Hiring Team'
-        );
-      }
-
-      // ── 4. SOLVE TEXTAREAS, WORK SAMPLES, & RADIO QUESTIONS ────────────────
-      const fillStats = await page.evaluate((candidate) => {
-        let filled = 0;
-
-        function setNativeValue(el: HTMLElement, val: string) {
-          if (!el || !val) return;
-          const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-          const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-          if (setter) {
-            setter.call(el, val);
-          } else {
-            (el as any).value = val;
-          }
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          el.dispatchEvent(new Event('blur', { bubbles: true }));
-        }
-
-        // A. Cover Letter & Assessment Textareas
-        const textareas = Array.from(document.querySelectorAll<HTMLTextAreaElement>(
-          'textarea, #cover_letter, [name="cover_letter"], .cover_letter, textarea[placeholder*="cover letter" i], textarea[placeholder*="Why should you" i]'
-        ));
-        textareas.forEach((ta) => {
-          if (!ta.value || ta.value.trim().length === 0) {
-            setNativeValue(ta, candidate.summaryText);
-            filled++;
-          }
-        });
-
-        // B. Work Samples, GitHub, Portfolio text inputs
-        const inputs = Array.from(document.querySelectorAll<HTMLInputElement>(
-          'input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="file"])'
-        ));
-        inputs.forEach((inp) => {
-          if (inp.value && inp.value.trim().length > 0) return;
-          const text = (inp.name + ' ' + inp.id + ' ' + (inp.placeholder || '')).toLowerCase();
-          if (text.includes('project') || text.includes('github') || text.includes('demo') || text.includes('work_sample') || text.includes('drive')) {
-            const link = candidate.projectsUrl || candidate.github || candidate.portfolio;
-            if (link) {
-              setNativeValue(inp, link);
-              filled++;
-            }
-          } else if (text.includes('portfolio') || text.includes('website')) {
-            const link = candidate.portfolio || candidate.github;
-            if (link) {
-              setNativeValue(inp, link);
-              filled++;
-            }
-          }
-        });
-
-        // C. Solve Radio Button Questions (Laptop, Internet, Schedule 9am-6pm, Projects, Full-time availability)
-        const radioInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
-        const groups = new Map<string, HTMLInputElement[]>();
-        radioInputs.forEach(r => {
-          const g = r.name || 'group_' + (r.id || 'unnamed');
-          if (!groups.has(g)) groups.set(g, []);
-          groups.get(g)!.push(r);
-        });
-
-        groups.forEach((groupRadios) => {
-          if (groupRadios.some(r => r.checked)) {
-            filled++;
-            return;
-          }
-          const container = groupRadios[0].closest('.question, .form-group, .radio-group, div, fieldset') || document.body;
-          const containerText = (container.textContent || '').toLowerCase();
-
-          let target: HTMLInputElement | null = null;
-          if (containerText.includes('sponsor') || containerText.includes('visa')) {
-            target = groupRadios.find(r => (r.labels?.[0]?.textContent || r.value || '').toLowerCase().includes('no')) || null;
-          } else {
-            // Laptop, internet, schedule, projects, availability -> select "Yes"
-            target = groupRadios.find(r => {
-              const label = (r.labels?.[0]?.textContent || r.value || r.parentElement?.textContent || '').toLowerCase();
-              return label.includes('yes') || label.includes('agree') || label.includes('true') || label.includes('1') || label.includes('available');
-            }) || groupRadios[0];
-          }
-
-          if (target) {
-            target.checked = true;
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
-            target.dispatchEvent(new Event('click', { bubbles: true }));
-            filled++;
-          }
-        });
-
-        // D. Also check custom ARIA radio buttons
-        const customRadios = Array.from(document.querySelectorAll<HTMLElement>('[role="radiogroup"], .custom-radio-group'));
-        customRadios.forEach(cr => {
-          const items = Array.from(cr.querySelectorAll<HTMLElement>('button[role="radio"], [role="radio"], label'));
-          const yesItem = items.find(it => (it.textContent || '').toLowerCase().includes('yes')) || items[0];
-          if (yesItem) {
-            yesItem.click();
-            yesItem.setAttribute('aria-checked', 'true');
-            filled++;
-          }
-        });
-
-        return filled;
-      }, {
-        summaryText: dynamicCoverLetter,
-        techStack: profile.techStack,
-        projectsUrl: profile.projectsUrl || profile.portfolio || profile.github,
-        portfolio: profile.portfolio || profile.github,
-        github: profile.github,
-      });
-      totalFilled += fillStats;
+      // ── 3. RUN OMNIFORM SOLVER ON ACTIVE INTERNSHALA MODAL ───────────────
+      const omniResult = await OmniFormSolver.solveEntireForm(
+        page,
+        profile,
+        profile.desiredTitle || 'Software Development Intern',
+        'Internshala Team'
+      );
+      totalFilled += omniResult.totalInteractions;
 
       // ── 5. SOLVE UNPOPULATED TEXTAREAS VIA AI SOLVER ───────────────────────
       const remainingTextareas = await page.$$('textarea');
