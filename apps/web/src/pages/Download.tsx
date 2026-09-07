@@ -2,12 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   ArrowRight, ArrowLeft, Check, Download as DownloadIcon,
   Shield, Laptop, Terminal, Sparkles, CheckCircle2,
-  Clock, AlertCircle, HardDrive, Cpu, RefreshCw
+  Clock, AlertCircle, HardDrive, Cpu, RefreshCw, Copy, FileArchive, ChevronRight
 } from 'lucide-react';
 import { animate, stagger } from 'animejs';
 
 export default function Download() {
   const [downloadStarted, setDownloadStarted] = useState<boolean>(false);
+  const [copiedCmd, setCopiedCmd] = useState<boolean>(false);
   const [waitlistEmail, setWaitlistEmail] = useState<string>('');
   const [waitlistSubmitted, setWaitlistSubmitted] = useState<boolean>(false);
 
@@ -32,10 +33,9 @@ export default function Download() {
     }
   }, []);
 
-  const handleDownloadClick = () => {
+  const handleDownloadClick = (url: string, filename: string) => {
     setDownloadStarted(true);
 
-    // Anime.js pulse feedback
     if (windowsCardRef.current) {
       try {
         animate(windowsCardRef.current, {
@@ -43,19 +43,21 @@ export default function Download() {
           duration: 300,
           ease: 'inOutQuad',
         });
-      } catch (e) {
-        // Fallback
-      }
+      } catch (e) {}
     }
 
-    // Direct high-speed CDN release installer download
-    const downloadUrl = 'https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.Setup.1.0.2.exe';
     const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'Nomadic-Setup-1.0.2.exe';
+    link.href = url;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleCopyCommand = () => {
+    navigator.clipboard.writeText('irm https://nomadicai.vercel.app/install.ps1 | iex');
+    setCopiedCmd(true);
+    setTimeout(() => setCopiedCmd(false), 2500);
   };
 
   const handleWaitlistSubmit = (e: React.FormEvent) => {
@@ -69,7 +71,7 @@ export default function Download() {
       {/* Top Announcement */}
       <div className="border-b border-ink-100 bg-ink-50 px-4 py-2 text-center text-[11px] sm:text-xs text-ink-600 font-mono tracking-tight flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-ink-950 shrink-0" />
-        <span>Official Download Portal · Nomadic v1.0.2 Windows x64 Native Installer</span>
+        <span>Official Download Portal · Nomadic v1.0.2 Windows x64 Native Release</span>
       </div>
 
       {/* Main Navigation */}
@@ -101,7 +103,7 @@ export default function Download() {
         <div className="text-center max-w-2xl mx-auto space-y-4 animate-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-ink-50 border border-ink-200 rounded-full text-[11px] sm:text-xs font-mono text-ink-600 shadow-fine">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Version 1.0.2 Stable Release · Clean Installer</span>
+            <span>Version 1.0.2 Verified Release</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-ink-950 leading-tight">
@@ -109,13 +111,13 @@ export default function Download() {
           </h1>
 
           <p className="text-xs sm:text-sm text-ink-600 leading-relaxed max-w-xl mx-auto">
-            Install the native desktop application to master interactive career roadmaps, stream direct ATS job feeds, and execute stealth 1-click batch applications on your machine.
+            Install the native desktop application to master interactive career roadmaps, stream direct ATS job feeds, and execute stealth 1-click autonomous applications on your machine.
           </p>
 
           {downloadStarted && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 text-xs flex items-center justify-center gap-2 max-w-md mx-auto animate-fade-up">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Your download has started! Check your browser's download tray.</span>
+              <span>Your download has started! Follow the quick launch guide below.</span>
             </div>
           )}
         </div>
@@ -138,43 +140,67 @@ export default function Download() {
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-ink-950">Windows Native</h3>
-                <p className="text-xs text-ink-500 font-mono mt-0.5">Windows 10 / 11 (64-bit Architecture)</p>
+                <h3 className="text-xl font-bold text-ink-950">Windows 10 / 11 (64-bit)</h3>
+                <p className="text-xs text-ink-500 font-mono mt-0.5">Native Windows x64 Build · Authentic Binary</p>
               </div>
 
               <ul className="space-y-2.5 text-xs text-ink-700 border-t border-ink-100 pt-4">
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Standard installer (.exe) — no admin privileges required</span>
+                  <span>Sub-1.5s Autonomous Multi-Bot Auto-Applier</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Embedded SQLite &amp; Playwright Chromium engine</span>
+                  <span>3,060+ Verified Direct Cloud Job &amp; Internship Feed</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Single-laptop hardware lock &amp; cloud sync ready</span>
+                  <span>Interactive 428+ Company LeetCode &amp; Roadmap Hub</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-ink-950 shrink-0" />
-                  <span>Integrated background ATS scraping &amp; auto-updates</span>
+                  <span>Off-screen Sequential Email Outreach Dispatcher</span>
                 </li>
               </ul>
             </div>
 
             <div className="space-y-3 pt-4 border-t border-ink-100">
+              {/* Primary Download Button */}
               <a
                 href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.Setup.1.0.2.exe"
-                onClick={() => setDownloadStarted(true)}
+                onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.Setup.1.0.2.exe', 'Nomadic.Setup.1.0.2.exe')}
                 className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95 text-center"
               >
                 <DownloadIcon className="w-4 h-4" />
-                <span>Download for Windows (Setup.exe — 92.0 MB)</span>
+                <span>Download Windows Installer (Setup.exe · 92.0 MB)</span>
               </a>
 
+              {/* Alternative Download Links */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <a
+                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.1.0.2.exe"
+                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic.1.0.2.exe', 'Nomadic.1.0.2.exe')}
+                  className="py-2.5 px-3 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
+                  title="Run directly without running an installer"
+                >
+                  <Laptop className="w-3.5 h-3.5 shrink-0" />
+                  <span>Portable (.exe)</span>
+                </a>
+
+                <a
+                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic-1.0.2-win.zip"
+                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.2/Nomadic-1.0.2-win.zip', 'Nomadic-1.0.2-win.zip')}
+                  className="py-2.5 px-3 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
+                  title="Download zip archive"
+                >
+                  <FileArchive className="w-3.5 h-3.5 shrink-0" />
+                  <span>Portable (.zip)</span>
+                </a>
+              </div>
+
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
-                <span>File: Nomadic.Setup.1.0.2.exe</span>
-                <span>SHA-256 Verified · 92.0 MB</span>
+                <span>Release: v1.0.2 Stable</span>
+                <span>SHA-256 Verified</span>
               </div>
             </div>
           </div>
@@ -246,6 +272,70 @@ export default function Download() {
           </div>
         </div>
 
+        {/* Windows SmartScreen 2-Step Visual Guidance */}
+        <div className="animate-in bg-powder-50 border border-powder-200 rounded-3xl p-6 sm:p-8 max-w-4xl mx-auto space-y-5 shadow-fine">
+          <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-powder-600 text-white flex items-center justify-center shrink-0 shadow-fine">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-ink-950">
+                  Windows SmartScreen Guidance
+                </h3>
+                <p className="text-xs text-ink-600">
+                  Because Nomadic is a newly released independent application, Windows SmartScreen may show a standard confirmation.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
+              <div className="flex items-center gap-2 font-bold text-ink-950">
+                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">1</span>
+                <span>Click "More info"</span>
+              </div>
+              <p className="text-ink-600 leading-relaxed">
+                When the blue <em>"Windows protected your PC"</em> popup appears, click the underlined <strong className="text-ink-950">More info</strong> link directly under the warning text.
+              </p>
+            </div>
+
+            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
+              <div className="flex items-center gap-2 font-bold text-ink-950">
+                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">2</span>
+                <span>Click "Run anyway"</span>
+              </div>
+              <p className="text-ink-600 leading-relaxed">
+                The dialog will reveal the publisher and display a <strong className="text-ink-950">Run anyway</strong> button in the bottom right corner. Click it to launch Nomadic.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick PowerShell Command */}
+          <div className="bg-white border border-powder-200 rounded-2xl p-4 space-y-2.5 shadow-fine">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold text-ink-600 uppercase tracking-wider">
+                Or 1-Click Install via PowerShell (Zero Prompts)
+              </span>
+              <button
+                onClick={handleCopyCommand}
+                className="text-[11px] font-mono text-ink-600 hover:text-ink-950 flex items-center gap-1 font-semibold"
+              >
+                {copiedCmd ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedCmd ? 'Copied!' : 'Copy Command'}</span>
+              </button>
+            </div>
+            <div
+              onClick={handleCopyCommand}
+              className="bg-ink-950 text-powder-200 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between cursor-pointer hover:bg-ink-900 transition-colors"
+            >
+              <code>irm https://nomadicai.vercel.app/install.ps1 | iex</code>
+              <Copy className="w-3.5 h-3.5 text-powder-400 shrink-0" />
+            </div>
+          </div>
+        </div>
+
         {/* 3-Step Setup Instructions */}
         <div className="animate-in bg-ink-50 border border-ink-200 rounded-3xl p-6 sm:p-10 shadow-fine space-y-8 max-w-4xl mx-auto">
           <div className="text-center max-w-md mx-auto space-y-1">
@@ -256,9 +346,9 @@ export default function Download() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
             <div className="bg-white border border-ink-200 p-5 rounded-2xl space-y-2.5 shadow-fine">
               <span className="text-xs font-mono font-bold text-ink-400">STEP 01</span>
-              <h4 className="font-bold text-sm text-ink-950">Download Installer</h4>
+              <h4 className="font-bold text-sm text-ink-950">Download Release</h4>
               <p className="text-ink-600 leading-relaxed">
-                Click the download button above to download the <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic-Setup-1.0.2.exe</code> file to your computer.
+                Click the download button above to get <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic.Setup.1.0.2.exe</code> (or the Portable Zip).
               </p>
             </div>
 
@@ -266,7 +356,7 @@ export default function Download() {
               <span className="text-xs font-mono font-bold text-ink-400">STEP 02</span>
               <h4 className="font-bold text-sm text-ink-950">Run Installation</h4>
               <p className="text-ink-600 leading-relaxed">
-                Double-click the setup file to install. The app runs smoothly without prompting for administrator permissions.
+                Double-click the setup file to install. The app runs smoothly without requiring administrator permissions.
               </p>
             </div>
 
@@ -274,7 +364,7 @@ export default function Download() {
               <span className="text-xs font-mono font-bold text-ink-400">STEP 03</span>
               <h4 className="font-bold text-sm text-ink-950">Launch &amp; Apply</h4>
               <p className="text-ink-600 leading-relaxed">
-                Open Nomadic, upload your resume, select your career roadmaps, and start 1-click batch applications.
+                Open Nomadic, calibrate your profile, stream fresh direct ATS feeds, and execute autonomous applications.
               </p>
             </div>
           </div>

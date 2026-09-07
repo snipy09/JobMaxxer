@@ -17,6 +17,7 @@
   "build": {
     "appId": "com.nomadic.career.os",
     "productName": "Nomadic",
+    "copyright": "Copyright © 2026 Nomadic Technologies Inc.",
     "electronVersion": "31.7.7",
     "directories": {
       "output": "dist-electron"
@@ -29,6 +30,8 @@
     "win": {
       "icon": "assets/icon.ico",
       "executableName": "NomadicOS",
+      "publisherName": "Nomadic Technologies Inc.",
+      "legalTrademarks": "Nomadic Career OS",
       "certificateFile": "nomadic-dev.pfx",
       "certificatePassword": "Nomadic123!",
       "target": [
@@ -45,11 +48,12 @@
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
       "shortcutName": "Nomadic",
-      "artifactName": "Nomadic Setup ${version}.exe",
-      "uninstallDisplayName": "Nomadic ${version}"
+      "artifactName": "Nomadic.Setup.${version}.exe",
+      "uninstallDisplayName": "Nomadic ${version}",
+      "displayLanguageSelector": false
     },
     "portable": {
-      "artifactName": "Nomadic ${version}.exe",
+      "artifactName": "Nomadic.${version}.exe",
       "requestExecutionLevel": "user"
     },
     "mac": {

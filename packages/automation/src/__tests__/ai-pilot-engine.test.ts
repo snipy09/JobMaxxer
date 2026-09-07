@@ -82,5 +82,5 @@ describe('Semantic DOM Extractor & AI Pilot Engine', () => {
     const plan = await generateAIPilotPlan(profile, snapshot);
     // Since external API isn't mocked, it returns null or structured object gracefully
     expect(plan === null || typeof plan === 'object').toBe(true);
-  });
+  }, 10000);
 });

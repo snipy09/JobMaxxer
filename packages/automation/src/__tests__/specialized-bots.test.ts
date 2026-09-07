@@ -8,6 +8,7 @@ describe('Specialized Portal Bot Dispatcher', () => {
     lastName: 'Mishra',
     email: 'sajal@nomadic.app',
     phone: '+91 9493833632',
+    summaryText: 'Experienced software engineer building scalable web applications and cloud systems.',
   };
 
   it('routes Internshala URLs to InternshalaBot', async () => {
