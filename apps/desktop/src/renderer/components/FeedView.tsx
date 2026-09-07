@@ -21,21 +21,6 @@ interface FeedViewProps {
   onOpenUpgrade?: (feature?: string) => void;
 }
 
-const DEMO_TEST_JOB: Job = {
-  title: 'Senior Product / Software Specialist (1-Click Test Job)',
-  company: 'Nomadic Labs',
-  location: 'Remote · Global',
-  source: 'Verified Demo ATS',
-  applyUrl: 'https://demo.nomadic.app/test-application',
-  score: 98,
-  employmentType: 'job',
-  workplaceType: 'remote',
-  experienceLevel: 'mid',
-  salary: '₹22 LPA · $140k',
-  description: 'A verified live test opportunity to immediately test 1-click autonomous auto-apply, stealth form pre-filling, and resume attachment.',
-  createdAt: new Date().toISOString(),
-};
-
 // Canonical Job Deduplication Helper
 function deduplicateJobList(jobList: Job[]): Job[] {
   const seenKeys = new Set<string>();
@@ -66,7 +51,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
   onOpenUpgrade,
 }) => {
   // 1. In-Memory Fresh Feed: Never persist stale feed across app closures so fresh live jobs fetch on every launch
-  const [jobs, setJobs] = useState<Job[]>([DEMO_TEST_JOB]);
+  const [jobs, setJobs] = useState<Job[]>([]);
 
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -124,7 +109,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
     try {
       const res = await api.getCloudFeed('candidate');
       if (res && res.success && res.jobs && res.jobs.length > 0) {
-        const combined = deduplicateJobList([DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
+        const combined = deduplicateJobList(res.jobs);
         setJobs(combined);
         showToast(`Instant Refreshed: ${combined.length} verified live jobs.`);
         onLog(`[Job Board] Feed updated with ${combined.length} unique positions.`);
@@ -147,7 +132,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
       if (typeof api.getCloudFeedPage === 'function') {
         const page1 = await api.getCloudFeedPage({ page: 1, pageSize: 36 });
         if (page1.success && page1.jobs && page1.jobs.length > 0) {
-          const initialJobs = deduplicateJobList([DEMO_TEST_JOB, ...page1.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
+          const initialJobs = deduplicateJobList(page1.jobs);
           setJobs(initialJobs);
           setLoading(false); // Render Page 1 immediately with zero wait!
         }
@@ -158,7 +143,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
     try {
       const res = await api.getCloudFeed('candidate');
       if (res.success && res.jobs && res.jobs.length > 0) {
-        const combined = deduplicateJobList([DEMO_TEST_JOB, ...res.jobs.filter((j: Job) => j.applyUrl !== DEMO_TEST_JOB.applyUrl)]);
+        const combined = deduplicateJobList(res.jobs);
         setJobs(combined);
         saveJobsToLocalStorage(combined);
         onLog(`[Feed] Stream synced ${combined.length} unique opportunities.`);
