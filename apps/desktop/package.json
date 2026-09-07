@@ -29,6 +29,8 @@
     "win": {
       "icon": "assets/icon.ico",
       "executableName": "NomadicOS",
+      "certificateFile": "nomadic-dev.pfx",
+      "certificatePassword": "Nomadic123!",
       "target": [
         "nsis",
         "portable"
