@@ -6,7 +6,7 @@ import {
   Code2, Phone, Mail, Lock, Shield, Sparkles,
   Zap, FileText, Upload, Key, Loader2, Calendar, Plus, X
 } from 'lucide-react';
-import { MasterProfile, getApi } from '../types';
+import { MasterProfile, getApi, WorkspaceMode, OpportunityType } from '../types';
 
 interface OnboardingWizardProps {
   initialProfile: MasterProfile;
@@ -61,6 +61,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const initialLast = initialProfile.lastName || (currentUser?.fullName ? currentUser.fullName.split(' ').slice(1).join(' ') : '');
 
   // Core State (Clean, zero forced pre-filled placeholders)
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(initialProfile.workspaceMode || 'unified');
+  const [targetOpportunityType, setTargetOpportunityType] = useState<OpportunityType>(initialProfile.targetOpportunityType || 'both');
   const [firstName, setFirstName] = useState<string>(initialFirst || '');
   const [lastName, setLastName] = useState<string>(initialLast || '');
   const [phone, setPhone] = useState<string>(initialProfile.phone || '');
@@ -286,6 +288,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         resumeFilePath: uploadedResumePath || initialProfile.resumeFilePath,
         experienceLevel: experienceLevel as any,
         geminiApiKey: customAiKey.trim() || undefined,
+        workspaceMode,
+        targetOpportunityType,
         onboardingCompleted: true,
       });
       setSynthesizedRoadmap(fallbackRoadmap);
@@ -308,6 +312,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       techStack: Array.from(selectedSkills).join(', ') || synthesizedProfile.techStack || 'Core Skills',
       experienceLevel: experienceLevel as any,
       resumeFilePath: uploadedResumePath || synthesizedProfile.resumeFilePath || '',
+      workspaceMode,
+      targetOpportunityType,
       onboardingCompleted: true,
     };
 
@@ -372,7 +378,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           </div>
         )}
 
-        {/* ── STEP 1: IDENTITY & CONTACT ─────────────────────────────────── */}
+        {/* ── STEP 1: WORKSPACE INTENT & IDENTITY ─────────────────────────── */}
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <div className="space-y-1">
@@ -380,11 +386,88 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 Welcome to Nomadic
               </h2>
               <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Let's set up your profile for personalized learning and autonomous ATS applications.
+                Choose your primary focus to personalize your workspace. (You can change this anytime from Settings).
               </p>
             </div>
 
-            <div className="space-y-4">
+            {/* Workspace Mode Selection Cards */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 font-mono">
+                Select Your Primary Focus
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* Mode 1: Learner Only */}
+                <div
+                  onClick={() => setWorkspaceMode('learner_only')}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
+                    workspaceMode === 'learner_only'
+                      ? 'border-powder-500 bg-powder-50/70 dark:bg-powder-950/40 dark:border-powder-400 shadow-xs ring-1 ring-powder-500'
+                      : 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/60 hover:border-slate-300 dark:hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    {workspaceMode === 'learner_only' && <CheckCircle2 className="w-4 h-4 text-powder-600 dark:text-powder-400" />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-zinc-100">Learn &amp; Practice</div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">
+                      52-wk roadmaps, 428+ LC sets, textbooks &amp; streak tracker.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mode 2: Seeker Only */}
+                <div
+                  onClick={() => setWorkspaceMode('seeker_only')}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
+                    workspaceMode === 'seeker_only'
+                      ? 'border-powder-500 bg-powder-50/70 dark:bg-powder-950/40 dark:border-powder-400 shadow-xs ring-1 ring-powder-500'
+                      : 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/60 hover:border-slate-300 dark:hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-powder-100 dark:bg-powder-950/80 text-powder-700 dark:text-powder-400 flex items-center justify-center">
+                      <Briefcase className="w-4 h-4" />
+                    </div>
+                    {workspaceMode === 'seeker_only' && <CheckCircle2 className="w-4 h-4 text-powder-600 dark:text-powder-400" />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-zinc-100">Apply Directly</div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">
+                      Direct ATS radar, 1-click auto-applier &amp; recruiter outreach.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mode 3: Unified / Both */}
+                <div
+                  onClick={() => setWorkspaceMode('unified')}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
+                    workspaceMode === 'unified'
+                      ? 'border-powder-500 bg-powder-50/70 dark:bg-powder-950/40 dark:border-powder-400 shadow-xs ring-1 ring-powder-500'
+                      : 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/60 hover:border-slate-300 dark:hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-400 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    {workspaceMode === 'unified' && <CheckCircle2 className="w-4 h-4 text-powder-600 dark:text-powder-400" />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-zinc-100">Complete OS (Both)</div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">
+                      Full dual-workspace with top [Learn | Seek] switcher.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300">
@@ -505,6 +588,48 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       {role}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Target Opportunity Type Selector */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 font-mono">
+                  What opportunities are you targeting?
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'job', label: 'Full-Time Jobs', desc: 'Direct tech roles & careers', icon: Briefcase },
+                    { id: 'internship', label: 'Internships', desc: 'Student internships & stipends', icon: BookOpen },
+                    { id: 'both', label: 'Both (All)', desc: 'Jobs, internships & fellowships', icon: Sparkles },
+                  ].map((opp) => {
+                    const isSelected = targetOpportunityType === opp.id;
+                    const Icon = opp.icon;
+                    return (
+                      <button
+                        key={opp.id}
+                        type="button"
+                        onClick={() => setTargetOpportunityType(opp.id as any)}
+                        className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between space-y-1.5 ${
+                          isSelected
+                            ? 'border-powder-500 bg-powder-50/70 dark:bg-powder-950/40 dark:border-powder-400 shadow-xs ring-1 ring-powder-500'
+                            : 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/50 hover:border-slate-300 dark:hover:border-zinc-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-powder-600 dark:text-powder-400' : 'text-slate-400'}`} />
+                          {isSelected && <Check className="w-3.5 h-3.5 text-powder-600 dark:text-powder-400 font-bold" />}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                            {opp.label}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">
+                            {opp.desc}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

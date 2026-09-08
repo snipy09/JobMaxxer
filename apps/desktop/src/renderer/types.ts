@@ -1,3 +1,6 @@
+export type WorkspaceMode = 'learner_only' | 'seeker_only' | 'unified';
+export type OpportunityType = 'job' | 'internship' | 'both';
+
 export interface MasterProfile {
   id?: number;
   firstName: string;
@@ -28,6 +31,9 @@ export interface MasterProfile {
   onboardingCompleted?: boolean;
   workplaceType?: 'remote' | 'hybrid' | 'onsite';
   experienceLevel?: 'entry' | 'mid' | 'senior';
+  workspaceMode?: WorkspaceMode;
+  targetOpportunityType?: OpportunityType;
+  askBeforeSubmit?: boolean;
 }
 
 export interface Job {
@@ -132,7 +138,7 @@ export interface ResumeRecord {
   createdAt?: string;
 }
 
-export type SubscriptionTier = 'free' | 'lite' | 'pro' | 'max';
+export type SubscriptionTier = 'free' | 'pro' | 'max';
 
 export interface AppUser {
   id: number | string;
@@ -224,6 +230,8 @@ export interface ElectronAPI {
     error?: string;
   }>;
   cancelAutonomousApply?: () => Promise<{ success: boolean }>;
+  startBatchCoPilot?: (targets: Array<{ url: string; company?: string; title?: string }>) => Promise<{ success: boolean; snapshots?: any[]; error?: string }>;
+  submitAllBatchCoPilot?: (overrides?: Record<string, Record<string, string>>) => Promise<{ success: boolean; applied?: number; failed?: number; error?: string }>;
   verifyEmail: (email: string) => Promise<{ isValid: boolean; stageFailed?: number; reason?: string }>;
   getHrContacts: (targetRole?: string) => Promise<{ success: boolean; contacts: OutreachContact[]; error?: string }>;
   sendOutreach: (contacts: Array<{ email: string; name?: string; company?: string; role?: string; subject?: string; body?: string }>) =>

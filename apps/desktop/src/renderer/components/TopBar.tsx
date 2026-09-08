@@ -4,7 +4,7 @@ import {
   Search, User, Settings as SettingsIcon, LogOut, ChevronDown,
   FileText, Shield
 } from 'lucide-react';
-import { AppUser, TabType, PersonaTrack, AppUpdateInfo, getApi } from '../types';
+import { AppUser, TabType, PersonaTrack, AppUpdateInfo, getApi, WorkspaceMode } from '../types';
 import { UpdateModal } from './UpdateModal';
 import { normalizeTier, getTierBadgeProps } from '../utils/tier-utils';
 
@@ -15,6 +15,7 @@ interface TopBarProps {
   onNavigate: (tab: TabType) => void;
   activeTrack?: PersonaTrack;
   setTrack?: (track: PersonaTrack) => void;
+  workspaceMode?: WorkspaceMode;
   onOpenUpgrade?: () => void;
   onOpenCommandPalette?: () => void;
   onLog?: (msg: string) => void;
@@ -27,6 +28,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onNavigate,
   activeTrack = 'learner',
   setTrack,
+  workspaceMode = 'unified',
   onOpenUpgrade,
   onOpenCommandPalette,
   onLog
@@ -98,8 +100,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
         </div>
 
-        {/* 2. Center: Top-Level Workspace Mode Switcher [ Learn | Seek ] */}
-        {setTrack && (
+        {/* 2. Center: Top-Level Workspace Mode Switcher [ Learn | Seek ] (Only visible in unified mode) */}
+        {setTrack && workspaceMode === 'unified' && (
           <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-inner">
             <button
               type="button"

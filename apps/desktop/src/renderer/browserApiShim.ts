@@ -247,6 +247,32 @@ export function createBrowserApiShim(): ElectronAPI {
       return { success: true };
     },
 
+    startBatchCoPilot: async (targets: Array<{ url: string; company?: string; title?: string }>) => {
+      emitLog(`[Batch Co-Pilot] Pre-filling ${targets.length} applications in parallel...`);
+      const snapshots = targets.map((t, i) => ({
+        id: `shim_${i + 1}`,
+        company: t.company || 'Tech Company',
+        jobTitle: t.title || 'Software Engineer',
+        applyUrl: t.url,
+        resumeFileName: 'Resume.pdf',
+        fields: [
+          { fieldKey: 'fullName', label: 'Full Name', value: 'Candidate', fieldType: 'text' as const },
+          { fieldKey: 'email', label: 'Email', value: 'candidate@example.com', fieldType: 'text' as const },
+          { fieldKey: 'phone', label: 'Phone', value: '+1 (555) 000-0000', fieldType: 'text' as const },
+          { fieldKey: 'noticePeriod', label: 'Notice Period', value: '2 weeks', fieldType: 'text' as const },
+          { fieldKey: 'desiredSalary', label: 'Desired Salary', value: 'Competitive', fieldType: 'text' as const },
+          { fieldKey: 'coverLetter', label: 'Why are you a strong fit?', value: `I have extensive experience building scalable web architectures and leading frontend/backend systems.`, fieldType: 'textarea' as const }
+        ],
+        status: 'ready' as const
+      }));
+      return { success: true, snapshots };
+    },
+
+    submitAllBatchCoPilot: async (overrides?: Record<string, Record<string, string>>) => {
+      emitLog('[Batch Co-Pilot] Submitted all batch applications successfully ✓');
+      return { success: true, applied: 1, failed: 0 };
+    },
+
     verifyEmail: async (email: string) => {
       return { isValid: true };
     },

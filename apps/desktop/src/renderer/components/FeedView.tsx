@@ -11,7 +11,9 @@ import {
 import { Job, MasterProfile, getApi } from '../types';
 import { computeJobRelevance } from '../data/relevanceMatcher';
 import { CompleteProfileModal } from './CompleteProfileModal';
+import { BatchCoPilotReviewModal } from './BatchCoPilotReviewModal';
 import { hasFeatureAccess, normalizeTier } from '../utils/tier-utils';
+import { BatchAppSnapshot } from '../utils/batch-copilot-helpers';
 
 interface FeedViewProps {
   profile: MasterProfile;
@@ -60,7 +62,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Primary Segmented Filter Tabs: all, jobs, internships, internshala, remote, saved, high_match
-  const [filterTab, setFilterTab] = useState<'all' | 'jobs' | 'internships' | 'internshala' | 'remote' | 'saved' | 'high_match'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'jobs' | 'internships' | 'internshala' | 'remote' | 'saved' | 'high_match'>(() => {
+    try {
+      const savedType = localStorage.getItem('nomadic_target_opportunity_type');
+      if (savedType === 'job') return 'jobs';
+      if (savedType === 'internship') return 'internships';
+    } catch {}
+    return 'all';
+  });
   
   // Sort State: latest | best_match | company
   const [sortBy, setSortBy] = useState<'latest' | 'best_match' | 'company'>('latest');
@@ -84,6 +93,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
   // Profile completion gatekeeper modal state
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [pendingApplyAction, setPendingApplyAction] = useState<{ urls: string[] } | null>(null);
+
+  // Batch Co-Pilot Review Modal state
+  const [showBatchReviewModal, setShowBatchReviewModal] = useState<boolean>(false);
+  const [batchSnapshots, setBatchSnapshots] = useState<BatchAppSnapshot[]>([]);
 
   // Copy feedback & toast notifications
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
@@ -411,10 +424,46 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }, 600);
   };
 
-  // 100% Autonomous Background Auto-Apply Engine
+  // 100% Autonomous / Batch Co-Pilot Engine
   const handleTriggerAutonomousApply = async (targetUrls: string[], singleTarget?: { company: string; title: string }) => {
     if (!targetUrls || targetUrls.length === 0) return;
     setIsCancelingApply(false);
+    
+    const api = getApi();
+    const shouldReview = profile.askBeforeSubmit !== false;
+
+    // If Batch Co-Pilot Review is active, start parallel pre-fill and open review modal
+    if (shouldReview && api && api.startBatchCoPilot) {
+      setExecutingAutoApply(true);
+      setPillColorState('grey');
+      setPillMessage(`Pre-filling ${targetUrls.length} forms in parallel...`);
+      setAutoApplyLogs([
+        `[Batch Co-Pilot] Spawning parallel workers to pre-fill ${targetUrls.length} applications...`,
+        `[Info] Forms will be filled and presented in one unified review before submission.`
+      ]);
+
+      const targetList = targetUrls.map(url => {
+        const j = jobs.find(x => x.applyUrl === url);
+        return {
+          url,
+          company: singleTarget?.company || j?.company,
+          title: singleTarget?.title || j?.title,
+        };
+      });
+
+      try {
+        const res = await api.startBatchCoPilot(targetList);
+        setExecutingAutoApply(false);
+        if (res && res.success && res.snapshots && res.snapshots.length > 0) {
+          setBatchSnapshots(res.snapshots);
+          setShowBatchReviewModal(true);
+          return;
+        }
+      } catch (err: any) {
+        onLog?.(`[Batch Co-Pilot Notice] Fallback to direct engine: ${err?.message}`);
+      }
+    }
+
     setExecutingAutoApply(true);
     const targetLabel = singleTarget ? `${singleTarget.title} at ${singleTarget.company}` : `${targetUrls.length} positions`;
     setAutoApplyLogs([
@@ -425,7 +474,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
     setPillMessage('Initializing auto-apply engine...');
     setAutoApplyProgress(5);
 
-    const api = getApi();
     if (!api || !api.launchAutonomous) {
       setAutoApplyLogs(prev => [...prev, '[Error] Local desktop engine not detected.']);
       setTimeout(() => setExecutingAutoApply(false), 3000);
@@ -465,6 +513,22 @@ export const FeedView: React.FC<FeedViewProps> = ({
         setExecutingAutoApply(false);
         setActiveJobTarget(null);
       }, 1000);
+    }
+  };
+
+  const handleSubmitAllBatchCoPilot = async (overrides?: Record<string, Record<string, string>>) => {
+    const api = getApi();
+    if (!api || !api.submitAllBatchCoPilot) return;
+    try {
+      showToast('Submitting all applications concurrently...');
+      const res = await api.submitAllBatchCoPilot(overrides);
+      if (res && res.success) {
+        showToast(`✓ All ${batchSnapshots.length} applications submitted successfully!`, 'success');
+        onLog(`[Batch Co-Pilot] Successfully submitted ${batchSnapshots.length} applications.`);
+        setSelectedUrls(new Set());
+      }
+    } catch (err: any) {
+      showToast(`Error submitting batch: ${err?.message}`, 'info');
     }
   };
 
@@ -1273,6 +1337,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
           }
         }}
         onProfileCompleted={handleProfileModalCompleted}
+      />
+
+      {/* ── 11. BATCH CO-PILOT REVIEW MODAL ─────────────────────────────────── */}
+      <BatchCoPilotReviewModal
+        isOpen={showBatchReviewModal}
+        onClose={() => {
+          setShowBatchReviewModal(false);
+          setBatchSnapshots([]);
+        }}
+        snapshots={batchSnapshots}
+        onSubmitAll={handleSubmitAllBatchCoPilot}
+        onLog={onLog}
       />
     </div>
   );

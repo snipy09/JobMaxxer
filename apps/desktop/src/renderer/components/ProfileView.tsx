@@ -5,7 +5,7 @@ import {
   ArrowRight, ExternalLink, Sparkles, Check, ChevronRight,
   Globe, Laptop, Lock, UserCheck
 } from 'lucide-react';
-import { MasterProfile, getApi, AppUser } from '../types';
+import { MasterProfile, getApi, AppUser, WorkspaceMode, OpportunityType } from '../types';
 
 interface ProfileFormData {
   fullName: string;
@@ -34,6 +34,9 @@ interface ProfileFormData {
   resumes: Array<{ id: string; name: string; filePath?: string }>;
   defaultResumeId?: string;
   onboardingCompleted: boolean;
+  workspaceMode: WorkspaceMode;
+  targetOpportunityType: OpportunityType;
+  askBeforeSubmit: boolean;
 }
 
 interface ProfileViewProps {
@@ -97,6 +100,9 @@ function normalizeProfileToFormData(profile: MasterProfile | null, currentUser?:
     resumes: Array.isArray(p.resumes) ? p.resumes : [],
     defaultResumeId: p.defaultResumeId,
     onboardingCompleted: p.onboardingCompleted ?? true,
+    workspaceMode: (p.workspaceMode as WorkspaceMode) || (localStorage.getItem('nomadic_workspace_mode') as WorkspaceMode) || 'unified',
+    targetOpportunityType: (p.targetOpportunityType as OpportunityType) || (localStorage.getItem('nomadic_target_opportunity_type') as OpportunityType) || 'both',
+    askBeforeSubmit: p.askBeforeSubmit !== undefined ? Boolean(p.askBeforeSubmit) : true,
   };
 }
 
@@ -162,6 +168,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         techStack,
         sponsorship: formData.requiresSponsorship ? 'Yes' : 'No',
         customAnswers: { ...(profile?.customAnswers || {}), ...(formData.answers || {}) },
+        workspaceMode: formData.workspaceMode,
+        targetOpportunityType: formData.targetOpportunityType,
+        askBeforeSubmit: formData.askBeforeSubmit,
         onboardingCompleted: true,
       };
 
@@ -433,6 +442,96 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <div
                     className="bg-powder-600 dark:bg-powder-400 h-full rounded-full transition-all duration-500"
                     style={{ width: `${completenessPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Workspace Mode & Opportunity Type Preferences */}
+              <div className="space-y-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+                <div className="space-y-1">
+                  <h3 className="text-xs font-mono font-bold tracking-wider text-slate-400 uppercase">
+                    Workspace Mode &amp; Track Preference
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Control which tools appear in your workspace. You can switch modes anytime with zero data loss.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: 'learner_only', label: 'Learner Only', desc: 'Focus on roadmaps & interview prep', icon: BookOpen },
+                    { id: 'seeker_only', label: 'Seeker Only', desc: 'Focus on job board & auto-apply', icon: Briefcase },
+                    { id: 'unified', label: 'Unified (Both)', desc: 'Dual mode with top [Learn | Seek] switcher', icon: Sparkles },
+                  ].map((m) => {
+                    const isSelected = formData.workspaceMode === m.id;
+                    const Icon = m.icon;
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          setFormData({ ...formData, workspaceMode: m.id as any });
+                          localStorage.setItem('nomadic_workspace_mode', m.id);
+                        }}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between space-y-1.5 ${
+                          isSelected
+                            ? 'border-powder-500 bg-powder-50/70 dark:bg-powder-950/40 dark:border-powder-400 shadow-xs ring-1 ring-powder-500'
+                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-powder-600 dark:text-powder-400' : 'text-slate-400'}`} />
+                          {isSelected && <Check className="w-3.5 h-3.5 text-powder-600 dark:text-powder-400 font-bold" />}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-zinc-100">{m.label}</div>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">{m.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Target Opportunity Type Preference */}
+                <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Default Job Radar Filter
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                      { id: 'job', label: 'Full-Time Jobs' },
+                      { id: 'internship', label: 'Internships' },
+                      { id: 'both', label: 'Both (Jobs & Internships)' },
+                    ].map((opp) => (
+                      <button
+                        key={opp.id}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, targetOpportunityType: opp.id as any });
+                          localStorage.setItem('nomadic_target_opportunity_type', opp.id);
+                        }}
+                        className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                          formData.targetOpportunityType === opp.id
+                            ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 border-slate-950 dark:border-white shadow-xs'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                        }`}
+                      >
+                        {opp.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Co-Pilot Review Toggle */}
+                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Co-Pilot Review (Ask Before Submit)</div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Show draft review modal with command editing before submitting applications.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.askBeforeSubmit}
+                    onChange={(e) => setFormData({ ...formData, askBeforeSubmit: e.target.checked })}
+                    className="w-4 h-4 rounded text-powder-600 focus:ring-powder-500 cursor-pointer"
                   />
                 </div>
               </div>

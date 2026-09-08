@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
-  TabType, ThemeMode, MasterProfile, HeartbeatStatus, AppUser, getApi, PersonaTrack
+  TabType, ThemeMode, MasterProfile, HeartbeatStatus, AppUser, getApi, PersonaTrack, WorkspaceMode
 } from './types';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { TopBar } from './components/TopBar';
@@ -53,8 +53,19 @@ export default function App() {
   });
 
   // Navigation tab state with persistence
+  const [workspaceMode, setWorkspaceModeState] = useState<WorkspaceMode>(() => {
+    try {
+      const saved = localStorage.getItem('nomadic_workspace_mode') as WorkspaceMode;
+      if (saved === 'learner_only' || saved === 'seeker_only' || saved === 'unified') return saved;
+    } catch {}
+    return 'unified';
+  });
+
   const [activeTrack, setActiveTrack] = useState<PersonaTrack>(() => {
     try {
+      const mode = (localStorage.getItem('nomadic_workspace_mode') as WorkspaceMode) || 'unified';
+      if (mode === 'learner_only') return 'learner';
+      if (mode === 'seeker_only') return 'seeker';
       const saved = localStorage.getItem('nomadic_active_track') as PersonaTrack;
       if (saved === 'learner' || saved === 'seeker') return saved;
     } catch {}
@@ -220,6 +231,8 @@ export default function App() {
   };
 
   const handleTrackChange = (newTrack: PersonaTrack) => {
+    if (workspaceMode === 'learner_only') newTrack = 'learner';
+    if (workspaceMode === 'seeker_only') newTrack = 'seeker';
     setActiveTrack(newTrack);
     try {
       localStorage.setItem('nomadic_active_track', newTrack);
@@ -298,6 +311,18 @@ export default function App() {
     const profToSave = updatedProfile || profile;
     setSavingProfile(true);
     setProfile(profToSave);
+    if (profToSave.workspaceMode) {
+      setWorkspaceModeState(profToSave.workspaceMode);
+      localStorage.setItem('nomadic_workspace_mode', profToSave.workspaceMode);
+      if (profToSave.workspaceMode === 'learner_only') {
+        setActiveTrack('learner');
+      } else if (profToSave.workspaceMode === 'seeker_only') {
+        setActiveTrack('seeker');
+      }
+    }
+    if (profToSave.targetOpportunityType) {
+      localStorage.setItem('nomadic_target_opportunity_type', profToSave.targetOpportunityType);
+    }
     try {
       localStorage.setItem('nomadic_master_profile', JSON.stringify({
         ...profToSave,
@@ -389,18 +414,29 @@ export default function App() {
         onComplete={(completedProfile) => {
           setProfile(completedProfile);
           setShowOnboarding(false);
+          const mode = completedProfile.workspaceMode || 'unified';
+          setWorkspaceModeState(mode);
           try {
+            localStorage.setItem('nomadic_workspace_mode', mode);
             localStorage.setItem('nomadic_onboarding_done', 'true');
             localStorage.setItem('hirestack_onboarding_done', 'true');
             localStorage.setItem('nomadic_last_calibrated_date', new Date().toISOString().split('T')[0]);
+            if (completedProfile.targetOpportunityType) {
+              localStorage.setItem('nomadic_target_opportunity_type', completedProfile.targetOpportunityType);
+            }
             if (currentUser) {
               const updated = { ...currentUser, onboardingCompleted: true };
               setCurrentUser(updated);
               localStorage.setItem('nomadic_user', JSON.stringify(updated));
             }
           } catch {}
-          setActiveTrack('learner');
-          setActiveTab('learner-roadmaps');
+          if (mode === 'seeker_only') {
+            setActiveTrack('seeker');
+            setActiveTab('feed');
+          } else {
+            setActiveTrack('learner');
+            setActiveTab('learner-roadmaps');
+          }
         }}
       />
     );
@@ -417,6 +453,7 @@ export default function App() {
         onNavigate={handleNavigate}
         activeTrack={activeTrack}
         setTrack={handleTrackChange}
+        workspaceMode={workspaceMode}
         onOpenUpgrade={() => handleOpenUpgrade()}
         onOpenCommandPalette={() => setShowCommandPalette(true)}
       />

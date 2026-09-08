@@ -314,8 +314,8 @@ export class OmniFormSolver {
               result.radiosSelected++;
             }
           } else {
-            // Work authorization, Office 3 days, Laptop, Schedule -> Click "Yes"
-            const yesBtn = (await grp.$('button:has-text("Yes")')) || buttons[0];
+            // Work authorization, Office 3 days, San Francisco HQ, Laptop, Schedule -> Click "Yes"
+            const yesBtn = (await grp.$('button:has-text("Yes"), button:has-text("I am able"), button:has-text("I can")')) || buttons[0];
             if (yesBtn) {
               await humanClick(page, yesBtn);
               result.radiosSelected++;
@@ -325,21 +325,25 @@ export class OmniFormSolver {
       }
     } catch {}
 
-    // ── 4. SOLVE ALL RADIO QUESTION GROUPS (Native & ARIA) ──────────────────
+    // ── 4. SOLVE ALL RADIO QUESTION GROUPS & ARBITRATION (Native & ARIA) ────
     try {
       const radioFillCount = await page.evaluate(() => {
         let count = 0;
 
         // A. Groups & Fieldsets
         const groups = Array.from(document.querySelectorAll<HTMLElement>(
-          '[role="radiogroup"], fieldset, .ashby-field-question, .form-group, div:has(> [role="radio"])'
+          '[role="radiogroup"], fieldset, .ashby-field-question, .form-group, div:has(> [role="radio"]), div[class*="_question_"], div[class*="_fieldContainer_"]'
         ));
 
         groups.forEach((group) => {
           const groupText = (group.textContent || '').toLowerCase();
           const radioItems = Array.from(group.querySelectorAll<HTMLElement>(
-            'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"]'
-          ));
+            'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"], button._yesno_button, button'
+          )).filter(b => {
+            const t = (b.textContent || (b as any).value || '').trim();
+            return /^(yes|no|i acknowledge|acknowledge|agree|i agree|accept|prefer not|decline)$/i.test(t) || b.getAttribute('role') === 'radio';
+          });
+
           if (radioItems.length === 0) return;
 
           const isAnyChecked = radioItems.some(r => {
@@ -351,18 +355,24 @@ export class OmniFormSolver {
           let pick: HTMLElement | null = null;
           if (groupText.includes('sponsor') || groupText.includes('visa')) {
             pick = radioItems.find(r => /no|not require|false/i.test(r.textContent || (r as any).value || '')) || null;
+          } else if (groupText.includes('arbitration') || groupText.includes('dispute') || groupText.includes('acknowledgement')) {
+            pick = radioItems.find(r => /acknowledge|i acknowledge|agree|i agree|accept|yes/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
+          } else if (groupText.includes('san francisco') || groupText.includes('hq') || groupText.includes('office') || groupText.includes('days per week') || groupText.includes('hybrid') || groupText.includes('work from')) {
+            pick = radioItems.find(r => /yes|i am able|i can|agree|true/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
           } else {
             pick = radioItems.find(r => /yes|authorized|eligible|agree|true|office|relocate/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
           }
 
           if (pick) {
             pick.click();
+            pick.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             if (pick instanceof HTMLInputElement) {
               pick.checked = true;
               pick.dispatchEvent(new Event('input', { bubbles: true }));
               pick.dispatchEvent(new Event('change', { bubbles: true }));
             }
             pick.setAttribute('aria-checked', 'true');
+            pick.classList.add('selected');
             count++;
           }
         });
@@ -475,29 +485,67 @@ export class OmniFormSolver {
       }
     } catch {}
 
-    // ── 6. SOLVE ALL AGREEMENT & CERTIFICATION CHECKBOXES ───────────────────
+    // ── 6. SOLVE ALL AGREEMENT, T&C & LEGAL CERTIFICATION CHECKBOXES ───────
     try {
+      // Force scroll to absolute bottom to hydrate legal agreements and T&C
+      await page.evaluate(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+      }).catch(() => {});
+      await page.waitForTimeout(200);
+
       const checkboxCount = await page.evaluate(() => {
         let count = 0;
+        const AGREEMENT_WORDS = /agree|accept|acknowledge|certify|consent|terms|privacy|policy|arbitration|declaration|confirm|withheld|personally completed|true and correct/i;
 
-        // 1. Native Checkboxes
+        // 1. Native Checkboxes (Direct check + Parent Label Click)
         const checkboxes = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
         checkboxes.forEach((cb) => {
           if (cb.checked) return;
           cb.checked = true;
-          cb.dispatchEvent(new Event('click', { bubbles: true }));
+          cb.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          cb.dispatchEvent(new Event('input', { bubbles: true }));
           cb.dispatchEvent(new Event('change', { bubbles: true }));
+
+          // Trigger click on parent label / wrapper to bypass opacity-0 custom overlays
+          const parentLabel = cb.closest('label') || cb.parentElement;
+          if (parentLabel && parentLabel !== cb) {
+            parentLabel.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          }
+
           count++;
         });
 
-        // 2. Custom ARIA Checkboxes
-        const ariaCheckboxes = Array.from(document.querySelectorAll<HTMLElement>('[role="checkbox"], .custom-checkbox'));
+        // 2. Custom ARIA Checkboxes & Legal Containers
+        const ariaCheckboxes = Array.from(document.querySelectorAll<HTMLElement>(
+          '[role="checkbox"], .custom-checkbox, div[class*="_checkbox_"], label:has(span[class*="checkbox"])'
+        ));
         ariaCheckboxes.forEach((acb) => {
-          const isChecked = acb.getAttribute('aria-checked') === 'true' || acb.classList.contains('checked') || acb.classList.contains('active');
+          const isChecked = acb.getAttribute('aria-checked') === 'true' || 
+                            acb.classList.contains('checked') || 
+                            acb.classList.contains('active') ||
+                            acb.classList.contains('selected');
           if (!isChecked) {
             acb.click();
+            acb.dispatchEvent(new MouseEvent('click', { bubbles: true }));
             acb.setAttribute('aria-checked', 'true');
+            acb.classList.add('checked');
             count++;
+          }
+        });
+
+        // 3. Buttons with explicit "I Agree" / "Agree" / "I Accept" / "Acknowledge" text
+        const agreeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(
+          'button:not([type="submit"]), div[role="button"], span[role="button"]'
+        ));
+        agreeButtons.forEach((btn) => {
+          const btnText = (btn.textContent || '').trim().toLowerCase();
+          if (/^(i agree|i accept|agree|accept|i acknowledge|acknowledge|agree & continue)$/i.test(btnText)) {
+            const isSelected = btn.classList.contains('active') || btn.classList.contains('selected') || btn.getAttribute('aria-pressed') === 'true';
+            if (!isSelected) {
+              btn.click();
+              btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+              count++;
+            }
           }
         });
 
