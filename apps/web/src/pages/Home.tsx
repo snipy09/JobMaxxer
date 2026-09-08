@@ -244,15 +244,10 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <a
               href="#/download"
-              className="hidden sm:inline-flex text-[13px] font-medium text-[#666666] hover:text-[#0A0A0A] transition-colors px-3 py-1.5"
+              className="text-[13px] font-semibold bg-[#0A0A0A] hover:bg-black text-white px-4 py-2 rounded-full transition-all shadow-xs active:scale-[0.98] inline-flex items-center gap-1.5"
             >
-              Download
-            </a>
-            <a
-              href="#/download"
-              className="text-[13px] font-medium bg-[#0A0A0A] hover:bg-black text-white px-4 py-2 rounded-lg transition-all shadow-xs active:scale-[0.98]"
-            >
-              Get Started
+              <DownloadIcon className="w-3.5 h-3.5" />
+              <span>Download</span>
             </a>
 
             <button
