@@ -98,19 +98,36 @@ export class OmniFormSolver {
   /**
    * STEP 0: Systematic full-page pre-scroll.
    * Forces all lazy-loaded React 18+ components and virtualized form fields to mount.
+   * Modal-aware: scrolls the active modal/drawer container rather than the background window.
    */
   public static async preScrollEntirePage(page: Page): Promise<void> {
     try {
       await page.evaluate(async () => {
+        // Detect if an open modal or dialog is present (Internshala, Ashby, Greenhouse modals)
+        const modal = document.querySelector<HTMLElement>(
+          '.modal.show, .modal[style*="display: block"], #application_modal, [role="dialog"], .application_modal, .modal-dialog, .modal-body, .modal_body, #cover_letter_container'
+        );
+        if (modal) {
+          const scrollable = modal.querySelector<HTMLElement>('.modal-body, .modal_body, .modal-content, form') || modal;
+          const totalHeight = scrollable.scrollHeight || 2000;
+          for (let current = 0; current < totalHeight; current += 250) {
+            scrollable.scrollTop = current;
+            await new Promise(r => setTimeout(r, 40));
+          }
+          scrollable.scrollTop = 0;
+          return;
+        }
+
+        // Standard page scroll only if no modal is active
         const distance = 350;
         const totalHeight = document.body.scrollHeight || 3000;
         for (let current = 0; current < totalHeight; current += distance) {
           window.scrollTo(0, current);
-          await new Promise(r => setTimeout(r, 60));
+          await new Promise(r => setTimeout(r, 50));
         }
         window.scrollTo(0, 0);
       });
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(200);
     } catch {}
   }
 
