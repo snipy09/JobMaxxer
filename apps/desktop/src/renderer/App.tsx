@@ -643,7 +643,7 @@ export default function App() {
         <NomadicAssistant
           currentUser={currentUser}
           onNavigateTab={handleNavigate}
-          onTriggerAutoApply={(urls) => handleTriggerAutonomousApply(urls || [])}
+          onTriggerAutoApply={(_urls) => handleNavigate('feed')}
           onOpenUpgrade={(feat) => handleOpenUpgrade(feat || 'Nomadic Autonomous Co-Pilot on Steroids')}
           onLog={addLog}
         />

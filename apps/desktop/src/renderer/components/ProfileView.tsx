@@ -3,7 +3,7 @@ import {
   User, FileText, CheckCircle2, Shield,
   Save, AlertCircle, RefreshCw, Key, Database,
   ArrowRight, ExternalLink, Sparkles, Check, ChevronRight,
-  Globe, Laptop, Lock, UserCheck
+  Globe, Laptop, Lock, UserCheck, BookOpen, Briefcase, GraduationCap
 } from 'lucide-react';
 import { MasterProfile, getApi, AppUser, WorkspaceMode, OpportunityType } from '../types';
 
@@ -129,6 +129,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onLog,
   currentUser,
   onNavigateTab,
+  onLogout,
+  onRerunOnboarding,
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
   const [formData, setFormData] = useState<ProfileFormData>(() => normalizeProfileToFormData(profile, currentUser));
