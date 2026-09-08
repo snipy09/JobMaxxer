@@ -574,16 +574,6 @@ export class AutoApplyEngine {
             }, onProgress);
           }
 
-          // Priority A: If this is a directory/search landing page (not a specific job or form), search for role or click first matching job
-          if (snapshot.isJobDescription === false && snapshot.hasApplicationForm === false && aiPlan.actionType === 'click_apply') {
-            const targetEl = await page.$(`[data-nomadic-id="${aiPlan.clickTargetElementId}"]`);
-            if (targetEl) {
-              await humanClick(page, targetEl);
-              await page.waitForTimeout(600);
-              continue;
-            }
-          }
-
           // Case A: AI clicks Apply CTA on job description page
           if (aiPlan.actionType === 'click_apply' && aiPlan.clickTargetElementId) {
             const targetEl = await page.$(`[data-nomadic-id="${aiPlan.clickTargetElementId}"]`);
@@ -607,21 +597,56 @@ export class AutoApplyEngine {
             }
           }
 
-          // [REMOVED CASE B] — AI Pilot Engine directly filling fields is highly prone to hallucination (e.g., pasting cover letters into Name fields).
-          // Form filling is now handled exclusively by the 100% deterministic OmniFormSolver in Step 10b.
-
-          // Case C: AI triggers Submit Button
-          if (aiPlan.submitButtonElementId && totalFieldsFilled > 0) {
-            const submitBtn = await page.$(`[data-nomadic-id="${aiPlan.submitButtonElementId}"]`);
-            if (submitBtn) {
-              await humanClick(page, submitBtn);
-              await page.waitForTimeout(600);
-              const isConfirmed = await AutoApplyEngine.isPageConfirmedSubmission(page, totalFieldsFilled);
-              if (isConfirmed) {
-                isSubmitted = true;
-                break;
-              }
+          // Case B: AI Executes Direct Form Filling Instructions
+          if (aiPlan.fillActions && aiPlan.fillActions.length > 0) {
+            for (const act of aiPlan.fillActions) {
+              try {
+                const el = await page.$(`[data-nomadic-id="${act.elementId}"]`);
+                if (el) {
+                  await el.evaluate((node: HTMLElement, val: string) => {
+                    node.focus();
+                    const proto = node instanceof HTMLInputElement ? window.HTMLInputElement.prototype : window.HTMLTextAreaElement.prototype;
+                    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+                    if (desc && desc.set) {
+                      desc.set.call(node, val);
+                    } else {
+                      (node as any).value = val;
+                    }
+                    node.dispatchEvent(new Event('input', { bubbles: true }));
+                    node.dispatchEvent(new Event('change', { bubbles: true }));
+                    node.dispatchEvent(new Event('blur', { bubbles: true }));
+                  }, act.value).catch(() => {});
+                  totalFieldsFilled++;
+                }
+              } catch {}
             }
+          }
+
+          // Case C: AI Clicks Directed Radio / Checkbox / Agreement Elements
+          if (aiPlan.clickElementIds && aiPlan.clickElementIds.length > 0) {
+            for (const elId of aiPlan.clickElementIds) {
+              try {
+                const el = await page.$(`[data-nomadic-id="${elId}"]`);
+                if (el) {
+                  await humanClick(page, el);
+                  totalFieldsFilled++;
+                }
+              } catch {}
+            }
+          }
+
+          // Case D: AI Resume Upload
+          if (aiPlan.uploadResumeElementId) {
+            try {
+              const fileEl = await page.$(`[data-nomadic-id="${aiPlan.uploadResumeElementId}"]`);
+              if (fileEl) {
+                const resumePath = getOrCreateValidResumePdf(profile);
+                if (resumePath && fs.existsSync(resumePath)) {
+                  await fileEl.setInputFiles(resumePath).catch(() => {});
+                  totalFieldsFilled++;
+                }
+              }
+            } catch {}
           }
         }
 
