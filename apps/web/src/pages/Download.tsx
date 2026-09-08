@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   ArrowRight, ArrowLeft, Check, Download as DownloadIcon,
   Shield, Laptop, Terminal, Sparkles, CheckCircle2,
-  Clock, AlertCircle, HardDrive, Cpu, RefreshCw, Copy, FileArchive, ChevronRight
+  Clock, AlertCircle, HardDrive, Cpu, RefreshCw, Copy, ChevronRight, FolderArchive
 } from 'lucide-react';
 import { animate, stagger } from 'animejs';
 
@@ -15,6 +15,9 @@ export default function Download() {
   const containerRef = useRef<HTMLDivElement>(null);
   const windowsCardRef = useRef<HTMLDivElement>(null);
   const macCardRef = useRef<HTMLDivElement>(null);
+
+  const LATEST_SETUP_URL = 'https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-Setup-1.0.6-win.zip';
+  const LATEST_FILENAME = 'Nomadic-Setup-1.0.6-win.zip';
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -33,7 +36,7 @@ export default function Download() {
     }
   }, []);
 
-  const handleDownloadClick = (url: string, filename: string) => {
+  const handleDownloadClick = () => {
     setDownloadStarted(true);
 
     if (windowsCardRef.current) {
@@ -47,8 +50,8 @@ export default function Download() {
     }
 
     const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
+    link.href = LATEST_SETUP_URL;
+    link.download = LATEST_FILENAME;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -117,7 +120,7 @@ export default function Download() {
           {downloadStarted && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 text-xs flex items-center justify-center gap-2 max-w-md mx-auto animate-fade-up">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Your download has started! Follow the quick launch guide below.</span>
+              <span>Your download has started! Follow the 3-step installation guide below.</span>
             </div>
           )}
         </div>
@@ -141,7 +144,7 @@ export default function Download() {
 
               <div>
                 <h3 className="text-xl font-bold text-ink-950">Windows 10 / 11 (64-bit)</h3>
-                <p className="text-xs text-ink-500 font-mono mt-0.5">Native Windows x64 Build · Authentic Binary</p>
+                <p className="text-xs text-ink-500 font-mono mt-0.5">Native Windows x64 Desktop Application</p>
               </div>
 
               <ul className="space-y-2.5 text-xs text-ink-700 border-t border-ink-100 pt-4">
@@ -166,51 +169,17 @@ export default function Download() {
 
             <div className="space-y-3 pt-4 border-t border-ink-100">
               {/* Primary Download Button */}
-              <a
-                href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic.Setup.1.0.6.exe"
-                onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic.Setup.1.0.6.exe', 'Nomadic.Setup.1.0.6.exe')}
-                className="w-full py-3.5 bg-ink-950 hover:bg-ink-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lifted active:scale-95 text-center"
+              <button
+                onClick={handleDownloadClick}
+                className="w-full py-4 bg-ink-950 hover:bg-ink-800 text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all shadow-lifted active:scale-95 text-center cursor-pointer"
               >
-                <DownloadIcon className="w-4 h-4" />
-                <span>Download Windows Installer (Setup.exe · 92.0 MB)</span>
-              </a>
-
-              {/* Alternative Download Links */}
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <a
-                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-Setup-1.0.6-win.zip"
-                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-Setup-1.0.6-win.zip', 'Nomadic-Setup-1.0.6-win.zip')}
-                  className="py-2.5 px-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
-                  title="Download installer inside a ZIP file"
-                >
-                  <FileArchive className="w-3.5 h-3.5 shrink-0" />
-                  <span>Setup (.zip)</span>
-                </a>
-
-                <a
-                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic.1.0.6.exe"
-                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic.1.0.6.exe', 'Nomadic.1.0.6.exe')}
-                  className="py-2.5 px-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
-                  title="Run directly without running an installer"
-                >
-                  <Laptop className="w-3.5 h-3.5 shrink-0" />
-                  <span>Portable (.exe)</span>
-                </a>
-
-                <a
-                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-1.0.6-win.zip"
-                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-1.0.6-win.zip', 'Nomadic-1.0.6-win.zip')}
-                  className="py-2.5 px-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
-                  title="Download standalone unpacked application in a ZIP"
-                >
-                  <FileArchive className="w-3.5 h-3.5 shrink-0" />
-                  <span>Portable (.zip)</span>
-                </a>
-              </div>
+                <DownloadIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                <span>Download Nomadic for Windows (64-bit · 80.2 MB)</span>
+              </button>
 
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
                 <span>Release: v1.0.6 Stable</span>
-                <span>SHA-256 Verified</span>
+                <span>SHA-256 Verified · Authentic Build</span>
               </div>
             </div>
           </div>
@@ -282,7 +251,57 @@ export default function Download() {
           </div>
         </div>
 
-        {/* Windows SmartScreen & Smart App Control Guidance */}
+        {/* Installation Process Instructions (Clean 3 Steps) */}
+        <div className="animate-in bg-ink-50 border border-ink-200 rounded-3xl p-6 sm:p-10 shadow-fine space-y-8 max-w-4xl mx-auto">
+          <div className="text-center max-w-md mx-auto space-y-1">
+            <span className="text-xs font-mono uppercase tracking-widest text-ink-400 font-semibold">Easy Setup</span>
+            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-ink-950">Installation Process</h2>
+            <p className="text-xs text-ink-500">Follow these 3 quick steps to install and start using Nomadic</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
+            <div className="bg-white border border-ink-200 p-5 rounded-2xl space-y-2.5 shadow-fine flex flex-col justify-between">
+              <div className="space-y-2">
+                <span className="text-xs font-mono font-bold text-ink-400">STEP 01</span>
+                <h4 className="font-bold text-sm text-ink-950">Download Nomadic</h4>
+                <p className="text-ink-600 leading-relaxed">
+                  Click the download button above. The package will download directly to your computer's Downloads folder.
+                </p>
+              </div>
+              <div className="pt-2 text-[11px] text-ink-400 font-mono">
+                File: Nomadic-Setup-1.0.6-win
+              </div>
+            </div>
+
+            <div className="bg-white border border-ink-200 p-5 rounded-2xl space-y-2.5 shadow-fine flex flex-col justify-between">
+              <div className="space-y-2">
+                <span className="text-xs font-mono font-bold text-ink-400">STEP 02</span>
+                <h4 className="font-bold text-sm text-ink-950">Extract Folder</h4>
+                <p className="text-ink-600 leading-relaxed">
+                  Right-click the downloaded file in your Downloads folder and click <strong className="text-ink-950">"Extract All..."</strong> (or double-click to open it).
+                </p>
+              </div>
+              <div className="pt-2 text-[11px] text-ink-400 font-mono">
+                Click "Extract" to unpack
+              </div>
+            </div>
+
+            <div className="bg-white border border-ink-200 p-5 rounded-2xl space-y-2.5 shadow-fine flex flex-col justify-between">
+              <div className="space-y-2">
+                <span className="text-xs font-mono font-bold text-ink-400">STEP 03</span>
+                <h4 className="font-bold text-sm text-ink-950">Run Setup &amp; Launch</h4>
+                <p className="text-ink-600 leading-relaxed">
+                  Double-click <code className="bg-ink-100 px-1.5 py-0.5 rounded text-[11px] font-bold text-ink-950">Nomadic.Setup.1.0.6.exe</code> inside the folder to install and launch Nomadic.
+                </p>
+              </div>
+              <div className="pt-2 text-[11px] text-ink-400 font-mono">
+                Zero admin privileges required
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Windows 11 Smart App Control & SmartScreen Help Card */}
         <div className="animate-in bg-powder-50 border border-powder-200 rounded-3xl p-6 sm:p-8 max-w-4xl mx-auto space-y-6 shadow-fine">
           <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
             <div className="flex items-center gap-3">
@@ -291,34 +310,34 @@ export default function Download() {
               </div>
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-ink-950">
-                  Windows 11 Smart App Control &amp; SmartScreen Help
+                  Windows 11 Smart App Control &amp; SmartScreen Assistance
                 </h3>
                 <p className="text-xs text-ink-600">
-                  Because Nomadic is a newly released independent release, Windows may display a security prompt. Use any of the quick options below:
+                  If Windows 11 displays a security prompt, use any of the quick methods below:
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Quick PowerShell Command (Option 1 - Best for Windows 11) */}
+          {/* Quick PowerShell Command (Recommended for Power Users) */}
           <div className="bg-white border border-powder-200 rounded-2xl p-5 space-y-3 shadow-fine">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full font-mono uppercase">Recommended</span>
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full font-mono uppercase">Alternative</span>
                 <span className="text-xs font-bold text-ink-950">
-                  Option 1: 1-Click Quick Install via PowerShell (Bypasses Smart App Control)
+                  1-Click Direct Install via Command Prompt or PowerShell
                 </span>
               </div>
               <button
                 onClick={handleCopyCommand}
-                className="text-[11px] font-mono text-ink-600 hover:text-ink-950 flex items-center gap-1 font-semibold"
+                className="text-[11px] font-mono text-ink-600 hover:text-ink-950 flex items-center gap-1 font-semibold cursor-pointer"
               >
                 {copiedCmd ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                 <span>{copiedCmd ? 'Copied!' : 'Copy Command'}</span>
               </button>
             </div>
             <p className="text-[11px] text-ink-600 leading-relaxed">
-              Paste this command into <strong>PowerShell</strong> or <strong>Command Prompt (cmd)</strong> and press Enter. It automatically downloads, unblocks, and launches Nomadic cleanly:
+              Paste this command into <strong>Command Prompt (cmd)</strong> or <strong>PowerShell</strong> and press Enter to download, unblock, and launch automatically:
             </p>
             <div
               onClick={handleCopyCommand}
@@ -329,59 +348,25 @@ export default function Download() {
             </div>
           </div>
 
-          {/* Option 2 & 3 Grid */}
+          {/* Unblock Properties & SmartScreen Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
               <div className="flex items-center gap-2 font-bold text-ink-950">
-                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">2</span>
+                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">A</span>
                 <span>Unblock in File Properties</span>
               </div>
               <p className="text-ink-600 leading-relaxed">
-                If blocked by Smart App Control: Right-click the downloaded <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">.exe</code> → <strong>Properties</strong> → check <strong>"Unblock"</strong> at the bottom → click <strong>Apply / OK</strong>.
+                If blocked by Smart App Control: Right-click the downloaded file → <strong>Properties</strong> → check <strong>"Unblock"</strong> at the bottom → click <strong>Apply / OK</strong>.
               </p>
             </div>
 
             <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
               <div className="flex items-center gap-2 font-bold text-ink-950">
-                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">3</span>
+                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">B</span>
                 <span>SmartScreen "Run anyway"</span>
               </div>
               <p className="text-ink-600 leading-relaxed">
                 If the blue <em>"Windows protected your PC"</em> popup appears: click the underlined <strong className="text-ink-950">More info</strong> link → click the <strong className="text-ink-950">Run anyway</strong> button.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 3-Step Setup Instructions */}
-        <div className="animate-in bg-ink-50 border border-ink-200 rounded-3xl p-6 sm:p-10 shadow-fine space-y-8 max-w-4xl mx-auto">
-          <div className="text-center max-w-md mx-auto space-y-1">
-            <span className="text-xs font-mono uppercase tracking-widest text-ink-400 font-semibold">Quick Setup</span>
-            <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-ink-950">How to Install &amp; Launch</h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
-            <div className="bg-white border border-ink-200 p-5 rounded-2xl space-y-2.5 shadow-fine">
-              <span className="text-xs font-mono font-bold text-ink-400">STEP 01</span>
-              <h4 className="font-bold text-sm text-ink-950">Download Release</h4>
-              <p className="text-ink-600 leading-relaxed">
-                Click the download button above to get <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">Nomadic.Setup.1.0.6.exe</code> (or the Portable Zip).
-              </p>
-            </div>
-
-            <div className="bg-white border border-ink-200 p-5 rounded-2xl space-y-2.5 shadow-fine">
-              <span className="text-xs font-mono font-bold text-ink-400">STEP 02</span>
-              <h4 className="font-bold text-sm text-ink-950">Run Installation</h4>
-              <p className="text-ink-600 leading-relaxed">
-                Double-click the setup file to install. The app runs smoothly without requiring administrator permissions.
-              </p>
-            </div>
-
-            <div className="bg-white border border-ink-200 p-5 rounded-2xl space-y-2.5 shadow-fine">
-              <span className="text-xs font-mono font-bold text-ink-400">STEP 03</span>
-              <h4 className="font-bold text-sm text-ink-950">Launch &amp; Apply</h4>
-              <p className="text-ink-600 leading-relaxed">
-                Open Nomadic, calibrate your profile, stream fresh direct ATS feeds, and execute autonomous applications.
               </p>
             </div>
           </div>
