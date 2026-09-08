@@ -20,6 +20,12 @@ dist-electron/
 .env.local
 .env.production
 .env.development
+*.pfx
+*.p12
+*.cer
+*.key
+*.pem
+nomadic-dev.pfx
 
 # OS files
 .DS_Store
@@ -37,3 +43,5 @@ coverage/
 
 # Playwright binaries cache
 .playwright/
+
+.vercel

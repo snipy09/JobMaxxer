@@ -32,8 +32,11 @@
       "executableName": "NomadicOS",
       "publisherName": "Nomadic Technologies Inc.",
       "legalTrademarks": "Nomadic Career OS",
-      "certificateFile": "nomadic-dev.pfx",
-      "certificatePassword": "Nomadic123!",
+      "timeStampServer": "http://timestamp.digicert.com",
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
       "target": [
         "nsis",
         "portable"
@@ -50,7 +53,9 @@
       "shortcutName": "Nomadic",
       "artifactName": "Nomadic.Setup.${version}.exe",
       "uninstallDisplayName": "Nomadic ${version}",
-      "displayLanguageSelector": false
+      "displayLanguageSelector": false,
+      "unicode": true,
+      "differentialPackage": false
     },
     "portable": {
       "artifactName": "Nomadic.${version}.exe",
