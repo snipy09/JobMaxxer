@@ -1,18 +1,15 @@
-export type SubscriptionTier = 'free' | 'lite' | 'pro' | 'max';
+export type SubscriptionTier = 'free' | 'pro' | 'max';
 
 /**
- * Lossless Tier Normalization Engine
- * Maps legacy database tier strings and aliases to canonical 4-tier system:
+ * Lossless 3-Tier Normalization Engine (Free, Pro ₹249, Max ₹599)
+ * Maps legacy database tier strings and aliases to canonical 3-tier system:
  * - 'free' | 'trial' -> 'free'
- * - 'lite' | 'learner_pro' | 'learner' -> 'lite'
- * - 'pro' | 'seeker_pro' | 'seeker' -> 'pro'
+ * - 'pro' | 'lite' | 'learner_pro' | 'seeker_pro' | 'learner' | 'seeker' -> 'pro'
  * - 'max' | 'seeker_max' | 'lifetime' | 'enterprise' | 'turbo' -> 'max'
  */
 export function normalizeTier(tier?: string | null): SubscriptionTier {
   if (!tier) return 'free';
   const clean = String(tier).toLowerCase().trim();
-  if (clean === 'lite' || clean === 'learner_pro' || clean === 'learner') return 'lite';
-  if (clean === 'pro' || clean === 'seeker_pro' || clean === 'seeker') return 'pro';
   if (
     clean === 'max' ||
     clean === 'seeker_max' ||
@@ -22,25 +19,32 @@ export function normalizeTier(tier?: string | null): SubscriptionTier {
   ) {
     return 'max';
   }
+  if (
+    clean === 'pro' ||
+    clean === 'lite' ||
+    clean === 'learner_pro' ||
+    clean === 'seeker_pro' ||
+    clean === 'learner' ||
+    clean === 'seeker'
+  ) {
+    return 'pro';
+  }
   return 'free';
 }
 
 /**
  * Returns numeric hierarchy rank for permissions:
- * 0: Free
- * 1: Lite (Roadmaps, Question Bank, Textbooks)
- * 2: Pro (Lite + Full Feed + 50 Auto-Applies/wk + 25 Leads/wk)
- * 3: Max (Unlimited Autopilot + Unlimited Outreach + Priority)
+ * 0: Free (₹0 · Preview roadmaps, top 10 jobs, 3 LC companies, 2 textbooks)
+ * 1: Pro (₹249/mo · All 52-Wk Roadmaps, 428+ LC companies, 12+ textbooks, Full Job Feed, 50 Auto-Applies/wk, 25 Leads/wk)
+ * 2: Max (₹599/mo · 100% Unlimited Autopilot, Unlimited Outreach, Priority Radar)
  */
 export function getTierLevel(tier?: string | null): number {
   const norm = normalizeTier(tier);
   switch (norm) {
-    case 'lite':
-      return 1;
     case 'pro':
-      return 2;
+      return 1;
     case 'max':
-      return 3;
+      return 2;
     default:
       return 0;
   }
@@ -59,12 +63,10 @@ export function hasFeatureAccess(
 export function getTierDisplayName(tier?: string | null): string {
   const norm = normalizeTier(tier);
   switch (norm) {
-    case 'lite':
-      return 'Lite Plan';
     case 'pro':
-      return 'Pro Plan';
+      return 'Pro Plan (₹249/mo)';
     case 'max':
-      return 'Max Plan';
+      return 'Max Plan (₹599/mo)';
     default:
       return 'Free Plan';
   }
@@ -91,13 +93,6 @@ export function getTierBadgeProps(tier?: string | null): {
         bgClass: 'bg-powder-600',
         textClass: 'text-white',
         borderClass: 'border-powder-500',
-      };
-    case 'lite':
-      return {
-        label: 'LITE',
-        bgClass: 'bg-emerald-600',
-        textClass: 'text-white',
-        borderClass: 'border-emerald-500',
       };
     default:
       return {

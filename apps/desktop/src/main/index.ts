@@ -3778,15 +3778,14 @@ ipcMain.handle('admin-get-metrics', async () => {
     const activeUsers = list.filter((u) => String(u['status']) === 'active').length;
     const totalApps = list.reduce((acc, u) => acc + (Number(u['apps_count']) || 0), 0);
     const trialUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'free').length;
-    const liteUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'lite').length;
     const proUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'pro').length;
     const maxUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'max').length;
     const lifetimeUsers = list.filter((u) => String(u['subscription_tier']) === 'lifetime').length;
 
-    const mrr = `₹${(liteUsers * 79 + proUsers * 149 + maxUsers * 299).toLocaleString('en-IN')}/mo`;
-    const totalRevenue = `₹${(liteUsers * 79 + proUsers * 149 + maxUsers * 299).toLocaleString('en-IN')}`;
+    const mrr = `₹${(proUsers * 249 + maxUsers * 599).toLocaleString('en-IN')}/mo`;
+    const totalRevenue = `₹${(proUsers * 249 + maxUsers * 599).toLocaleString('en-IN')}`;
 
-    return { totalUsers, activeUsers, totalApps, totalRevenue, mrr, trialUsers, proUsers: liteUsers + proUsers, maxUsers, lifetimeUsers };
+    return { totalUsers, activeUsers, totalApps, totalRevenue, mrr, trialUsers, proUsers, maxUsers, lifetimeUsers };
   } catch (err: unknown) {
     log(`[Admin] Metrics computation error: ${err instanceof Error ? err.message : String(err)}`);
     return empty;

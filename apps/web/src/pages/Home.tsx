@@ -731,38 +731,38 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {/* 1. Free Plan */}
-            <div className="p-6 rounded-2xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
+            <div className="p-8 rounded-3xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
+              <div className="space-y-5">
                 <div>
                   <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Free Plan</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹0</span>
+                  <div className="mt-3 flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-[#0A0A0A]">₹0</span>
                     <span className="text-xs text-[#777777]">/ lifetime</span>
                   </div>
-                  <p className="text-xs text-[#666666] mt-1">Tryout &amp; fundamental preview.</p>
+                  <p className="text-xs text-[#666666] mt-1.5">Tryout &amp; fundamental preview.</p>
                 </div>
 
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                <ul className="space-y-3 text-xs text-[#555555]">
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
                     <span>1 Interactive Roadmap Preview</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
                     <span>Top 10 Curated Direct Jobs</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
                     <span>Top 3 LeetCode Company Sets</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
                     <span>2 Core CS Textbooks</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
                     <span>Local-first candidate storage</span>
                   </li>
                 </ul>
@@ -770,150 +770,108 @@ export default function Home() {
 
               <a
                 href="#/download"
-                className="w-full text-center py-2.5 px-3 rounded-xl border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] text-xs font-semibold text-[#0A0A0A] transition-colors block shadow-2xs"
+                className="w-full text-center py-3 px-4 rounded-xl border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] text-xs font-semibold text-[#0A0A0A] transition-colors block shadow-2xs"
               >
                 Download for Windows
               </a>
             </div>
 
-            {/* 2. Lite Plan */}
-            <div className="p-6 rounded-2xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Lite Plan</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹79</span>
-                    <span className="text-xs text-[#777777]">/ mo</span>
-                  </div>
-                  <p className="text-xs text-[#666666] mt-1">Students &amp; interview prep.</p>
-                </div>
-
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>All 52-Week AI Roadmaps</strong></span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>428+ Company LeetCode Sets</strong></span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>17,300+ Qs &amp; video solutions</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Full 12+ CS Textbook Library</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>52-Week streak tracker</span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Lite%20Plan%20(%E2%82%B979%2Fmo)."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full text-center py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block shadow-2xs"
-              >
-                Upgrade to Lite (₹79)
-              </a>
-            </div>
-
-            {/* 3. Pro Plan */}
-            <div className="p-6 rounded-2xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
+            {/* 2. Pro Plan (₹249) */}
+            <div className="p-8 rounded-3xl border border-[#E5E5E5] bg-[#FAFAFA] flex flex-col justify-between space-y-6">
+              <div className="space-y-5">
                 <div>
                   <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Pro Plan</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹149</span>
+                  <div className="mt-3 flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-[#0A0A0A]">₹249</span>
                     <span className="text-xs text-[#777777]">/ mo</span>
                   </div>
-                  <p className="text-xs text-[#666666] mt-1">Active applicants &amp; job hunters.</p>
+                  <p className="text-xs text-[#666666] mt-1.5">Full skill mastery &amp; active job seeking.</p>
                 </div>
 
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>Complete Lite Plan</strong> included</span>
+                <ul className="space-y-3 text-xs text-[#555555]">
+                  <li className="flex items-center gap-2.5 font-medium text-[#0A0A0A]">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span><strong>All 52-Week AI Roadmaps</strong></span>
                   </li>
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Direct ATS Radar (18/36/54 Page)</span>
+                  <li className="flex items-center gap-2.5 font-medium text-[#0A0A0A]">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span><strong>428+ Company LeetCode Sets (17.3k Qs)</strong></span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Semi-Auto Apply (50 apps/wk)</span>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span>Full 12+ CS Textbook Library</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>25 Verified HR leads/wk</span>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span>Direct ATS Radar (18/36/54 Page Navigation)</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Multi-Resume library (up to 5)</span>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span><strong>Semi-Auto Apply (50 apps/wk)</strong></span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span>25 Verified HR leads/wk + 5 Resumes</span>
                   </li>
                 </ul>
               </div>
 
               <a
-                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Pro%20Plan%20(%E2%82%B9149%2Fmo)."
+                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Pro%20Plan%20(%E2%82%B9249%2Fmo)."
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full text-center py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block shadow-2xs"
+                className="w-full text-center py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block shadow-2xs"
               >
-                Upgrade to Pro (₹149)
+                Upgrade to Pro (₹249)
               </a>
             </div>
 
-            {/* 4. Max Plan (Featured / Full Autopilot) */}
-            <div className="p-6 rounded-2xl border-2 border-[#0A0A0A] bg-white flex flex-col justify-between space-y-6 shadow-md relative">
-              <div className="space-y-4">
+            {/* 3. Max Plan (₹599 - Featured / Full Autopilot) */}
+            <div className="p-8 rounded-3xl border-2 border-[#0A0A0A] bg-white flex flex-col justify-between space-y-6 shadow-md relative">
+              <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider">Max Plan</h3>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#0A0A0A] text-white">Full Autopilot</span>
+                  <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#0A0A0A] text-white">Full Autopilot</span>
                 </div>
                 <div>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#0A0A0A]">₹299</span>
+                  <div className="mt-3 flex items-baseline gap-1">
+                    <span className="text-4xl font-extrabold text-[#0A0A0A]">₹599</span>
                     <span className="text-xs text-[#777777]">/ mo</span>
                   </div>
-                  <p className="text-xs text-[#666666] mt-1">Full suite: 100% Autonomous Autopilot.</p>
+                  <p className="text-xs text-[#666666] mt-1.5">Full suite: 100% Autonomous Autopilot.</p>
                 </div>
 
-                <ul className="space-y-2 text-xs text-[#555555]">
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>Complete Pro Plan</strong> included</span>
+                <ul className="space-y-3 text-xs text-[#555555]">
+                  <li className="flex items-center gap-2.5 font-medium text-[#0A0A0A]">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span><strong>Complete Pro Plan Included</strong></span>
                   </li>
-                  <li className="flex items-center gap-2 font-medium text-[#0A0A0A]">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span><strong>100% Autonomous Auto-Apply</strong></span>
+                  <li className="flex items-center gap-2.5 font-medium text-[#0A0A0A]">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span><strong>100% Autonomous Auto-Apply (Unlimited)</strong></span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Unlimited Background HR Outreach</span>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span><strong>Unlimited Background HR Outreach</strong></span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Priority 15-min ATS Radar</span>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span>Priority 15-min ATS Radar Streaming</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-[#0A0A0A] shrink-0" />
-                    <span>Highest priority solver &amp; sync</span>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-[#0A0A0A] shrink-0" />
+                    <span>Highest priority solver &amp; cloud sync</span>
                   </li>
                 </ul>
               </div>
 
               <a
-                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Max%20Plan%20(%E2%82%B9299%2Fmo)."
+                href="https://wa.me/919493833632?text=Hi%2C%20I%20want%20to%20upgrade%20to%20Nomadic%20Max%20Plan%20(%E2%82%B9599%2Fmo)."
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full text-center py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block shadow-2xs"
+                className="w-full text-center py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white transition-colors block shadow-2xs"
               >
-                Upgrade to Max (₹299)
+                Upgrade to Max (₹599)
               </a>
             </div>
           </div>

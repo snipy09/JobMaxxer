@@ -853,9 +853,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                   >
                     <option value="all">All Plans</option>
                     <option value="free">Free Plan</option>
-                    <option value="lite">Lite Plan (₹79/mo)</option>
-                    <option value="pro">Pro Plan (₹149/mo)</option>
-                    <option value="max">Max Plan (₹299/mo)</option>
+                    <option value="pro">Pro Plan (₹249/mo)</option>
+                    <option value="max">Max Plan (₹599/mo)</option>
                   </select>
 
                   {/* Status Filter */}
@@ -1650,9 +1649,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold focus:outline-hidden"
                 >
                   <option value="free">Free Plan (Default preview)</option>
-                  <option value="lite">Lite Plan (₹79/mo · Roadmaps, 428+ LC, Books)</option>
-                  <option value="pro">Pro Plan (₹149/mo · Full Feed, 50 Auto-Applies/wk)</option>
-                  <option value="max">Max Plan (₹299/mo · Unlimited Autopilot &amp; Outreach)</option>
+                  <option value="pro">Pro Plan (₹249/mo · Roadmaps, 428+ LC, 50 Auto-Applies/wk)</option>
+                  <option value="max">Max Plan (₹599/mo · Unlimited Autopilot &amp; Outreach)</option>
                 </select>
               </div>
 

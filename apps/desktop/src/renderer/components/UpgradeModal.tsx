@@ -63,107 +63,76 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
           </p>
         </div>
 
-        {/* 3-Paid-Tier Grid (Lite, Pro, Max) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Plan 1: Lite (₹79) */}
-          <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-sm">
-            <div className="space-y-3">
+        {/* 2-Paid-Tier Grid (Pro ₹249 & Max ₹599) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {/* Plan 1: Pro Plan (₹249) */}
+          <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl p-6 space-y-5 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-sm">
+            <div className="space-y-4">
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Foundation</span>
-                <h3 className="font-extrabold text-slate-950 dark:text-white text-base">Lite Plan</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Students, freshers &amp; interview prep</p>
-                <div className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
-                  ₹79 <span className="text-xs font-normal text-slate-400 font-mono">/ mo</span>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Complete Career Acceleration</span>
+                <h3 className="font-extrabold text-slate-950 dark:text-white text-xl">Pro Plan</h3>
+                <p className="text-xs text-slate-500 mt-1">Full skill mastery &amp; active job seeking</p>
+                <div className="mt-4 text-4xl font-black text-slate-950 dark:text-white">
+                  ₹249 <span className="text-xs font-normal text-slate-400 font-mono">/ mo</span>
                 </div>
               </div>
 
-              <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700 pt-3">
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>428+ Company Problem Sets (17,300+ Qs)</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Free solution mirrors &amp; video solutions</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>All 52-Week AI Roadmaps &amp; Curriculums</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Full 12+ CS Textbook Library</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>52-week streak heatmap &amp; tracking</span></li>
-              </ul>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                onClick={() => handleWhatsAppUpgrade('Lite Plan', '₹79/mo')}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Upgrade to Lite (₹79)</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Plan 2: Pro (₹149) */}
-          <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-sm">
-            <div className="space-y-3">
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Semi-Autonomous</span>
-                <h3 className="font-extrabold text-slate-950 dark:text-white text-base">Pro Plan</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Active candidates &amp; job hunters</p>
-                <div className="mt-3 text-3xl font-black text-slate-950 dark:text-white">
-                  ₹149 <span className="text-xs font-normal text-slate-400 font-mono">/ mo</span>
-                </div>
-              </div>
-
-              <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700 pt-3">
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>Complete Lite Plan</strong> included</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Direct ATS Job Radar (18/36/54 Pagination)</span></li>
+              <ul className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700 pt-4">
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>All 52-Week AI Roadmaps &amp; Curriculums</strong></span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span><strong>428+ Company Problem Sets (17,300+ Qs)</strong></span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Full 12+ CS Textbook Library &amp; Streak Heatmap</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Direct ATS Job Radar (18/36/54 Page Navigation)</span></li>
                 <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Semi-Auto Apply (up to 50 apps/week)</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>25 Verified HR / Recruiter leads/week</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Multi-Resume library (up to 5 resumes)</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>25 Verified HR / Recruiter leads/week + 5 Resumes</span></li>
               </ul>
             </div>
 
             <div className="space-y-2 pt-2">
               <button
                 type="button"
-                onClick={() => handleWhatsAppUpgrade('Pro Plan', '₹149/mo')}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+                onClick={() => handleWhatsAppUpgrade('Pro Plan', '₹249/mo')}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Upgrade to Pro (₹149)</span>
+                <MessageSquare className="w-4 h-4" />
+                <span>Upgrade to Pro (₹249/mo)</span>
               </button>
             </div>
           </div>
 
-          {/* Plan 3: Max (₹299) - Featured / Autopilot */}
-          <div className="border-2 border-slate-950 dark:border-white bg-slate-950 text-white dark:bg-white dark:text-slate-950 rounded-3xl p-5 space-y-4 flex flex-col justify-between relative shadow-xl">
+          {/* Plan 2: Max Plan (₹599) - Featured / Full Autopilot */}
+          <div className="border-2 border-slate-950 dark:border-white bg-slate-950 text-white dark:bg-white dark:text-slate-950 rounded-3xl p-6 space-y-5 flex flex-col justify-between relative shadow-xl">
             <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 text-[10px] font-mono uppercase tracking-widest px-3 py-0.5 rounded-full font-black shadow-sm">
-              Most Popular · Autopilot
+              Most Popular · Full Autopilot
             </span>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-slate-600">Full Autopilot</span>
-                <h3 className="font-extrabold text-white dark:text-slate-950 text-base">Max Plan</h3>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Complete Suite (Skills + Autopilot)</p>
-                <div className="mt-3 text-3xl font-black text-white dark:text-slate-950">
-                  ₹299 <span className="text-xs font-normal text-slate-400 dark:text-slate-500 font-mono">/ mo</span>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-slate-600">Autonomous Career OS</span>
+                <h3 className="font-extrabold text-white dark:text-slate-950 text-xl">Max Plan</h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">100% Autopilot Suite (Learning + Unlimited Applications)</p>
+                <div className="mt-4 text-4xl font-black text-white dark:text-slate-950">
+                  ₹599 <span className="text-xs font-normal text-slate-400 dark:text-slate-500 font-mono">/ mo</span>
                 </div>
               </div>
 
-              <ul className="space-y-2 text-xs text-slate-200 dark:text-slate-800 border-t border-slate-800 dark:border-slate-200 pt-3">
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span><strong>Complete Pro Plan</strong> included</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span><strong>100% Autonomous Auto-Apply</strong> (Unlimited)</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span>Unlimited Background HR Outreach</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span>Priority Real-time ATS Ingest (Every 15m)</span></li>
-                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span>Highest priority solver &amp; cloud sync</span></li>
+              <ul className="space-y-2.5 text-xs text-slate-200 dark:text-slate-800 border-t border-slate-800 dark:border-slate-200 pt-4">
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span><strong>Complete Pro Plan Included</strong></span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span><strong>100% Autonomous Auto-Apply (Unlimited)</strong></span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span><strong>Unlimited Background HR Email Outreach</strong></span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span>Priority Real-Time ATS Radar Streaming (Every 15m)</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span>Highest Priority Cloud Sync &amp; OmniForm Solver</span></li>
+                <li className="flex items-start gap-2"><Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0 mt-0.5 font-bold" /> <span>Upgrade CTAs Completely Hidden</span></li>
               </ul>
             </div>
 
             <div className="space-y-2 pt-2">
               <button
                 type="button"
-                onClick={() => handleWhatsAppUpgrade('Max Plan', '₹299/mo')}
-                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
+                onClick={() => handleWhatsAppUpgrade('Max Plan', '₹599/mo')}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <MessageSquare className="w-3.5 h-3.5 fill-current" />
-                <span>Upgrade to Max (₹299)</span>
+                <MessageSquare className="w-4 h-4 fill-current" />
+                <span>Upgrade to Max (₹599/mo)</span>
               </button>
             </div>
           </div>
