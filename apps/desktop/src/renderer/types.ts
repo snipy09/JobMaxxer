@@ -256,7 +256,9 @@ export interface ElectronAPI {
   removeSavedJob: (applyUrl: string) => Promise<{ success: boolean; error?: string }>;
   openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
 
-  // AI Generation Handlers
+  // AI Generation & Assistant Handlers
+  askNomadicAssistant?: (data: { message: string; history?: Array<{ sender: string; text: string }> }) =>
+    Promise<{ success: boolean; reply: string; action?: { type: string; target?: string; payload?: Record<string, any> }; error?: string }>;
   generateAiOutreachEmail: (params: {
     role?: string;
     company?: string;

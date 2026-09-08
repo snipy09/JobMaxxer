@@ -19,6 +19,7 @@ import { ResourceVaultView } from './components/ResourceVaultView';
 import { InterviewPrepView } from './components/InterviewPrepView';
 import { OpportunityBoardView } from './components/OpportunityBoardView';
 import { CommandPalette } from './components/CommandPalette';
+import { NomadicAssistant } from './components/NomadicAssistant';
 export default function App() {
   const ADMIN_DEV_USER: AppUser = {
     id: 1,
@@ -637,6 +638,15 @@ export default function App() {
             onToggleTrack={handleTrackChange}
           />
         )}
+
+        {/* ── Max-Exclusive Autonomous Assistant on Steroids (Bottom-Right) ── */}
+        <NomadicAssistant
+          currentUser={currentUser}
+          onNavigateTab={handleNavigate}
+          onTriggerAutoApply={(urls) => handleTriggerAutonomousApply(urls || [])}
+          onOpenUpgrade={(feat) => handleOpenUpgrade(feat || 'Nomadic Autonomous Co-Pilot on Steroids')}
+          onLog={addLog}
+        />
       </div>
     </div>
   );

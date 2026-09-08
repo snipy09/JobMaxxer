@@ -273,6 +273,15 @@ export function createBrowserApiShim(): ElectronAPI {
       return { success: true, applied: 1, failed: 0 };
     },
 
+    askNomadicAssistant: async (data: { message: string }) => {
+      emitLog(`[Nomadic Assistant] Query: "${data.message}"`);
+      return {
+        success: true,
+        reply: `I have full access across Nomadic. How can I help you accelerate your job search and interview prep?`,
+        action: { type: 'NONE' }
+      };
+    },
+
     verifyEmail: async (email: string) => {
       return { isValid: true };
     },

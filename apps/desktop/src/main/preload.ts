@@ -46,6 +46,8 @@ const apiObj = {
   openExternalUrl: (url: string) => ipcRenderer.invoke('open-external-url', url),
 
   // AI Generation Handlers
+  askNomadicAssistant: (data: { message: string; history?: Array<{ sender: string; text: string }> }) =>
+    ipcRenderer.invoke('ask-nomadic-assistant', data),
   generateAiOutreachEmail: (params: { role?: string; company?: string; recipientName?: string; tone?: string; skills?: string; candidateName?: string }) =>
     ipcRenderer.invoke('generate-ai-outreach-email', params),
   generateAiOnboardingProfile: (params: Record<string, unknown>) =>
