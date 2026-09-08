@@ -646,15 +646,22 @@ export class AutoApplyEngine {
           }, onProgress);
         }
 
-        // 10b. OmniFormSolver Deep Sweep (Checkboxes, Terms, Consent, Custom Selects, Remaining Text Inputs)
+        // 10b. OmniFormSolver Deep Sweep (Top-to-Bottom Multi-Pass Form Solving & Auto-Submit)
         const omniResult = await OmniFormSolver.solveEntireForm(
           page,
           profile,
           profile.desiredTitle || 'Software Engineer',
-          atsConfig.name
+          atsConfig.name,
+          true // Auto-submit when complete
         );
         if (omniResult.totalInteractions > 0) {
           totalFieldsFilled += omniResult.totalInteractions;
+        }
+        if (omniResult.isSubmitted) {
+          isSubmitted = true;
+          if (omniResult.isConfirmed) {
+            break;
+          }
         }
 
         // Dynamic randomized human pause before clicking Submit to ensure all JS field validations complete cleanly

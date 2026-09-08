@@ -1,9 +1,7 @@
 import type { Page } from 'playwright';
 import type { MasterProfile } from '../auto-apply-engine.js';
 import { humanClick, randomPause } from '../stealth-evasion.js';
-import { AIFallbackSolver } from '../ai-fallback.js';
 import { OmniFormSolver } from '../omni-form-solver.js';
-import fs from 'fs';
 
 export interface SpecializedBotResult {
   success: boolean;
@@ -20,10 +18,7 @@ export class InternshalaBot {
     logger?: { info: (m: string) => void; warn: (m: string) => void }
   ): Promise<SpecializedBotResult> {
     try {
-      let totalFilled = 0;
-      const aiSolver = new AIFallbackSolver();
-
-      // ── 1. CLICK "APPLY NOW" BUTTON TO OPEN APPLICATION MODAL ─────────────
+      // 1. Click "Apply now" button to open modal if present
       const applyBtnSelectors = [
         '#apply_now_button',
         'button#apply_now_button',
@@ -72,7 +67,7 @@ export class InternshalaBot {
 
       await randomPause(page, 400, 800);
 
-      // ── 2. HANDLE INTERMEDIATE "PROCEED TO APPLICATION" (Resume Step) ──────
+      // 2. Handle intermediate "Proceed to application" (Resume Step)
       const proceedBtn = await page.$(
         '#proceed_to_application, button:has-text("Proceed to application"), a:has-text("Proceed to application"), button:has-text("Proceed"), .proceed_to_application'
       );
@@ -84,91 +79,20 @@ export class InternshalaBot {
         }
       }
 
-      // ── 3. RUN OMNIFORM SOLVER ON ACTIVE INTERNSHALA MODAL ───────────────
-      const omniResult = await OmniFormSolver.solveEntireForm(
+      // 3. Solve Internshala Form top-to-bottom and submit
+      const solveResult = await OmniFormSolver.solveEntireForm(
         page,
         profile,
         profile.desiredTitle || 'Software Development Intern',
-        'Internshala Team'
+        'Internshala Team',
+        true
       );
-      totalFilled += omniResult.totalInteractions;
-
-      // ── 5. SOLVE UNPOPULATED TEXTAREAS VIA AI SOLVER ───────────────────────
-      const remainingTextareas = await page.$$('textarea');
-      for (const ta of remainingTextareas) {
-        try {
-          const val = await ta.inputValue().catch(() => '');
-          if (!val || val.trim().length === 0) {
-            const promptLabel = await ta.evaluate(el => {
-              return el.closest('.form-group, .question')?.textContent || el.placeholder || el.name || 'Why should you be hired for this role?';
-            }).catch(() => 'Why should you be hired for this role?');
-
-            const aiAns = await aiSolver.answerCustomQuestion(promptLabel, {
-              jobTitle: profile.desiredTitle || 'Software Development Intern',
-              company: 'Hiring Team',
-              userProfile: profile,
-            });
-
-            await ta.fill(aiAns);
-            totalFilled++;
-          }
-        } catch {}
-      }
-
-      // ── 6. UPLOAD RESUME PDF ───────────────────────────────────────────────
-      const resumePath = profile.resumeFilePath && fs.existsSync(profile.resumeFilePath) ? profile.resumeFilePath : null;
-      if (resumePath) {
-        const fileInputs = await page.$$('input[type="file"]');
-        for (const fi of fileInputs) {
-          await fi.setInputFiles(resumePath).catch(() => {});
-          totalFilled++;
-        }
-      }
-
-      // ── 7. SUBMIT FORM & VERIFY CONFIRMATION ───────────────────────────────
-      const submitSelectors = [
-        '#submit',
-        'button#submit',
-        'input[type="submit"]',
-        'button:has-text("Submit application")',
-        'button:has-text("Submit Application")',
-        'button:has-text("Submit")',
-        'button.btn-primary:has-text("Submit")',
-        '.submit_button'
-      ];
-
-      let isSubmitted = false;
-      let isConfirmed = false;
-
-      for (const sel of submitSelectors) {
-        try {
-          const submitBtn = await page.$(sel);
-          if (submitBtn) {
-            const isVis = typeof submitBtn.isVisible === 'function' ? await submitBtn.isVisible().catch(() => false) : true;
-            if (isVis && totalFilled > 0) {
-              await randomPause(page, 350, 650);
-              await humanClick(page, submitBtn);
-              isSubmitted = true;
-              await randomPause(page, 500, 900);
-
-              isConfirmed = await page.evaluate(() => {
-                const body = (document.body?.innerText || '').toLowerCase();
-                return body.includes('application submitted') ||
-                  body.includes('applied successfully') ||
-                  body.includes('thank you for applying') ||
-                  body.includes('application sent');
-              }).catch(() => false);
-              break;
-            }
-          }
-        } catch {}
-      }
 
       return {
-        success: isSubmitted || totalFilled > 0,
-        fieldsFilled: totalFilled,
-        submitted: isSubmitted,
-        confirmed: isConfirmed,
+        success: solveResult.isSubmitted || solveResult.totalInteractions > 0,
+        fieldsFilled: solveResult.totalInteractions,
+        submitted: Boolean(solveResult.isSubmitted),
+        confirmed: Boolean(solveResult.isConfirmed),
       };
     } catch (err: any) {
       return { success: false, fieldsFilled: 0, submitted: false, confirmed: false, error: err.message };

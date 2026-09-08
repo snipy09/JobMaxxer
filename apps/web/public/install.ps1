@@ -2,7 +2,7 @@
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$version = "1.0.5"
+$version = "1.0.6"
 $url = "https://github.com/snipy09/JobMaxxer/releases/download/v$version/Nomadic.Setup.$version.exe"
 $dest = "$env:TEMP\Nomadic.Setup.$version.exe"
 

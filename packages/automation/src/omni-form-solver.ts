@@ -2,7 +2,6 @@ import type { Page, Frame } from 'playwright';
 import type { MasterProfile } from './auto-apply-engine.js';
 import { humanClick, randomPause } from './stealth-evasion.js';
 import { AIFallbackSolver } from './ai-fallback.js';
-import { generateStructuredAIContent } from './groq-ai.js';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -84,68 +83,6 @@ ${400 + streamLen}
   return pdfPath;
 }
 
-export type FieldSemanticCategory =
-  | 'first_name'
-  | 'last_name'
-  | 'full_name'
-  | 'email'
-  | 'phone'
-  | 'linkedin'
-  | 'github'
-  | 'portfolio'
-  | 'website'
-  | 'twitter'
-  | 'location_search'
-  | 'city'
-  | 'state'
-  | 'country'
-  | 'postal_code'
-  | 'salary'
-  | 'notice_period'
-  | 'start_date'
-  | 'current_company'
-  | 'current_title'
-  | 'school'
-  | 'degree'
-  | 'discipline'
-  | 'gpa'
-  | 'graduation_year'
-  | 'work_auth_yes'
-  | 'visa_sponsor_no'
-  | 'eeo_gender'
-  | 'eeo_race'
-  | 'eeo_veteran'
-  | 'eeo_disability'
-  | 'terms_consent'
-  | 'cover_letter'
-  | 'custom_textarea'
-  | 'resume_file'
-  | 'unknown_text'
-  | 'unknown_select'
-  | 'unknown_radio'
-  | 'unknown_checkbox';
-
-export interface FormFieldDescriptor {
-  uid: string;
-  tagName: string;
-  type: string;
-  id: string;
-  name: string;
-  label: string;
-  placeholder: string;
-  isRequired: boolean;
-  isFilled: boolean;
-  currentValue: string;
-  category: FieldSemanticCategory;
-  options?: Array<{ text: string; value: string; index: number; isChecked?: boolean }>;
-}
-
-export interface RecognizedFormSchema {
-  totalFieldsCount: number;
-  unfilledFieldsCount: number;
-  fields: FormFieldDescriptor[];
-}
-
 export interface OmniFormSolveResult {
   fieldsFilled: number;
   checkboxesChecked: number;
@@ -153,219 +90,40 @@ export interface OmniFormSolveResult {
   selectsSolved: number;
   resumeUploaded: boolean;
   totalInteractions: number;
-  schema: RecognizedFormSchema;
+  isSubmitted?: boolean;
+  isConfirmed?: boolean;
 }
 
 export class OmniFormSolver {
   /**
-   * PHASE 1: Introspects and Recognizes ALL interactive elements in the DOM.
-   * Tags each element with a unique `data-nomadic-uid` and extracts complete semantic metadata.
+   * STEP 0: Systematic full-page pre-scroll.
+   * Forces all lazy-loaded React 18+ components and virtualized form fields to mount.
    */
-  public static async recognizeFormFields(page: Page): Promise<RecognizedFormSchema> {
-    return await page.evaluate(() => {
-      let uidCounter = 0;
-      const descriptors: FormFieldDescriptor[] = [];
-
-      function resolveElementLabel(el: HTMLElement): string {
-        let text = '';
-        if (el.getAttribute('aria-label')) text += ' ' + el.getAttribute('aria-label');
-        if (el.getAttribute('aria-labelledby')) {
-          const lbl = document.getElementById(el.getAttribute('aria-labelledby') || '');
-          if (lbl) text += ' ' + lbl.textContent;
+  public static async preScrollEntirePage(page: Page): Promise<void> {
+    try {
+      await page.evaluate(async () => {
+        const distance = 350;
+        const totalHeight = document.body.scrollHeight || 3000;
+        for (let current = 0; current < totalHeight; current += distance) {
+          window.scrollTo(0, current);
+          await new Promise(r => setTimeout(r, 60));
         }
-        if (el.id) {
-          const lbl = document.querySelector(`label[for="${el.id}"]`);
-          if (lbl) text += ' ' + lbl.textContent;
-        }
-        const parentLabel = el.closest('label');
-        if (parentLabel) text += ' ' + parentLabel.textContent;
-        const formGroup = el.closest('.form-group, .question, .field, [class*="field"], [class*="question"]');
-        if (formGroup) {
-          const header = formGroup.querySelector('label, h3, h4, .label, [class*="label"], [class*="title"], legend');
-          if (header) text += ' ' + header.textContent;
-        }
-        if (el.getAttribute('placeholder')) text += ' ' + el.getAttribute('placeholder');
-        if (el.getAttribute('name')) text += ' ' + el.getAttribute('name');
-        if (el.id) text += ' ' + el.id;
-        return text.replace(/\s+/g, ' ').trim();
-      }
-
-      function classifyFieldCategory(label: string, tagName: string, type: string): FieldSemanticCategory {
-        const l = label.toLowerCase();
-
-        if (type === 'file' || l.includes('resume') || l.includes('cv') || l.includes('curriculum')) {
-          return 'resume_file';
-        }
-
-        if (type === 'checkbox' || tagName === 'checkbox' || el.getAttribute('role') === 'checkbox') {
-          if (
-            l.includes('agree') || l.includes('terms') || l.includes('privacy') ||
-            l.includes('consent') || l.includes('certify') || l.includes('acknowledge') ||
-            l.includes('accept') || l.includes('policy') || l.includes('data') ||
-            l.includes('affirm') || l.includes('signature') || l.includes('electronic') || label.includes('*')
-          ) {
-            return 'terms_consent';
-          }
-          return 'unknown_checkbox';
-        }
-
-        if (type === 'radio' || tagName === 'radiogroup' || el.getAttribute('role') === 'radiogroup') {
-          if (l.includes('sponsor') || l.includes('visa')) return 'visa_sponsor_no';
-          if (l.includes('authoriz') || l.includes('eligible') || l.includes('legal') || l.includes('office') || l.includes('laptop') || l.includes('schedule') || l.includes('agree') || l.includes('three days') || l.includes('3 days') || l.includes('require')) return 'work_auth_yes';
-          return 'unknown_radio';
-        }
-
-        if (tagName === 'select' || tagName === 'combobox' || el.getAttribute('role') === 'combobox') {
-          if (l.includes('gender') || l.includes('sex')) return 'eeo_gender';
-          if (l.includes('race') || l.includes('ethnicity') || l.includes('hispanic')) return 'eeo_race';
-          if (l.includes('veteran')) return 'eeo_veteran';
-          if (l.includes('disability')) return 'eeo_disability';
-          if (l.includes('authoriz') || l.includes('eligible') || l.includes('legally')) return 'work_auth_yes';
-          if (l.includes('sponsor') || l.includes('visa')) return 'visa_sponsor_no';
-          if (l.includes('degree') || l.includes('education')) return 'degree';
-          if (l.includes('notice') || l.includes('available')) return 'notice_period';
-          return 'unknown_select';
-        }
-
-        if (tagName === 'textarea') {
-          if (l.includes('cover letter') || l.includes('why us') || l.includes('why hire') || l.includes('summary') || l.includes('statement')) {
-            return 'cover_letter';
-          }
-          return 'custom_textarea';
-        }
-
-        // Text & Other Inputs (Order matters)
-        if (type === 'email' || l.includes('email') || l.includes('e-mail')) return 'email';
-        if (type === 'tel' || l.includes('phone') || l.includes('mobile') || l.includes('contact')) return 'phone';
-        if (l.includes('linkedin')) return 'linkedin';
-        if (l.includes('github')) return 'github';
-        if (l.includes('portfolio') || l.includes('personal website') || l.includes('work sample') || l.includes('project')) return 'portfolio';
-        if (l.includes('website') || l.includes('site') || l.includes('link')) return 'website';
-        if (l.includes('twitter') || l.includes('x.com')) return 'twitter';
-        
-        if (l.includes('company') || l.includes('employer') || l.includes('organization')) return 'current_company';
-
-        if (l.includes('first name') || l.includes('firstname') || l.includes('first_name') || l.includes('fname')) return 'first_name';
-        if (l.includes('last name') || l.includes('lastname') || l.includes('last_name') || l.includes('lname') || l.includes('surname')) return 'last_name';
-        if (l.includes('full name') || l.includes('fullname') || l.includes('your name') || l.includes('candidate name') || l.includes('legal name') || l.includes('preferred name') || (l.includes('name') && !l.includes('company'))) return 'full_name';
-        
-        if (l.includes('start typing') || (l.includes('location') && (l.includes('located') || l.includes('where')))) return 'location_search';
-        if (l.includes('city')) return 'city';
-        if (l.includes('state') || l.includes('province')) return 'state';
-        if (l.includes('country') || l.includes('nation')) return 'country';
-        if (l.includes('postal') || l.includes('zip') || l.includes('pincode')) return 'postal_code';
-        if (l.includes('salary') || l.includes('compensation') || l.includes('ctc')) return 'salary';
-        if (l.includes('notice') || l.includes('availability')) return 'notice_period';
-        if (l.includes('pick date') || l.includes('start date') || l.includes('start role') || type === 'date') return 'start_date';
-        if (l.includes('company') || l.includes('employer') || l.includes('organization')) return 'current_company';
-        if (l.includes('school') || l.includes('university') || l.includes('college')) return 'school';
-        if (l.includes('degree')) return 'degree';
-        if (l.includes('major') || l.includes('discipline')) return 'discipline';
-        if (l.includes('gpa') || l.includes('cgpa')) return 'gpa';
-        if (l.includes('grad') || l.includes('passing year')) return 'graduation_year';
-
-        return 'unknown_text';
-      }
-
-      // 1. Gather all inputs, textareas, selects
-      const elements = Array.from(document.querySelectorAll<HTMLElement>(
-        'input, textarea, select, [role="radiogroup"], [role="checkbox"], [role="combobox"], .ashby-field-question, .form-group'
-      ));
-
-      elements.forEach((el) => {
-        const tagName = el.tagName.toLowerCase();
-        const type = (el.getAttribute('type') || '').toLowerCase();
-        if (type === 'hidden' || type === 'submit' || type === 'button') return;
-
-        uidCounter++;
-        const uid = `nomadic-field-${uidCounter}`;
-        el.setAttribute('data-nomadic-uid', uid);
-
-        const label = resolveElementLabel(el);
-        const placeholder = el.getAttribute('placeholder') || '';
-        const id = el.id || '';
-        const name = el.getAttribute('name') || '';
-        const isRequired = el.hasAttribute('required') || el.getAttribute('aria-required') === 'true' || label.includes('*');
-
-        let currentValue = '';
-        let isFilled = false;
-        let options: Array<{ text: string; value: string; index: number; isChecked?: boolean }> | undefined;
-
-        if (el instanceof HTMLInputElement) {
-          currentValue = el.value || '';
-          if (type === 'checkbox' || type === 'radio') {
-            isFilled = el.checked;
-          } else {
-            isFilled = currentValue.trim().length > 0;
-          }
-        } else if (el instanceof HTMLTextAreaElement) {
-          currentValue = el.value || '';
-          isFilled = currentValue.trim().length > 0;
-        } else if (el instanceof HTMLSelectElement) {
-          currentValue = el.value || '';
-          isFilled = el.selectedIndex > 0;
-          options = Array.from(el.options).map((o, idx) => ({
-            text: o.text || '',
-            value: o.value || '',
-            index: idx,
-            isChecked: o.selected,
-          }));
-        } else if (tagName === 'div' && (el.classList.contains('ashby-field-question') || el.classList.contains('form-group') || el.getAttribute('role') === 'radiogroup')) {
-          const radioItems = Array.from(el.querySelectorAll<HTMLElement>('button[role="radio"], [role="radio"], input[type="radio"]'));
-          const selectItems = Array.from(el.querySelectorAll<HTMLElement>('select'));
-          if (radioItems.length > 0) {
-            options = radioItems.map((r, idx) => ({
-              text: r.textContent || (r as any).value || '',
-              value: (r as any).value || r.textContent || '',
-              index: idx,
-              isChecked: r.getAttribute('aria-checked') === 'true' || (r as any).checked,
-            }));
-            isFilled = options.some(o => o.isChecked);
-          } else if (selectItems.length > 0) {
-             return; // Let the core select element be processed instead of the wrapper
-          } else {
-            return; // Empty wrapper
-          }
-        } else if (el.getAttribute('role') === 'checkbox') {
-          isFilled = el.getAttribute('aria-checked') === 'true' || el.classList.contains('checked');
-        }
-
-        const category = classifyFieldCategory(label, tagName, type);
-
-        descriptors.push({
-          uid,
-          tagName,
-          type,
-          id,
-          name,
-          label,
-          placeholder,
-          isRequired,
-          isFilled,
-          currentValue,
-          category,
-          options,
-        });
+        window.scrollTo(0, 0);
       });
-
-      return {
-        totalFieldsCount: descriptors.length,
-        unfilledFieldsCount: descriptors.filter(d => !d.isFilled).length,
-        fields: descriptors,
-      };
-    });
+      await page.waitForTimeout(300);
+    } catch {}
   }
 
   /**
-   * PHASE 2: High-Precision Value Assignment & Multi-Pass Injection
-   * Fills every recognized field using candidate profile data, deterministic logic, and AI fallbacks.
+   * Universal Master Form Solver:
+   * Top-to-bottom systematic form solving, option answering, checkbox signing, and submission.
    */
-  public static async fillRecognizedForm(
+  public static async solveEntireForm(
     page: Page,
-    schema: RecognizedFormSchema,
     profile: MasterProfile,
     jobTitle?: string,
-    companyName?: string
+    companyName?: string,
+    autoSubmit: boolean = false
   ): Promise<OmniFormSolveResult> {
     const result: OmniFormSolveResult = {
       fieldsFilled: 0,
@@ -374,419 +132,448 @@ export class OmniFormSolver {
       selectsSolved: 0,
       resumeUploaded: false,
       totalInteractions: 0,
-      schema,
+      isSubmitted: false,
+      isConfirmed: false,
     };
 
     const aiSolver = new AIFallbackSolver();
     const resolvedTitle = jobTitle || profile.desiredTitle || 'Software Engineer';
     const resolvedCompany = companyName || 'Engineering Team';
 
-    const candidateProfileData = {
-      first_name: profile.firstName || 'Candidate',
-      last_name: profile.lastName || 'Applicant',
-      full_name: profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Candidate Applicant',
-      email: profile.email || 'candidate@nomadic.app',
-      phone: profile.phone || '+1 (555) 019-2834',
-      linkedin: profile.linkedin || 'https://linkedin.com/in/candidate',
-      github: profile.github || 'https://github.com/candidate',
-      portfolio: profile.portfolio || profile.projectsUrl || profile.github || 'https://github.com/candidate',
-      website: profile.portfolio || profile.github || 'https://github.com/candidate',
-      twitter: profile.twitter || profile.github || 'https://twitter.com/candidate',
-      location: profile.location || 'San Francisco, CA, USA',
-      city: 'San Francisco',
-      state: 'California',
-      country: 'United States',
-      postal_code: '94105',
-      salary: profile.desiredSalary || '120,000',
-      notice_period: profile.noticePeriod || 'Immediately (0 days)',
-      current_company: profile.currentCompany || 'Technology Co',
-      current_title: resolvedTitle,
-      school: profile.university || profile.school || 'University of California',
-      degree: profile.degree || "Bachelor's of Science",
-      discipline: 'Computer Science',
-      gpa: profile.gpa || '3.8',
-      graduation_year: profile.graduationYear || '2024',
-    };
+    const fullName = (profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`).trim() || 'Candidate';
+    const firstName = profile.firstName || (fullName.split(' ')[0] || 'Candidate');
+    const lastName = profile.lastName || (fullName.split(' ').slice(1).join(' ') || 'Applicant');
+    const email = profile.email || 'candidate@nomadic.app';
+    const phone = profile.phone || '+1 (555) 019-2834';
+    const linkedin = profile.linkedin || 'https://linkedin.com/in/candidate';
+    const github = profile.github || 'https://github.com/candidate';
+    const portfolio = profile.portfolio || profile.projectsUrl || profile.github || 'https://github.com/candidate';
+    const location = profile.location || 'San Francisco, CA, USA';
 
-    // Iterate through recognized fields and execute deterministic or AI injection
-    for (const field of schema.fields) {
-      if (field.isFilled) continue;
+    // ── 0. SYSTEMATIC SCROLL TO MOUNT ENTIRE FORM ───────────────────────────
+    await OmniFormSolver.preScrollEntirePage(page);
 
-      const elHandle = await page.$(`[data-nomadic-uid="${field.uid}"]`);
-      if (!elHandle) continue;
+    // ── 1. ASHBY & ATS DIRECT SYSTEM FIELDS (Priority 1) ────────────────────
+    try {
+      // Name
+      const nameInputs = await page.$$(
+        '#_systemfield_name, input[name="name"], input[name*="legalName" i], input[id*="legalName" i], input[placeholder*="legal name" i], input[placeholder*="full name" i]'
+      );
+      for (const inp of nameInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(fullName).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-      try {
-        switch (field.category) {
-          case 'first_name':
-          case 'last_name':
-          case 'full_name':
-          case 'email':
-          case 'phone':
-          case 'linkedin':
-          case 'github':
-          case 'portfolio':
-          case 'website':
-          case 'twitter':
-          case 'city':
-          case 'state':
-          case 'country':
-          case 'postal_code':
-          case 'salary':
-          case 'notice_period':
-          case 'current_company':
-          case 'current_title':
-          case 'school':
-          case 'degree':
-          case 'discipline':
-          case 'gpa':
-          case 'graduation_year': {
-            const valToSet = (candidateProfileData as any)[field.category];
-            if (valToSet) {
-              await elHandle.fill(valToSet).catch(() => {});
-              // Also dispatch events just in case
-              await elHandle.evaluate((el: HTMLElement, val: string) => {
-                const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-                const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-                if (setter) {
-                  try { setter.call(el, val); } catch {}
-                } else {
-                  (el as any).value = val;
-                }
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-                el.dispatchEvent(new Event('blur', { bubbles: true }));
-              }, valToSet).catch(() => {});
-              
-              result.fieldsFilled++;
-            }
-            break;
-          }
+      // First Name
+      const firstNameInputs = await page.$$(
+        '#first_name, input[name="firstName"], input[name="first_name"], input[placeholder*="First name" i], input[id*="firstName" i]'
+      );
+      for (const inp of firstNameInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(firstName).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-          case 'location_search': {
-            await elHandle.click();
-            await elHandle.fill(candidateProfileData.location);
-            await page.waitForTimeout(200);
-            await page.keyboard.press('ArrowDown').catch(() => {});
-            await page.waitForTimeout(100);
-            await page.keyboard.press('Enter').catch(() => {});
-            const opt = await page.$('[role="option"], .ashby-option, .ashby-suggestion, .suggestion-item');
-            if (opt) await humanClick(page, opt);
-            result.fieldsFilled++;
-            break;
-          }
+      // Last Name
+      const lastNameInputs = await page.$$(
+        '#last_name, input[name="lastName"], input[name="last_name"], input[placeholder*="Last name" i], input[id*="lastName" i]'
+      );
+      for (const inp of lastNameInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(lastName).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-          case 'start_date': {
-            const nextWeek = new Date(Date.now() + 7 * 86400000);
-            const formattedDate = `${nextWeek.getFullYear()}-${String(nextWeek.getMonth() + 1).padStart(2, '0')}-${String(nextWeek.getDate()).padStart(2, '0')}`;
-            await elHandle.click();
-            await elHandle.fill(formattedDate).catch(() => {});
-            await elHandle.evaluate((el: HTMLInputElement, val: string) => {
-              el.value = val;
-              el.dispatchEvent(new Event('input', { bubbles: true }));
-              el.dispatchEvent(new Event('change', { bubbles: true }));
-            }, formattedDate).catch(() => {});
-            result.fieldsFilled++;
-            break;
-          }
+      // Preferred Name
+      const preferredNameInputs = await page.$$(
+        'input[name*="preferredName" i], input[placeholder*="Preferred name" i], input[id*="preferredName" i]'
+      );
+      for (const inp of preferredNameInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(firstName).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-          case 'terms_consent':
-          case 'unknown_checkbox': {
-            if (field.category === 'terms_consent' || field.isRequired) {
-              await elHandle.evaluate((el: HTMLElement) => {
-                if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-                  el.checked = true;
-                  el.dispatchEvent(new Event('click', { bubbles: true }));
-                  el.dispatchEvent(new Event('change', { bubbles: true }));
-                } else {
-                  el.click();
-                  el.setAttribute('aria-checked', 'true');
-                }
-              });
-              result.checkboxesChecked++;
-            }
-            break;
-          }
+      // Email
+      const emailInputs = await page.$$(
+        '#_systemfield_email, #email, input[type="email"], input[name="email"], input[name*="email" i], input[id*="email" i]'
+      );
+      for (const inp of emailInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(email).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-          case 'work_auth_yes':
-          case 'visa_sponsor_no':
-          case 'unknown_radio': {
-            const isNative = await elHandle.evaluate(el => el instanceof HTMLInputElement && el.type === 'radio').catch(() => false);
+      // Phone
+      const phoneInputs = await page.$$(
+        '#_systemfield_phone, #phone, input[type="tel"], input[name="phone"], input[name*="phone" i], input[id*="phone" i], input[placeholder*="phone" i]'
+      );
+      for (const inp of phoneInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(phone).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-            if (isNative) {
-              const nameValue = await elHandle.getAttribute('name').catch(() => '');
-              if (nameValue) {
-                // Find all native radios with the same name
-                const allRadios = await page.$$(`input[type="radio"][name="${nameValue}"]`);
-                if (allRadios.length > 0) {
-                  let targetRadio = null;
-                  for (const r of allRadios) {
-                    const text = await r.evaluate(el => {
-                      const id = el.id;
-                      const labelText = id ? document.querySelector(`label[for="${id}"]`)?.textContent : '';
-                      return (labelText || el.closest('label')?.textContent || (el as any).value || '').toLowerCase();
-                    }).catch(() => '');
+      // Location Search Combobox (Ashby / ATS)
+      const locationInputs = await page.$$(
+        '#_systemfield_location, input[placeholder*="Start typing" i], input[placeholder*="Location" i], input[aria-autocomplete="list"], input[name*="location" i]'
+      );
+      for (const inp of locationInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.click().catch(() => {});
+          await inp.fill(location).catch(() => {});
+          await page.waitForTimeout(250);
+          await page.keyboard.press('ArrowDown').catch(() => {});
+          await page.waitForTimeout(100);
+          await page.keyboard.press('Enter').catch(() => {});
 
-                    if (!text) continue;
+          const opt = await page.$('[role="option"], .ashby-option, .ashby-suggestion, .suggestion-item');
+          if (opt) await humanClick(page, opt);
+          result.fieldsFilled++;
+        }
+      }
 
-                    if (field.category === 'visa_sponsor_no') {
-                      if (/no|not require|false/i.test(text)) { targetRadio = r; break; }
-                    } else if (field.category === 'work_auth_yes') {
-                      if (/yes|authorized|eligible|agree|true/i.test(text)) { targetRadio = r; break; }
-                    }
-                  }
-                  
-                  if (!targetRadio && allRadios.length > 0) {
-                    // Fallback to evaluating purely visually if label association fails
-                    const isAnyChecked = await page.evaluate((name) => {
-                      const rs = Array.from(document.querySelectorAll(`input[type="radio"][name="${name}"]`));
-                      return rs.some(r => (r as HTMLInputElement).checked);
-                    }, nameValue).catch(() => false);
-                    
-                    if (!isAnyChecked) targetRadio = allRadios[0];
-                  }
+      // Professional Links
+      const linkedinInputs = await page.$$(
+        'input[name*="linkedin" i], input[placeholder*="linkedin" i], input[id*="linkedin" i], input[autocomplete*="custom-question-linkedin" i], input[name*="urls[LinkedIn]"]'
+      );
+      for (const inp of linkedinInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(linkedin).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-                  if (targetRadio) {
-                    await targetRadio.check().catch(() => {});
-                    await targetRadio.dispatchEvent('change').catch(() => {});
-                    result.radiosSelected++;
-                  }
-                }
-              }
-            } else {
-              // Custom ARIA radiogroup
-              await elHandle.evaluate((el: HTMLElement, cat: FieldSemanticCategory) => {
-                const radioItems = Array.from(el.querySelectorAll<HTMLElement>(
-                  'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"]'
-                ));
-                if (radioItems.length === 0) return;
+      const githubInputs = await page.$$(
+        'input[name*="github" i], input[placeholder*="github" i], input[id*="github" i], input[autocomplete*="custom-question-github" i], input[name*="urls[GitHub]"]'
+      );
+      for (const inp of githubInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(github).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
 
-                let pick: HTMLElement | null = null;
-                if (cat === 'visa_sponsor_no') {
-                  pick = radioItems.find(r => /no|not require|false/i.test(r.textContent || (r as any).value || '')) || null;
-                } else if (cat === 'work_auth_yes') {
-                  pick = radioItems.find(r => /yes|authorized|eligible|agree|true/i.test(r.textContent || (r as any).value || '')) || null;
-                }
+      const portfolioInputs = await page.$$(
+        'input[name*="portfolio" i], input[name*="website" i], input[placeholder*="portfolio" i], input[placeholder*="website" i], input[id*="website" i], input[autocomplete*="custom-question-website" i], input[name*="urls[Portfolio]"]'
+      );
+      for (const inp of portfolioInputs) {
+        const val = await inp.inputValue().catch(() => '');
+        if (!val || val.length === 0) {
+          await inp.fill(portfolio).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
+    } catch {}
 
-                if (!pick && radioItems.length > 0) pick = radioItems[0];
+    // ── 2. UPLOAD RESUME PDF (Priority 2) ───────────────────────────────────
+    try {
+      const resumePath = getOrCreateValidResumePdf(profile);
+      if (resumePath && fs.existsSync(resumePath)) {
+        const fileInputs = await page.$$(
+          '#_systemfield_resume, input[type="file"], input[name*="resume" i], input[id*="resume" i]'
+        );
+        for (const fi of fileInputs) {
+          await fi.setInputFiles(resumePath).catch(() => {});
+          result.resumeUploaded = true;
+          result.fieldsFilled++;
+        }
+      }
+    } catch {}
 
-                if (pick) {
-                  pick.click();
-                  if (pick instanceof HTMLInputElement) {
-                    pick.checked = true;
-                    pick.dispatchEvent(new Event('input', { bubbles: true }));
-                    pick.dispatchEvent(new Event('change', { bubbles: true }));
-                  }
-                  pick.setAttribute('aria-checked', 'true');
-                }
-              }, field.category);
+    // ── 3. SOLVE BINARY YES/NO BUTTON GROUPS (Ashby & Modern ATS) ───────────
+    try {
+      const yesNoGroups = await page.$$(
+        'div[class*="_yesno_"], div:has(> button:has-text("Yes")), fieldset:has(button:has-text("Yes")), [role="radiogroup"]:has(button:has-text("Yes"))'
+      );
+      for (const grp of yesNoGroups) {
+        const grpText = (await grp.textContent().catch(() => ''))?.toLowerCase() || '';
+        const buttons = await grp.$$('button');
+        if (buttons.length >= 2) {
+          const isVisaSponsor = grpText.includes('sponsor') || grpText.includes('visa');
+          if (isVisaSponsor) {
+            const noBtn = (await grp.$('button:has-text("No")')) || buttons[1];
+            if (noBtn) {
+              await humanClick(page, noBtn);
               result.radiosSelected++;
             }
-            break;
-          }
-
-          case 'eeo_gender':
-          case 'eeo_race':
-          case 'eeo_veteran':
-          case 'eeo_disability':
-          case 'unknown_select': {
-            const isNative = await elHandle.evaluate(el => el instanceof HTMLSelectElement).catch(() => false);
-            
-            if (isNative) {
-              await elHandle.evaluate((el: HTMLElement, cat: FieldSemanticCategory) => {
-                if (el instanceof HTMLSelectElement) {
-                  const options = Array.from(el.options);
-                  if (options.length <= 1) return;
-
-                  let bestIndex = -1;
-                  if (cat === 'eeo_gender' || cat === 'eeo_race' || cat === 'eeo_veteran' || cat === 'eeo_disability') {
-                    bestIndex = options.findIndex(o => /prefer not|decline|specify|not a protected|no.*disability/i.test(o.text || o.value));
-                  }
-
-                  if (bestIndex <= 0) {
-                    bestIndex = options.findIndex((o, idx) => idx > 0 && o.value && o.value !== '' && !/select|choose|please/i.test(o.text));
-                  }
-
-                  if (bestIndex > 0) {
-                    el.selectedIndex = bestIndex;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                  }
-                }
-              }, field.category);
-              result.selectsSolved++;
-            } else {
-              // Custom Combobox / Dropdown (e.g. Ashby, Greenhouse custom fields)
-              try {
-                // Click to open dropdown list
-                await elHandle.click().catch(() => {});
-                await page.waitForTimeout(300);
-                
-                // Read all visible options
-                const optionsHandles = await page.$$('[role="option"], li, .ashby-option, .dropdown-item, .select-option, [data-qa="dropdown-option"]');
-                if (optionsHandles.length > 0) {
-                   // Search for preferred EEO/demographic answer
-                   let targetOpt = null;
-                   
-                   for (const opt of optionsHandles) {
-                     const text = (await opt.textContent().catch(() => ''))?.toLowerCase() || '';
-                     if (!text) continue;
-                     
-                     if (field.category.startsWith('eeo_')) {
-                        if (/prefer not|decline|specify|not a protected|no.*disability/i.test(text)) {
-                           targetOpt = opt;
-                           break;
-                        }
-                     } else if (field.category === 'work_auth_yes') {
-                        if (/yes|authorized|eligible/i.test(text)) { targetOpt = opt; break; }
-                     } else if (field.category === 'visa_sponsor_no') {
-                        if (/no|not require|do not/i.test(text)) { targetOpt = opt; break; }
-                     }
-                   }
-                   
-                   // Fallback: pick the second option (usually the first real answer after placeholder)
-                   if (!targetOpt && optionsHandles.length > 1) {
-                     targetOpt = optionsHandles[1];
-                   } else if (!targetOpt && optionsHandles.length === 1) {
-                     targetOpt = optionsHandles[0];
-                   }
-                   
-                   if (targetOpt) {
-                     await humanClick(page, targetOpt);
-                     result.selectsSolved++;
-                   }
-                }
-              } catch {}
+          } else {
+            // Work authorization, Office 3 days, Laptop, Schedule -> Click "Yes"
+            const yesBtn = (await grp.$('button:has-text("Yes")')) || buttons[0];
+            if (yesBtn) {
+              await humanClick(page, yesBtn);
+              result.radiosSelected++;
             }
-            break;
-          }
-
-          case 'cover_letter':
-          case 'custom_textarea': {
-            let responseText = '';
-            if (field.category === 'cover_letter') {
-              responseText = await aiSolver.generateTailoredCoverLetter(profile, resolvedTitle, resolvedCompany);
-            } else {
-              responseText = await aiSolver.answerCustomQuestion(field.label || 'Why are you interested in this position?', {
-                jobTitle: resolvedTitle,
-                company: resolvedCompany,
-                userProfile: profile,
-              });
-            }
-            await elHandle.fill(responseText);
-            result.fieldsFilled++;
-            break;
-          }
-
-          case 'resume_file': {
-            const validPdf = getOrCreateValidResumePdf(profile);
-            if (validPdf && fs.existsSync(validPdf)) {
-              await elHandle.setInputFiles(validPdf).catch(() => {});
-              result.resumeUploaded = true;
-              result.fieldsFilled++;
-            }
-            break;
-          }
-
-          case 'unknown_text': {
-            if (field.isRequired || field.label.length > 3) {
-              const textVal = await elHandle.inputValue().catch(() => '');
-              if (textVal && textVal.length > 0) break; // Don't overwrite what was already filled
-              
-              const aiAns = await aiSolver.answerCustomQuestion(field.label, {
-                jobTitle: resolvedTitle,
-                company: resolvedCompany,
-                userProfile: profile,
-              });
-              
-              if (aiAns && aiAns.length > 3) {
-                await elHandle.fill(aiAns).catch(() => {});
-                result.fieldsFilled++;
-              }
-            }
-            break;
           }
         }
-      } catch {}
-    }
+      }
+    } catch {}
 
-    // ── PASS 8: PRE-SUBMIT REMEDIATION PASS (Catches any remaining required/empty fields) ──
+    // ── 4. SOLVE ALL RADIO QUESTION GROUPS (Native & ARIA) ──────────────────
     try {
-      const remainingUnfilled = await page.$$('input:invalid, textarea:invalid, select:invalid, [required]:not(:checked), [aria-required="true"]');
-      for (const un of remainingUnfilled) {
-        try {
-          const isReq = await un.evaluate(el => (el as any).required || el.getAttribute('aria-required') === 'true').catch(() => false);
-          if (!isReq) continue;
+      const radioFillCount = await page.evaluate(() => {
+        let count = 0;
 
-          const tag = await un.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
-          const type = await un.evaluate(el => (el.getAttribute('type') || '').toLowerCase()).catch(() => '');
-          const isButtonOrRadio = await un.evaluate(el => el.getAttribute('role') === 'radio' || el.getAttribute('role') === 'radiogroup' || (el as any).type === 'radio').catch(() => false);
+        // A. Groups & Fieldsets
+        const groups = Array.from(document.querySelectorAll<HTMLElement>(
+          '[role="radiogroup"], fieldset, .ashby-field-question, .form-group, div:has(> [role="radio"])'
+        ));
 
-          if (isButtonOrRadio) {
-            // Already handled by Pass 4 (Radiogroups) but if empty:
-            await un.evaluate((el: HTMLElement) => {
-               const items = Array.from(el.querySelectorAll ? el.querySelectorAll<HTMLElement>('button[role="radio"], [role="radio"]') : [el]);
-               if (items.length > 0) {
-                 items[0].click();
-                 items[0].setAttribute('aria-checked', 'true');
-               }
-            }).catch(() => {});
-            result.radiosSelected++;
-          } else if (type === 'checkbox') {
-            await un.evaluate((el: HTMLElement) => {
-              if (el instanceof HTMLInputElement) el.checked = true;
-              el.dispatchEvent(new Event('click', { bubbles: true }));
-              el.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-            result.checkboxesChecked++;
-          } else if (type === 'file') {
-            const validPdf = getOrCreateValidResumePdf(profile);
-            if (validPdf && fs.existsSync(validPdf)) {
-              await un.setInputFiles(validPdf).catch(() => {});
-              result.resumeUploaded = true;
+        groups.forEach((group) => {
+          const groupText = (group.textContent || '').toLowerCase();
+          const radioItems = Array.from(group.querySelectorAll<HTMLElement>(
+            'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"]'
+          ));
+          if (radioItems.length === 0) return;
+
+          const isAnyChecked = radioItems.some(r => {
+            if (r instanceof HTMLInputElement) return r.checked;
+            return r.getAttribute('aria-checked') === 'true' || r.classList.contains('selected') || r.classList.contains('active');
+          });
+          if (isAnyChecked) return;
+
+          let pick: HTMLElement | null = null;
+          if (groupText.includes('sponsor') || groupText.includes('visa')) {
+            pick = radioItems.find(r => /no|not require|false/i.test(r.textContent || (r as any).value || '')) || null;
+          } else {
+            pick = radioItems.find(r => /yes|authorized|eligible|agree|true|office|relocate/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
+          }
+
+          if (pick) {
+            pick.click();
+            if (pick instanceof HTMLInputElement) {
+              pick.checked = true;
+              pick.dispatchEvent(new Event('input', { bubbles: true }));
+              pick.dispatchEvent(new Event('change', { bubbles: true }));
             }
-          } else if (tag === 'textarea' || tag === 'input') {
-            const valLength = await un.evaluate((el: HTMLInputElement | HTMLTextAreaElement) => (el.value || '').trim().length).catch(() => 0);
-            if (valLength > 0) continue; // If it's already filled (even if invalid), don't overwrite with hallucinated AI text
+            pick.setAttribute('aria-checked', 'true');
+            count++;
+          }
+        });
 
-            const label = await un.evaluate(el => {
-              return el.closest('.form-group, .question, label')?.textContent || (el as any).placeholder || (el as any).name || 'Application detail';
-            }).catch(() => 'Application detail');
+        // B. Native Radio Inputs by Name
+        const allRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
+        const nameMap = new Map<string, HTMLInputElement[]>();
+        allRadios.forEach(r => {
+          const n = r.name || 'group';
+          if (!nameMap.has(n)) nameMap.set(n, []);
+          nameMap.get(n)!.push(r);
+        });
 
-            const answer = await aiSolver.answerCustomQuestion(label, {
-              jobTitle: resolvedTitle,
-              company: resolvedCompany,
-              userProfile: profile,
-            });
-            
-            // Check if Answer is just a generic fallback before applying it
-            if (answer && answer.length > 5) {
-               await un.fill(answer).catch(() => {});
-               result.fieldsFilled++;
+        nameMap.forEach((radios) => {
+          if (radios.some(r => r.checked)) return;
+          const container = radios[0].closest('.question, .form-group, fieldset, div') || document.body;
+          const cText = (container.textContent || '').toLowerCase();
+
+          let pick: HTMLInputElement | null = null;
+          if (cText.includes('sponsor') || cText.includes('visa')) {
+            pick = radios.find(r => /no|false/i.test(r.value || r.labels?.[0]?.textContent || '')) || null;
+          } else {
+            pick = radios.find(r => /yes|true|agree/i.test(r.value || r.labels?.[0]?.textContent || '')) || radios[0];
+          }
+
+          if (pick) {
+            pick.checked = true;
+            pick.dispatchEvent(new Event('click', { bubbles: true }));
+            pick.dispatchEvent(new Event('change', { bubbles: true }));
+            count++;
+          }
+        });
+
+        return count;
+      }).catch(() => 0);
+
+      result.radiosSelected += radioFillCount;
+    } catch {}
+
+    // ── 5. SOLVE ALL DROPDOWNS & CUSTOM COMBOBOXES (Option-Type Questions) ─
+    try {
+      // A. Native <select> elements
+      const selectCount = await page.evaluate(() => {
+        let count = 0;
+        const selects = Array.from(document.querySelectorAll<HTMLSelectElement>('select'));
+        selects.forEach((sel) => {
+          if (sel.value && sel.selectedIndex > 0) return;
+          const label = (sel.closest('label, .form-group')?.textContent || sel.name || '').toLowerCase();
+          const options = Array.from(sel.options);
+          if (options.length <= 1) return;
+
+          let bestIndex = -1;
+          if (label.includes('gender') || label.includes('race') || label.includes('veteran') || label.includes('disability')) {
+            bestIndex = options.findIndex(o => /prefer not|decline|specify|not a protected|no.*disability/i.test(o.text || o.value));
+          } else if (label.includes('authoriz') || label.includes('eligible')) {
+            bestIndex = options.findIndex(o => /yes|authorized|eligible/i.test(o.text || o.value));
+          } else if (label.includes('sponsor') || label.includes('visa')) {
+            bestIndex = options.findIndex(o => /no|not require|do not/i.test(o.text || o.value));
+          } else if (label.includes('domain') || label.includes('expertise') || label.includes('preference')) {
+            bestIndex = options.findIndex(o => /software|full stack|backend|frontend|product|engineer|general/i.test(o.text || o.value));
+          } else if (label.includes('hear') || label.includes('source')) {
+            bestIndex = options.findIndex(o => /linkedin|website|online|job board|other/i.test(o.text || o.value));
+          } else if (label.includes('notice') || label.includes('available')) {
+            bestIndex = options.findIndex(o => /immediate|0|15 days|1 month/i.test(o.text || o.value));
+          }
+
+          if (bestIndex <= 0) {
+            bestIndex = options.findIndex((o, idx) => idx > 0 && o.value && o.value !== '' && !/select|choose|please/i.test(o.text));
+          }
+
+          if (bestIndex > 0) {
+            sel.selectedIndex = bestIndex;
+            sel.dispatchEvent(new Event('input', { bubbles: true }));
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            count++;
+          }
+        });
+        return count;
+      }).catch(() => 0);
+      result.selectsSolved += selectCount;
+
+      // B. Custom React Dropdowns / Comboboxes (Ashby, Greenhouse, Lever custom lists)
+      const customDropdownTriggers = await page.$$(
+        'button[aria-haspopup="listbox"], [role="combobox"]:not(input), button._toggleButton_v5ami_32, div[class*="_inputContainer_"] button, div[class*="dropdown"] button'
+      );
+      for (const trigger of customDropdownTriggers) {
+        try {
+          await trigger.click().catch(() => {});
+          await page.waitForTimeout(200);
+
+          const options = await page.$$('[role="option"], li, div[class*="_option_"], [data-qa="dropdown-option"]');
+          if (options.length > 0) {
+            let target = null;
+            for (const opt of options) {
+              const text = (await opt.textContent().catch(() => ''))?.toLowerCase() || '';
+              if (/prefer not|decline|software|full stack|product|yes|immediate|linkedin|website/i.test(text)) {
+                target = opt;
+                break;
+              }
+            }
+            if (!target && options.length > 1) target = options[1];
+            else if (!target && options.length === 1) target = options[0];
+
+            if (target) {
+              await humanClick(page, target);
+              result.selectsSolved++;
             }
           }
         } catch {}
       }
     } catch {}
 
-    // ── PASS 8b: DIRECT ASHBY & GREENHOUSE CUSTOM QUESTION SWEEP ──
+    // ── 6. SOLVE ALL AGREEMENT & CERTIFICATION CHECKBOXES ───────────────────
     try {
-       await page.evaluate(() => {
-         // Specifically target Greenhouse / Ashby custom inputs that use the autocomplete attribute
-         const customInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[autocomplete*="custom-question"]'));
-         for (const c of customInputs) {
-            if (!c.value || c.value.trim().length === 0) {
-               const proto = HTMLInputElement.prototype;
-               const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-               if (setter) {
-                  try { setter.call(c, 'https://github.com/candidate'); } catch {}
-               } else {
-                  c.value = 'https://github.com/candidate';
-               }
-               c.dispatchEvent(new Event('input', { bubbles: true }));
-               c.dispatchEvent(new Event('change', { bubbles: true }));
+      const checkboxCount = await page.evaluate(() => {
+        let count = 0;
+
+        // 1. Native Checkboxes
+        const checkboxes = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+        checkboxes.forEach((cb) => {
+          if (cb.checked) return;
+          cb.checked = true;
+          cb.dispatchEvent(new Event('click', { bubbles: true }));
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+          count++;
+        });
+
+        // 2. Custom ARIA Checkboxes
+        const ariaCheckboxes = Array.from(document.querySelectorAll<HTMLElement>('[role="checkbox"], .custom-checkbox'));
+        ariaCheckboxes.forEach((acb) => {
+          const isChecked = acb.getAttribute('aria-checked') === 'true' || acb.classList.contains('checked') || acb.classList.contains('active');
+          if (!isChecked) {
+            acb.click();
+            acb.setAttribute('aria-checked', 'true');
+            count++;
+          }
+        });
+
+        return count;
+      }).catch(() => 0);
+
+      result.checkboxesChecked += checkboxCount;
+    } catch {}
+
+    // ── 7. SOLVE OPEN-ENDED QUESTIONS / TEXTAREAS VIA AI ────────────────────
+    try {
+      const textareas = await page.$$('textarea');
+      for (const ta of textareas) {
+        const val = await ta.inputValue().catch(() => '');
+        if (!val || val.trim().length === 0) {
+          const label = await ta.evaluate(el => {
+            return (
+              el.closest('.form-group, .question, label')?.textContent ||
+              document.querySelector(`label[for="${el.id}"]`)?.textContent ||
+              el.placeholder ||
+              el.name ||
+              'Why are you interested in this position?'
+            );
+          }).catch(() => 'Why are you interested in this position?');
+
+          const isCoverLetter = /cover letter|why us|why hire|summary|statement/i.test(label);
+          let responseText = '';
+
+          if (isCoverLetter) {
+            responseText = await aiSolver.generateTailoredCoverLetter(profile, resolvedTitle, resolvedCompany);
+          } else {
+            responseText = await aiSolver.answerCustomQuestion(label, {
+              jobTitle: resolvedTitle,
+              company: resolvedCompany,
+              userProfile: profile,
+            });
+          }
+
+          await ta.fill(responseText).catch(() => {});
+          result.fieldsFilled++;
+        }
+      }
+    } catch {}
+
+    // ── 8. PRE-SUBMIT AUDIT: REMEDIATE ANY REMAINING UNFILLED REQUIRED FIELDS
+    try {
+      const remainingInvalid = await page.$$('input:invalid, textarea:invalid, select:invalid, [required]:not(:checked)');
+      for (const inv of remainingInvalid) {
+        try {
+          const tag = await inv.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
+          const type = await inv.evaluate(el => (el.getAttribute('type') || '').toLowerCase()).catch(() => '');
+
+          if (type === 'checkbox') {
+            await inv.evaluate((el: HTMLElement) => {
+              if (el instanceof HTMLInputElement) el.checked = true;
+              el.dispatchEvent(new Event('click', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            }).catch(() => {});
+            result.checkboxesChecked++;
+          } else if (type === 'file') {
+            const validPdf = getOrCreateValidResumePdf(profile);
+            if (validPdf && fs.existsSync(validPdf)) {
+              await inv.setInputFiles(validPdf).catch(() => {});
+              result.resumeUploaded = true;
             }
-         }
-       }).catch(() => {});
+          } else if (tag === 'textarea' || tag === 'input') {
+            const curVal = await inv.inputValue().catch(() => '');
+            if (!curVal || curVal.trim().length === 0) {
+              const label = await inv.evaluate(el => el.closest('.form-group, .question, label')?.textContent || (el as any).placeholder || 'Detail').catch(() => 'Detail');
+              const ans = await aiSolver.answerCustomQuestion(label, { jobTitle: resolvedTitle, company: resolvedCompany, userProfile: profile });
+              await inv.fill(ans).catch(() => {});
+              result.fieldsFilled++;
+            }
+          }
+        } catch {}
+      }
     } catch {}
 
     result.totalInteractions =
@@ -795,30 +582,51 @@ export class OmniFormSolver {
       result.radiosSelected +
       result.selectsSolved;
 
-    return result;
-  }
+    // ── 9. AUTOMATIC SUBMISSION & POST-SUBMIT VERIFICATION ──────────────────
+    if (autoSubmit && result.totalInteractions > 0) {
+      await randomPause(page, 400, 800);
 
-  /**
-   * Universal Master Form Solver:
-   * Recognizes entire form schema first $\rightarrow$ Fills every field $\rightarrow$ Verifies completion.
-   */
-  public static async solveEntireForm(
-    page: Page,
-    profile: MasterProfile,
-    jobTitle?: string,
-    companyName?: string
-  ): Promise<OmniFormSolveResult> {
-    // 1. RECOGNIZE ALL FIELDS IN FORM
-    const schema = await OmniFormSolver.recognizeFormFields(page);
+      const submitSelectors = [
+        'button[type="submit"]:has-text("Submit Application")',
+        'button[type="submit"]:has-text("Submit application")',
+        'button[type="submit"]:has-text("Submit")',
+        'button:has-text("Submit Application")',
+        'button:has-text("Submit application")',
+        'button:has-text("Submit")',
+        'button[type="submit"]',
+        'input[type="submit"]',
+        'button.btn-primary:has-text("Submit")',
+        '[data-qa="submit-button"]'
+      ];
 
-    // 2. FILL RECOGNIZED FIELDS ACCORDING TO RECOGNIZED SCHEMA
-    const result = await OmniFormSolver.fillRecognizedForm(
-      page,
-      schema,
-      profile,
-      jobTitle,
-      companyName
-    );
+      for (const sel of submitSelectors) {
+        try {
+          const submitBtn = await page.$(sel);
+          if (submitBtn) {
+            const isVis = typeof submitBtn.isVisible === 'function' ? await submitBtn.isVisible().catch(() => false) : true;
+            if (isVis) {
+              await humanClick(page, submitBtn);
+              result.isSubmitted = true;
+              await randomPause(page, 600, 1000);
+
+              result.isConfirmed = await page.evaluate(() => {
+                const body = (document.body?.innerText || '').toLowerCase();
+                return (
+                  body.includes('application submitted') ||
+                  body.includes('application has been submitted') ||
+                  body.includes('thank you for applying') ||
+                  body.includes('application received') ||
+                  body.includes('received your application') ||
+                  body.includes('applied successfully')
+                );
+              }).catch(() => false);
+
+              break;
+            }
+          }
+        } catch {}
+      }
+    }
 
     return result;
   }
