@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   ArrowRight, ArrowLeft, Check, Download as DownloadIcon,
-  Shield, Laptop, Terminal, Sparkles, CheckCircle2,
-  Clock, AlertCircle, HardDrive, Cpu, RefreshCw, Copy, ChevronRight, FolderArchive
+  Shield, Laptop, Terminal, CheckCircle2, Clock
 } from 'lucide-react';
 import { animate, stagger } from 'animejs';
 
 export default function Download() {
   const [downloadStarted, setDownloadStarted] = useState<boolean>(false);
-  const [copiedCmd, setCopiedCmd] = useState<boolean>(false);
   const [waitlistEmail, setWaitlistEmail] = useState<string>('');
   const [waitlistSubmitted, setWaitlistSubmitted] = useState<boolean>(false);
 
@@ -174,7 +172,7 @@ export default function Download() {
                 className="w-full py-4 bg-ink-950 hover:bg-ink-800 text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all shadow-lifted active:scale-95 text-center cursor-pointer"
               >
                 <DownloadIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                <span>Download Nomadic for Windows (64-bit · 80.2 MB)</span>
+                <span>Download for Windows</span>
               </button>
 
               <div className="flex items-center justify-between text-[10px] text-ink-400 font-mono px-1">
@@ -297,77 +295,6 @@ export default function Download() {
               <div className="pt-2 text-[11px] text-ink-400 font-mono">
                 Zero admin privileges required
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Windows 11 Smart App Control & SmartScreen Help Card */}
-        <div className="animate-in bg-powder-50 border border-powder-200 rounded-3xl p-6 sm:p-8 max-w-4xl mx-auto space-y-6 shadow-fine">
-          <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-powder-600 text-white flex items-center justify-center shrink-0 shadow-fine">
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-ink-950">
-                  Windows 11 Smart App Control &amp; SmartScreen Assistance
-                </h3>
-                <p className="text-xs text-ink-600">
-                  If Windows 11 displays a security prompt, use any of the quick methods below:
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick PowerShell Command (Recommended for Power Users) */}
-          <div className="bg-white border border-powder-200 rounded-2xl p-5 space-y-3 shadow-fine">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full font-mono uppercase">Alternative</span>
-                <span className="text-xs font-bold text-ink-950">
-                  1-Click Direct Install via Command Prompt or PowerShell
-                </span>
-              </div>
-              <button
-                onClick={handleCopyCommand}
-                className="text-[11px] font-mono text-ink-600 hover:text-ink-950 flex items-center gap-1 font-semibold cursor-pointer"
-              >
-                {copiedCmd ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedCmd ? 'Copied!' : 'Copy Command'}</span>
-              </button>
-            </div>
-            <p className="text-[11px] text-ink-600 leading-relaxed">
-              Paste this command into <strong>Command Prompt (cmd)</strong> or <strong>PowerShell</strong> and press Enter to download, unblock, and launch automatically:
-            </p>
-            <div
-              onClick={handleCopyCommand}
-              className="bg-ink-950 text-powder-200 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between cursor-pointer hover:bg-ink-900 transition-colors"
-            >
-              <code>powershell -c "irm https://nomadicai.vercel.app/install.ps1 | iex"</code>
-              <Copy className="w-3.5 h-3.5 text-powder-400 shrink-0" />
-            </div>
-          </div>
-
-          {/* Unblock Properties & SmartScreen Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
-              <div className="flex items-center gap-2 font-bold text-ink-950">
-                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">A</span>
-                <span>Unblock in File Properties</span>
-              </div>
-              <p className="text-ink-600 leading-relaxed">
-                If blocked by Smart App Control: Right-click the downloaded file → <strong>Properties</strong> → check <strong>"Unblock"</strong> at the bottom → click <strong>Apply / OK</strong>.
-              </p>
-            </div>
-
-            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
-              <div className="flex items-center gap-2 font-bold text-ink-950">
-                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">B</span>
-                <span>SmartScreen "Run anyway"</span>
-              </div>
-              <p className="text-ink-600 leading-relaxed">
-                If the blue <em>"Windows protected your PC"</em> popup appears: click the underlined <strong className="text-ink-950">More info</strong> link → click the <strong className="text-ink-950">Run anyway</strong> button.
-              </p>
             </div>
           </div>
         </div>
