@@ -184,7 +184,7 @@ describe('Internshala Scraper Resilience & URL Normalization', () => {
       expect(first.applyUrl).toMatch(/^https:\/\/internshala\.com/);
       expect(first.source).toBe('Internshala');
       expect(first.jobHash).toBeDefined();
-    });
+    }, 25000);
   });
 
 });

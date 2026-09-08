@@ -474,8 +474,16 @@ export default function App() {
         />
 
         {/* Dynamic Sub-view Container */}
-        <main className="flex-1 overflow-y-auto p-5 md:p-8 bg-slate-50 dark:bg-slate-950 transition-colors">
-          <div key={activeTab} className="max-w-6xl mx-auto animate-in fade-in duration-150 ease-out">
+        <main className={`flex-1 transition-colors ${
+          activeTab === 'profile' || activeTab === 'settings' || Boolean(activeTab && activeTab.startsWith('admin'))
+            ? 'overflow-hidden flex flex-col'
+            : 'overflow-y-auto p-5 md:p-8'
+        }`}>
+          <div key={activeTab} className={`w-full ${
+            activeTab === 'profile' || activeTab === 'settings' || Boolean(activeTab && activeTab.startsWith('admin'))
+              ? 'h-full flex-1 flex flex-col overflow-hidden'
+              : 'max-w-6xl mx-auto animate-in fade-in duration-150 ease-out'
+          }`}>
             {activeTab === 'learner-roadmaps' && (
               <LearnerView
                 profile={profile}
