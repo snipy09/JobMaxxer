@@ -176,11 +176,21 @@ export default function Download() {
               </a>
 
               {/* Alternative Download Links */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <a
+                  href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-Setup-1.0.6-win.zip"
+                  onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-Setup-1.0.6-win.zip', 'Nomadic-Setup-1.0.6-win.zip')}
+                  className="py-2.5 px-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
+                  title="Download installer inside a ZIP file"
+                >
+                  <FileArchive className="w-3.5 h-3.5 shrink-0" />
+                  <span>Setup (.zip)</span>
+                </a>
+
                 <a
                   href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic.1.0.6.exe"
                   onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic.1.0.6.exe', 'Nomadic.1.0.6.exe')}
-                  className="py-2.5 px-3 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
+                  className="py-2.5 px-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
                   title="Run directly without running an installer"
                 >
                   <Laptop className="w-3.5 h-3.5 shrink-0" />
@@ -190,8 +200,8 @@ export default function Download() {
                 <a
                   href="https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-1.0.6-win.zip"
                   onClick={() => handleDownloadClick('https://github.com/snipy09/JobMaxxer/releases/download/v1.0.6/Nomadic-1.0.6-win.zip', 'Nomadic-1.0.6-win.zip')}
-                  className="py-2.5 px-3 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
-                  title="Download zip archive"
+                  className="py-2.5 px-2 bg-ink-50 hover:bg-ink-100 border border-ink-200 text-ink-800 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
+                  title="Download standalone unpacked application in a ZIP"
                 >
                   <FileArchive className="w-3.5 h-3.5 shrink-0" />
                   <span>Portable (.zip)</span>
