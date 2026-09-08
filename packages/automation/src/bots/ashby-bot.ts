@@ -24,10 +24,51 @@ export class AshbyBot {
         profile,
         profile.desiredTitle || 'Software Engineer',
         'Engineering Team',
-        true // Auto-submit after filling
+        false // Do not immediately submit, allow targeted Ashby passes
       );
 
-      // 3. Error Recovery: If Ashby displays "Your form needs corrections"
+      // 3. Targeted Ashby Pass: Force-click Arbitration Acknowledgement & Legal Confirmation
+      await page.evaluate(() => {
+        // Find any option or radio container mentioning "Arbitration Agreement" or "I acknowledge"
+        const allOptions = Array.from(document.querySelectorAll<HTMLElement>(
+          'div[class*="_option_"], label[class*="_option_"], div[class*="_radioContainer_"], div[role="radio"], button[role="radio"], label, input[type="radio"], input[type="checkbox"]'
+        ));
+
+        allOptions.forEach((el) => {
+          const text = (el.textContent || (el as any).value || '').toLowerCase();
+          if (text.includes('arbitration') && (text.includes('acknowledge') || text.includes('opened, read') || text.includes('agree'))) {
+            el.click();
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            const inp = el.querySelector('input') || (el instanceof HTMLInputElement ? el : null);
+            if (inp) {
+              inp.checked = true;
+              inp.dispatchEvent(new Event('input', { bubbles: true }));
+              inp.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          } else if (text.includes('confirm i have read the above') || text.includes('i confirm') || (text.includes('certify') && text.includes('withheld'))) {
+            el.click();
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            const inp = el.querySelector('input') || (el instanceof HTMLInputElement ? el : null);
+            if (inp) {
+              inp.checked = true;
+              inp.dispatchEvent(new Event('input', { bubbles: true }));
+              inp.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        });
+      }).catch(() => {});
+      await page.waitForTimeout(400);
+
+      // 4. Click Submit Button
+      const submitBtn = await page.$(
+        'button[type="submit"], button:has-text("Submit Application"), button:has-text("Submit"), button._submitButton_'
+      );
+      if (submitBtn) {
+        await submitBtn.click().catch(() => {});
+        await page.waitForTimeout(1500);
+      }
+
+      // 5. Error Recovery: If Ashby displays "Your form needs corrections"
       const errorCallout = await page.$('div:has-text("Your form needs corrections"), div[class*="_errorCallout_"]');
       if (errorCallout) {
         await page.evaluate(() => {

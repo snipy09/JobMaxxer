@@ -349,47 +349,66 @@ export class OmniFormSolver {
 
         // A. Groups & Fieldsets
         const groups = Array.from(document.querySelectorAll<HTMLElement>(
-          '[role="radiogroup"], fieldset, .ashby-field-question, .form-group, div:has(> [role="radio"]), div[class*="_question_"], div[class*="_fieldContainer_"]'
+          '[role="radiogroup"], fieldset, .ashby-field-question, .form-group, div:has(> [role="radio"]), div[class*="_question_"], div[class*="_fieldContainer_"], div[class*="_field_"]'
         ));
 
         groups.forEach((group) => {
           const groupText = (group.textContent || '').toLowerCase();
           const radioItems = Array.from(group.querySelectorAll<HTMLElement>(
-            'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"], button._yesno_button, button'
+            'button[role="radio"], [role="radio"], label:has(input[type="radio"]), input[type="radio"], button._yesno_button, div[class*="_option_"], label[class*="_option_"], div[class*="_radio_"], div[role="radio"], button, label'
           )).filter(b => {
             const t = (b.textContent || (b as any).value || '').trim();
-            return /^(yes|no|i acknowledge|acknowledge|agree|i agree|accept|prefer not|decline)$/i.test(t) || b.getAttribute('role') === 'radio';
+            // Match any option containing affirmative, acknowledge, confirm, certify, yes, or no text
+            return /yes|no|acknowledge|confirm|certify|agree|accept|prefer not|decline/i.test(t) || 
+                   b.getAttribute('role') === 'radio' ||
+                   b.classList.contains('_option_') ||
+                   b.querySelector('input[type="radio"]') !== null;
           });
 
           if (radioItems.length === 0) return;
 
           const isAnyChecked = radioItems.some(r => {
             if (r instanceof HTMLInputElement) return r.checked;
-            return r.getAttribute('aria-checked') === 'true' || r.classList.contains('selected') || r.classList.contains('active');
+            const inputChild = r.querySelector('input[type="radio"]') as HTMLInputElement | null;
+            if (inputChild && inputChild.checked) return true;
+            return r.getAttribute('aria-checked') === 'true' || 
+                   r.classList.contains('selected') || 
+                   r.classList.contains('active') ||
+                   r.classList.contains('_selected_');
           });
           if (isAnyChecked) return;
 
           let pick: HTMLElement | null = null;
           if (groupText.includes('sponsor') || groupText.includes('visa')) {
-            pick = radioItems.find(r => /no|not require|false/i.test(r.textContent || (r as any).value || '')) || null;
+            pick = radioItems.find(r => /\b(no|not require|false)\b/i.test(r.textContent || (r as any).value || '')) || null;
           } else if (groupText.includes('arbitration') || groupText.includes('dispute') || groupText.includes('acknowledgement')) {
-            pick = radioItems.find(r => /acknowledge|i acknowledge|agree|i agree|accept|yes/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
+            pick = radioItems.find(r => /acknowledge|opened, read|agree|accept|yes/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
+          } else if (groupText.includes('certif') || groupText.includes('withheld') || groupText.includes('true and correct') || groupText.includes('confirm') || groupText.includes('confidentiality')) {
+            pick = radioItems.find(r => /confirm|read the above|certify|agree|yes/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
           } else if (groupText.includes('san francisco') || groupText.includes('hq') || groupText.includes('office') || groupText.includes('days per week') || groupText.includes('hybrid') || groupText.includes('work from')) {
             pick = radioItems.find(r => /yes|i am able|i can|agree|true/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
           } else {
-            pick = radioItems.find(r => /yes|authorized|eligible|agree|true|office|relocate/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
+            pick = radioItems.find(r => /yes|authorized|eligible|agree|confirm|acknowledge|certify|true/i.test(r.textContent || (r as any).value || '')) || radioItems[0];
           }
 
           if (pick) {
             pick.click();
             pick.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            
+            const inputChild = pick.querySelector('input[type="radio"]') as HTMLInputElement | null;
+            if (inputChild) {
+              inputChild.checked = true;
+              inputChild.dispatchEvent(new Event('input', { bubbles: true }));
+              inputChild.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             if (pick instanceof HTMLInputElement) {
               pick.checked = true;
               pick.dispatchEvent(new Event('input', { bubbles: true }));
               pick.dispatchEvent(new Event('change', { bubbles: true }));
             }
+
             pick.setAttribute('aria-checked', 'true');
-            pick.classList.add('selected');
+            pick.classList.add('selected', '_selected_');
             count++;
           }
         });
@@ -405,20 +424,26 @@ export class OmniFormSolver {
 
         nameMap.forEach((radios) => {
           if (radios.some(r => r.checked)) return;
-          const container = radios[0].closest('.question, .form-group, fieldset, div') || document.body;
+          const container = radios[0].closest('.question, .form-group, fieldset, div[class*="_fieldContainer_"], div') || document.body;
           const cText = (container.textContent || '').toLowerCase();
 
           let pick: HTMLInputElement | null = null;
           if (cText.includes('sponsor') || cText.includes('visa')) {
-            pick = radios.find(r => /no|false/i.test(r.value || r.labels?.[0]?.textContent || '')) || null;
+            pick = radios.find(r => /\b(no|false)\b/i.test(r.value || r.labels?.[0]?.textContent || '')) || null;
+          } else if (cText.includes('arbitration') || cText.includes('acknowledgement')) {
+            pick = radios.find(r => /acknowledge|agree|yes/i.test(r.value || r.labels?.[0]?.textContent || '')) || radios[0];
+          } else if (cText.includes('certif') || cText.includes('confirm') || cText.includes('withheld')) {
+            pick = radios.find(r => /confirm|certify|agree|yes/i.test(r.value || r.labels?.[0]?.textContent || '')) || radios[0];
           } else {
-            pick = radios.find(r => /yes|true|agree/i.test(r.value || r.labels?.[0]?.textContent || '')) || radios[0];
+            pick = radios.find(r => /yes|true|agree|confirm|acknowledge/i.test(r.value || r.labels?.[0]?.textContent || '')) || radios[0];
           }
 
           if (pick) {
             pick.checked = true;
             pick.dispatchEvent(new Event('click', { bubbles: true }));
             pick.dispatchEvent(new Event('change', { bubbles: true }));
+            const parentLabel = pick.closest('label');
+            if (parentLabel) parentLabel.click();
             count++;
           }
         });
