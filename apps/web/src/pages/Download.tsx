@@ -55,7 +55,7 @@ export default function Download() {
   };
 
   const handleCopyCommand = () => {
-    navigator.clipboard.writeText('irm https://nomadicai.vercel.app/install.ps1 | iex');
+    navigator.clipboard.writeText('powershell -c "irm https://nomadicai.vercel.app/install.ps1 | iex"');
     setCopiedCmd(true);
     setTimeout(() => setCopiedCmd(false), 2500);
   };
@@ -308,13 +308,13 @@ export default function Download() {
               </button>
             </div>
             <p className="text-[11px] text-ink-600 leading-relaxed">
-              Open PowerShell on your PC, paste this command and press Enter. It automatically downloads, unblocks, and launches Nomadic cleanly:
+              Paste this command into <strong>PowerShell</strong> or <strong>Command Prompt (cmd)</strong> and press Enter. It automatically downloads, unblocks, and launches Nomadic cleanly:
             </p>
             <div
               onClick={handleCopyCommand}
               className="bg-ink-950 text-powder-200 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between cursor-pointer hover:bg-ink-900 transition-colors"
             >
-              <code>irm https://nomadicai.vercel.app/install.ps1 | iex</code>
+              <code>powershell -c "irm https://nomadicai.vercel.app/install.ps1 | iex"</code>
               <Copy className="w-3.5 h-3.5 text-powder-400 shrink-0" />
             </div>
           </div>
