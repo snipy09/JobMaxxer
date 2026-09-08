@@ -272,8 +272,8 @@ export default function Download() {
           </div>
         </div>
 
-        {/* Windows SmartScreen 2-Step Visual Guidance */}
-        <div className="animate-in bg-powder-50 border border-powder-200 rounded-3xl p-6 sm:p-8 max-w-4xl mx-auto space-y-5 shadow-fine">
+        {/* Windows SmartScreen & Smart App Control Guidance */}
+        <div className="animate-in bg-powder-50 border border-powder-200 rounded-3xl p-6 sm:p-8 max-w-4xl mx-auto space-y-6 shadow-fine">
           <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-powder-600 text-white flex items-center justify-center shrink-0 shadow-fine">
@@ -281,43 +281,24 @@ export default function Download() {
               </div>
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-ink-950">
-                  Windows SmartScreen Guidance
+                  Windows 11 Smart App Control &amp; SmartScreen Help
                 </h3>
                 <p className="text-xs text-ink-600">
-                  Because Nomadic is a newly released independent application, Windows SmartScreen may show a standard confirmation.
+                  Because Nomadic is a newly released independent release, Windows may display a security prompt. Use any of the quick options below:
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
-              <div className="flex items-center gap-2 font-bold text-ink-950">
-                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">1</span>
-                <span>Click "More info"</span>
-              </div>
-              <p className="text-ink-600 leading-relaxed">
-                When the blue <em>"Windows protected your PC"</em> popup appears, click the underlined <strong className="text-ink-950">More info</strong> link directly under the warning text.
-              </p>
-            </div>
-
-            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
-              <div className="flex items-center gap-2 font-bold text-ink-950">
-                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">2</span>
-                <span>Click "Run anyway"</span>
-              </div>
-              <p className="text-ink-600 leading-relaxed">
-                The dialog will reveal the publisher and display a <strong className="text-ink-950">Run anyway</strong> button in the bottom right corner. Click it to launch Nomadic.
-              </p>
-            </div>
-          </div>
-
-          {/* Quick PowerShell Command */}
-          <div className="bg-white border border-powder-200 rounded-2xl p-4 space-y-2.5 shadow-fine">
+          {/* Quick PowerShell Command (Option 1 - Best for Windows 11) */}
+          <div className="bg-white border border-powder-200 rounded-2xl p-5 space-y-3 shadow-fine">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold text-ink-600 uppercase tracking-wider">
-                Or 1-Click Install via PowerShell (Zero Prompts)
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full font-mono uppercase">Recommended</span>
+                <span className="text-xs font-bold text-ink-950">
+                  Option 1: 1-Click Quick Install via PowerShell (Bypasses Smart App Control)
+                </span>
+              </div>
               <button
                 onClick={handleCopyCommand}
                 className="text-[11px] font-mono text-ink-600 hover:text-ink-950 flex items-center gap-1 font-semibold"
@@ -326,12 +307,38 @@ export default function Download() {
                 <span>{copiedCmd ? 'Copied!' : 'Copy Command'}</span>
               </button>
             </div>
+            <p className="text-[11px] text-ink-600 leading-relaxed">
+              Open PowerShell on your PC, paste this command and press Enter. It automatically downloads, unblocks, and launches Nomadic cleanly:
+            </p>
             <div
               onClick={handleCopyCommand}
               className="bg-ink-950 text-powder-200 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-between cursor-pointer hover:bg-ink-900 transition-colors"
             >
               <code>irm https://nomadicai.vercel.app/install.ps1 | iex</code>
               <Copy className="w-3.5 h-3.5 text-powder-400 shrink-0" />
+            </div>
+          </div>
+
+          {/* Option 2 & 3 Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
+              <div className="flex items-center gap-2 font-bold text-ink-950">
+                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">2</span>
+                <span>Unblock in File Properties</span>
+              </div>
+              <p className="text-ink-600 leading-relaxed">
+                If blocked by Smart App Control: Right-click the downloaded <code className="bg-ink-100 px-1 py-0.5 rounded text-[11px]">.exe</code> → <strong>Properties</strong> → check <strong>"Unblock"</strong> at the bottom → click <strong>Apply / OK</strong>.
+              </p>
+            </div>
+
+            <div className="bg-white border border-powder-200 p-4 rounded-2xl space-y-2 shadow-fine">
+              <div className="flex items-center gap-2 font-bold text-ink-950">
+                <span className="w-5 h-5 rounded-full bg-powder-100 text-powder-800 flex items-center justify-center text-[10px] font-mono">3</span>
+                <span>SmartScreen "Run anyway"</span>
+              </div>
+              <p className="text-ink-600 leading-relaxed">
+                If the blue <em>"Windows protected your PC"</em> popup appears: click the underlined <strong className="text-ink-950">More info</strong> link → click the <strong className="text-ink-950">Run anyway</strong> button.
+              </p>
             </div>
           </div>
         </div>
