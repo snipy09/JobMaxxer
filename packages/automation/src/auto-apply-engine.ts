@@ -652,7 +652,14 @@ export class AutoApplyEngine {
           profile,
           profile.desiredTitle || 'Software Engineer',
           atsConfig.name,
-          true // Auto-submit when complete
+          true, // Auto-submit when complete
+          (ev) => {
+            AutoApplyEngine.emitStatus(page, {
+              phase: ev.phase,
+              message: ev.message,
+              colorState: ev.colorState === 'green' ? 'green' : (ev.colorState === 'red' ? 'red' : 'grey')
+            }, onProgress).catch(() => {});
+          }
         );
         if (omniResult.totalInteractions > 0) {
           totalFieldsFilled += omniResult.totalInteractions;
