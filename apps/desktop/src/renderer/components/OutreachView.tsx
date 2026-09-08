@@ -6,6 +6,7 @@ import {
   Copy, Layers, UserCheck, ChevronDown
 } from 'lucide-react';
 import { MasterProfile, OutreachContact, getApi } from '../types';
+import { hasFeatureAccess } from '../utils/tier-utils';
 
 interface OutreachViewProps {
   profile: MasterProfile;
@@ -164,9 +165,9 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
   const [selectedAiTone, setSelectedAiTone] = useState<string>('High-Impact Direct Pitch');
 
   const handleGenerateAiEmail = async (tone?: string) => {
-    const isFreeOrLearner = !currentUser?.tier || currentUser?.tier === 'free' || currentUser?.tier === 'learner_pro';
-    if (isFreeOrLearner) {
-      onOpenUpgrade?.('AI Cold Outreach Generator (Seeker Pro / Max)');
+    const canSend = hasFeatureAccess(currentUser?.tier || currentUser?.subscription_tier, 'pro');
+    if (!canSend) {
+      onOpenUpgrade?.('AI Cold Outreach Generator (Pro / Max)');
       return;
     }
 
@@ -253,9 +254,9 @@ export const OutreachView: React.FC<OutreachViewProps> = ({
 
   const handleDispatchDrip = async () => {
     if (selectedEmails.size === 0) return;
-    const isFreeOrLearner = !currentUser?.tier || currentUser?.tier === 'free' || currentUser?.tier === 'learner_pro';
-    if (isFreeOrLearner) {
-      onOpenUpgrade?.('Verified Cold Outreach & SMTP Drip Engine (Seeker Pro / Max)');
+    const canSend = hasFeatureAccess(currentUser?.tier || currentUser?.subscription_tier, 'pro');
+    if (!canSend) {
+      onOpenUpgrade?.('Verified Cold Outreach & SMTP Drip Engine (Pro / Max)');
       return;
     }
 

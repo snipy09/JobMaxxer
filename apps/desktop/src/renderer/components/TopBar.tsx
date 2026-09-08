@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AppUser, TabType, PersonaTrack, AppUpdateInfo, getApi } from '../types';
 import { UpdateModal } from './UpdateModal';
+import { normalizeTier, getTierBadgeProps } from '../utils/tier-utils';
 
 interface TopBarProps {
   currentUser: AppUser | null;
@@ -67,14 +68,9 @@ export const TopBar: React.FC<TopBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const isMaxOrLifetime = Boolean(
-    currentUser?.tier === 'seeker_max' ||
-    currentUser?.tier === 'max' ||
-    currentUser?.tier === 'lifetime' ||
-    currentUser?.subscription_tier === 'seeker_max' ||
-    currentUser?.subscription_tier === 'max' ||
-    currentUser?.subscription_tier === 'lifetime'
-  );
+  const userTier = normalizeTier(currentUser?.tier || currentUser?.subscription_tier);
+  const isMaxTier = userTier === 'max';
+  const tierBadge = getTierBadgeProps(userTier);
 
   return (
     <>
@@ -95,6 +91,11 @@ export const TopBar: React.FC<TopBarProps> = ({
               Nomadic
             </span>
           </div>
+
+          {/* Canonical Tier Pill Badge */}
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold border shadow-xs ${tierBadge.bgClass} ${tierBadge.textClass} ${tierBadge.borderClass}`}>
+            {tierBadge.label}
+          </span>
         </div>
 
         {/* 2. Center: Top-Level Workspace Mode Switcher [ Learn | Seek ] */}
@@ -158,8 +159,8 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          {/* Upgrade CTA (Hidden for Seeker Max / Lifetime) */}
-          {!isMaxOrLifetime && (
+          {/* Upgrade CTA (Hidden for Max Tier) */}
+          {!isMaxTier && (
             <button
               type="button"
               onClick={onOpenUpgrade}
@@ -205,8 +206,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                     {currentUser?.email || ''}
                   </div>
                   <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 uppercase">
-                      {currentUser?.tier || 'Free'}
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase border ${tierBadge.bgClass} ${tierBadge.textClass} ${tierBadge.borderClass}`}>
+                      {tierBadge.label} PLAN
                     </span>
                     {currentUser?.role === 'admin' && (
                       <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">

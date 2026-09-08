@@ -9,6 +9,7 @@ import {
   Mail, Compass, HelpCircle, ChevronDown, Bell, Zap, BarChart3, Radio
 } from 'lucide-react';
 import { AppUser, BillingRecord, AdminMetrics, CuratedResource, getApi } from '../types';
+import { normalizeTier, getTierDisplayName } from '../utils/tier-utils';
 
 interface AdminViewProps {
   onLog: (msg: string) => void;
@@ -398,11 +399,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
       }
       // Plan filter
       if (planFilter !== 'all') {
-        if (planFilter === 'free' && u.tier !== 'free') return false;
-        if (planFilter === 'learner_pro' && u.tier !== 'learner_pro') return false;
-        if (planFilter === 'seeker_pro' && u.tier !== 'seeker_pro') return false;
-        if (planFilter === 'seeker_max' && u.tier !== 'seeker_max' && u.tier !== 'max' && u.tier !== 'turbo') return false;
-        if (planFilter === 'lifetime' && u.tier !== 'lifetime') return false;
+        const uNorm = normalizeTier(u.tier || (u as any).subscription_tier);
+        if (planFilter !== uNorm) return false;
       }
       // Status filter
       if (statusFilter !== 'all') {
@@ -435,19 +433,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
   }, [filteredUsers, currentPage, usersPerPage]);
 
   const getTierDisplay = (tier: string) => {
-    switch (tier) {
-      case 'learner_pro':
-        return { label: 'Learner Pro', badge: 'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800' };
-      case 'seeker_pro':
-        return { label: 'Seeker Pro', badge: 'bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800' };
-      case 'seeker_max':
+    const norm = normalizeTier(tier);
+    switch (norm) {
+      case 'lite':
+        return { label: 'Lite Plan', badge: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800' };
+      case 'pro':
+        return { label: 'Pro Plan', badge: 'bg-powder-50 text-powder-800 border-powder-200 dark:bg-powder-950/50 dark:text-powder-300 dark:border-powder-800' };
       case 'max':
-      case 'turbo':
-        return { label: 'Seeker Max', badge: 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900' };
-      case 'lifetime':
-        return { label: 'Lifetime VIP', badge: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800' };
+        return { label: 'Max Plan', badge: 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900' };
       case 'free':
-      case 'trial':
       default:
         return { label: 'Free Plan', badge: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' };
     }
@@ -859,10 +853,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                   >
                     <option value="all">All Plans</option>
                     <option value="free">Free Plan</option>
-                    <option value="learner_pro">Learner Pro</option>
-                    <option value="seeker_pro">Seeker Pro</option>
-                    <option value="seeker_max">Seeker Max</option>
-                    <option value="lifetime">Lifetime VIP</option>
+                    <option value="lite">Lite Plan (₹79/mo)</option>
+                    <option value="pro">Pro Plan (₹149/mo)</option>
+                    <option value="max">Max Plan (₹299/mo)</option>
                   </select>
 
                   {/* Status Filter */}
@@ -1657,10 +1650,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-bold focus:outline-hidden"
                 >
                   <option value="free">Free Plan (Default preview)</option>
-                  <option value="learner_pro">Learner Pro (₹79/mo)</option>
-                  <option value="seeker_pro">Seeker Pro (₹149/mo)</option>
-                  <option value="seeker_max">Seeker Max (₹299/mo)</option>
-                  <option value="lifetime">Lifetime License (Permanent VIP)</option>
+                  <option value="lite">Lite Plan (₹79/mo · Roadmaps, 428+ LC, Books)</option>
+                  <option value="pro">Pro Plan (₹149/mo · Full Feed, 50 Auto-Applies/wk)</option>
+                  <option value="max">Max Plan (₹299/mo · Unlimited Autopilot &amp; Outreach)</option>
                 </select>
               </div>
 

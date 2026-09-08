@@ -542,9 +542,10 @@ function hashLogin(email: string, password: string): string {
 
 // Normalize and preserve all Nomadic subscription tiers
 function normalizeTier(t: unknown): string {
-  const s = String(t ?? 'free').toLowerCase();
-  if (['free', 'learner_pro', 'seeker_pro', 'seeker_max', 'lifetime', 'trial', 'pro', 'max'].includes(s)) return s;
-  if (s === 'enterprise') return 'seeker_max';
+  const s = String(t ?? 'free').toLowerCase().trim();
+  if (s === 'lite' || s === 'learner_pro' || s === 'learner') return 'lite';
+  if (s === 'pro' || s === 'seeker_pro' || s === 'seeker') return 'pro';
+  if (s === 'max' || s === 'seeker_max' || s === 'lifetime' || s === 'enterprise' || s === 'turbo') return 'max';
   return 'free';
 }
 
@@ -3632,12 +3633,13 @@ ipcMain.handle('admin-create-user', async (_, user: Record<string, unknown>) => 
     const email = String(user['email'] ?? '').trim().toLowerCase();
     const fullName = String(user['fullName'] ?? '').trim();
     const password = String(user['password'] ?? '').trim();
-    const tier = String(user['tier'] ?? 'learner_pro').toLowerCase();
+    const rawTier = String(user['tier'] ?? 'lite').toLowerCase();
+    const tier = normalizeTier(rawTier);
     const role = String(user['role'] ?? 'user').toLowerCase();
 
     if (!email || !email.includes('@')) return { success: false, error: 'A valid email is required.' };
 
-    const tierPrefix = tier === 'free' ? 'FRE' : tier === 'learner_pro' ? 'LRN' : tier === 'seeker_pro' ? 'SKR' : tier === 'seeker_max' ? 'MAX' : 'LIFE';
+    const tierPrefix = tier === 'lite' ? 'LIT' : tier === 'pro' ? 'PRO' : tier === 'max' ? 'MAX' : 'FRE';
     const r1 = Math.floor(1000 + Math.random() * 9000);
     const r2 = Math.floor(1000 + Math.random() * 9000);
     const licenseKey = String(user['licenseKey'] ?? `NOMADIC-${tierPrefix}-${r1}-${r2}`).trim();
@@ -3775,17 +3777,16 @@ ipcMain.handle('admin-get-metrics', async () => {
     const totalUsers = list.length;
     const activeUsers = list.filter((u) => String(u['status']) === 'active').length;
     const totalApps = list.reduce((acc, u) => acc + (Number(u['apps_count']) || 0), 0);
-    const trialUsers = list.filter((u) => String(u['subscription_tier']) === 'free' || String(u['subscription_tier']) === 'trial').length;
-    const proUsers = list.filter((u) => String(u['subscription_tier']) === 'learner_pro' || String(u['subscription_tier']) === 'pro').length;
-    const maxUsers = list.filter(
-      (u) => String(u['subscription_tier']) === 'seeker_pro' || String(u['subscription_tier']) === 'seeker_max' || String(u['subscription_tier']) === 'max'
-    ).length;
+    const trialUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'free').length;
+    const liteUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'lite').length;
+    const proUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'pro').length;
+    const maxUsers = list.filter((u) => normalizeTier(String(u['subscription_tier'])) === 'max').length;
     const lifetimeUsers = list.filter((u) => String(u['subscription_tier']) === 'lifetime').length;
 
-    const mrr = `₹${(proUsers * 79 + maxUsers * 149).toLocaleString('en-IN')}/mo`;
-    const totalRevenue = `₹${(proUsers * 79 + maxUsers * 149 + lifetimeUsers * 299).toLocaleString('en-IN')}`;
+    const mrr = `₹${(liteUsers * 79 + proUsers * 149 + maxUsers * 299).toLocaleString('en-IN')}/mo`;
+    const totalRevenue = `₹${(liteUsers * 79 + proUsers * 149 + maxUsers * 299).toLocaleString('en-IN')}`;
 
-    return { totalUsers, activeUsers, totalApps, totalRevenue, mrr, trialUsers, proUsers, maxUsers, lifetimeUsers };
+    return { totalUsers, activeUsers, totalApps, totalRevenue, mrr, trialUsers, proUsers: liteUsers + proUsers, maxUsers, lifetimeUsers };
   } catch (err: unknown) {
     log(`[Admin] Metrics computation error: ${err instanceof Error ? err.message : String(err)}`);
     return empty;

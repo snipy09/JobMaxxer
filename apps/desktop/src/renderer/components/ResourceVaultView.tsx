@@ -10,6 +10,7 @@ import {
 } from '../data/resourceVault';
 import leetcodeCompaniesDataRaw from '../data/leetcodeCompaniesDataset.json';
 import { AppUser, getApi } from '../types';
+import { hasFeatureAccess } from '../utils/tier-utils';
 
 interface ResourceVaultViewProps {
   currentUser?: AppUser | null;
@@ -54,14 +55,8 @@ export const ResourceVaultView: React.FC<ResourceVaultViewProps> = ({
   const [problemSearch, setProblemSearch] = useState<string>('');
   const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
 
-  const hasLearnerProOrAbove = Boolean(
-    currentUser?.tier === 'learner_pro' ||
-    currentUser?.tier === 'seeker_pro' ||
-    currentUser?.tier === 'seeker_max' ||
-    currentUser?.tier === 'max' ||
-    currentUser?.tier === 'lifetime'
-  );
-  const isFree = !hasLearnerProOrAbove;
+  const hasLiteOrAbove = hasFeatureAccess(currentUser?.tier || currentUser?.subscription_tier, 'lite');
+  const isFree = !hasLiteOrAbove;
 
   const FREE_PREVIEW_COMPANIES = ['Google', 'Meta', 'Amazon'];
 

@@ -11,6 +11,7 @@ import {
 import { Job, MasterProfile, getApi } from '../types';
 import { computeJobRelevance } from '../data/relevanceMatcher';
 import { CompleteProfileModal } from './CompleteProfileModal';
+import { hasFeatureAccess, normalizeTier } from '../utils/tier-utils';
 
 interface FeedViewProps {
   profile: MasterProfile;
@@ -355,9 +356,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
   // Pre-Apply Gatekeeper Check
   const checkProfileAndRun = async (urls: string[], singleTarget?: { company: string; title: string }) => {
     setActiveJobTarget(singleTarget || null);
-    const isFreeOrLearner = !currentUser?.tier || currentUser?.tier === 'free' || currentUser?.tier === 'learner_pro';
-    if (isFreeOrLearner) {
-      onOpenUpgrade?.('100% Autonomous Auto-Apply Engine (Seeker Pro / Max)');
+    const canAutoApply = hasFeatureAccess(currentUser?.tier || currentUser?.subscription_tier, 'pro');
+    if (!canAutoApply) {
+      onOpenUpgrade?.('Autonomous Auto-Apply Engine (Pro / Max)');
       return;
     }
 

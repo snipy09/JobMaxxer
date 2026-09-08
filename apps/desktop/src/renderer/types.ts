@@ -132,12 +132,15 @@ export interface ResumeRecord {
   createdAt?: string;
 }
 
+export type SubscriptionTier = 'free' | 'lite' | 'pro' | 'max';
+
 export interface AppUser {
   id: number | string;
   email: string;
   fullName: string;
   role: 'admin' | 'user';
-  tier: 'trial' | 'pro' | 'max' | 'lifetime';
+  tier: SubscriptionTier | string;
+  subscription_tier?: string;
   licenseKey?: string;
   status: 'active' | 'suspended';
   appsCount: number;
