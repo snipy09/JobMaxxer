@@ -1718,8 +1718,11 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
 });
 
 // ── IPC: Batch Co-Pilot Parallel Pre-Fill ───────────────────────────────────
+let activeBatchTargets: Array<{ url: string; company?: string; title?: string }> = [];
+
 ipcMain.handle('start-batch-copilot', async (_, targets: Array<{ url: string; company?: string; title?: string }>) => {
   log(`[Batch Co-Pilot] Pre-filling ${targets.length} applications in parallel...`);
+  activeBatchTargets = targets || [];
   try {
     const db = getDb();
     const profResults = db.exec('SELECT * FROM master_profile WHERE id = 1');
@@ -1775,7 +1778,7 @@ ipcMain.handle('start-batch-copilot', async (_, targets: Array<{ url: string; co
 
 // ── IPC: Submit All Batch Co-Pilot ──────────────────────────────────────────
 ipcMain.handle('submit-all-batch-copilot', async (_, overrides?: Record<string, Record<string, string>>) => {
-  log(`[Batch Co-Pilot] Submitting all held applications with user confirmed overrides...`);
+  log(`[Batch Co-Pilot] Submitting all held applications with verified browser automation...`);
   try {
     const db = getDb();
     if (overrides) {
@@ -1788,7 +1791,101 @@ ipcMain.handle('submit-all-batch-copilot', async (_, overrides?: Record<string, 
       });
       persistDb();
     }
-    return { success: true, applied: Object.keys(overrides || {}).length || 1, failed: 0 };
+
+    const results = db.exec('SELECT * FROM master_profile WHERE id = 1');
+    if (!results.length || !results[0].values.length) {
+      return { success: false, error: 'No master profile saved. Fill in your profile first.' };
+    }
+    const cols = results[0].columns;
+    const profileRaw = Object.fromEntries(
+      cols.map((c, i) => [c, results[0].values[0][i]])
+    );
+
+    const resumeResults = db.exec('SELECT * FROM resumes ORDER BY is_default DESC, id DESC');
+    let resumesList: Array<{ name: string; targetRole: string; filePath: string; isDefault: boolean }> = [];
+    if (resumeResults.length) {
+      const rCols = resumeResults[0].columns;
+      resumesList = resumeResults[0].values.map(r => {
+        const obj = Object.fromEntries(rCols.map((c, i) => [c, r[i]]));
+        return {
+          name: String(obj['name'] ?? ''),
+          targetRole: String(obj['target_role'] ?? ''),
+          filePath: String(obj['file_path'] ?? ''),
+          isDefault: Boolean(obj['is_default']),
+        };
+      });
+    }
+
+    const cachedAnswersMap: Record<string, string> = {};
+    try {
+      const ca = db.exec('SELECT question_key, answer_text FROM cached_form_answers');
+      if (ca.length && ca[0].values.length) {
+        ca[0].values.forEach(v => {
+          cachedAnswersMap[String(v[0])] = String(v[1]);
+        });
+      }
+    } catch {}
+
+    const profile: MasterProfile = {
+      firstName:    String(profileRaw['first_name'] ?? ''),
+      lastName:     String(profileRaw['last_name'] ?? ''),
+      email:        String(profileRaw['email'] ?? ''),
+      phone:        String(profileRaw['phone'] ?? ''),
+      linkedin:     String(profileRaw['linkedin'] ?? ''),
+      github:       String(profileRaw['github'] ?? ''),
+      sponsorship:  String(profileRaw['sponsorship'] ?? ''),
+      salary:       String(profileRaw['desired_salary'] ?? ''),
+      noticePeriod: String(profileRaw['notice_period'] ?? ''),
+      groqApiKey:   String(profileRaw['groq_api_key'] ?? ''),
+      summaryText:  String(profileRaw['resume_text'] ?? ''),
+      desiredTitle: String(profileRaw['desired_title'] ?? ''),
+      techStack:    String(profileRaw['tech_stack'] ?? ''),
+      resumes:      resumesList,
+      customAnswers: (() => {
+        try { return JSON.parse(String(profileRaw['custom_answers_json'] ?? 'null')); } catch { return undefined; }
+      })(),
+      cachedAnswers: cachedAnswersMap,
+      onAnswerResolved: (q: string, a: string) => {
+        saveCachedFormAnswerDb(q, a);
+      },
+    };
+
+    let applied = 0;
+    let failed = 0;
+
+    for (const target of activeBatchTargets) {
+      try {
+        log(`[Batch Co-Pilot Submitter] Executing real Playwright submit for ${target.company || 'Job'} (${target.url})...`);
+        const res = await AutoApplyEngine.submitApplication(target.url, profile, (msg) => {
+          log(typeof msg === 'string' ? msg : `[Batch Status] ${msg.message}`);
+        });
+
+        if (res.submitted) {
+          applied++;
+          logAndSyncApplication({
+            company: target.company || 'Direct ATS Posting',
+            title: target.title || profile.desiredTitle || 'Software Engineer',
+            apply_url: target.url,
+            status: 'submitted',
+            mode: 'batch_copilot',
+          });
+        } else {
+          failed++;
+          logAndSyncApplication({
+            company: target.company || 'Direct ATS Posting',
+            title: target.title || profile.desiredTitle || 'Software Engineer',
+            apply_url: target.url,
+            status: res.captchaDetected ? 'captcha_blocked' : (res.requiresLogin ? 'requires_login' : 'failed'),
+            mode: 'batch_copilot',
+          });
+        }
+      } catch (err: any) {
+        failed++;
+        log(`[Batch Co-Pilot Submitter] Error applying to ${target.url}: ${err?.message || err}`);
+      }
+    }
+
+    return { success: true, applied, failed, total: activeBatchTargets.length };
   } catch (err: any) {
     return { success: false, error: err?.message || String(err) };
   }
