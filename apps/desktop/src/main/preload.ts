@@ -10,7 +10,8 @@ const apiObj = {
   pickResumeFile: () => ipcRenderer.invoke('pick-resume-file'),
   runScrapers: () => ipcRenderer.invoke('run-scrapers'),
   getCloudFeed: (userId: string) => ipcRenderer.invoke('get-cloud-feed', userId),
-  getCloudFeedPage: (options?: { page?: number; pageSize?: number }) => ipcRenderer.invoke('get-cloud-feed-page', options),
+  getCloudFeedPage: (options?: { page?: number; pageSize?: number; search?: string; filterTab?: string; source?: string }) =>
+    ipcRenderer.invoke('get-cloud-feed-page', options),
   launchSemiAuto: (jobUrls: string[]) => ipcRenderer.invoke('launch-semi-auto', jobUrls),
   launchAutonomous: (jobUrls: string[]) => ipcRenderer.invoke('launch-autonomous', jobUrls),
   cancelAutonomousApply: () => ipcRenderer.invoke('cancel-autonomous-apply'),

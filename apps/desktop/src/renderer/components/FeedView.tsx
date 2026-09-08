@@ -137,43 +137,68 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }
   };
 
-  const fetchCloudJobs = async () => {
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(18);
+
+  const fetchCloudJobs = async (targetPage = currentPage) => {
     const api = getApi();
     if (!api) return;
+    setLoading(true);
 
-    // Progressive Hydration: Step 1 - Fetch Page 1 (< 30ms) and render immediately
     try {
+      if (filterTab === 'saved') {
+        const saved = await api.getSavedJobs();
+        setSavedJobs(saved || []);
+        setTotalCount((saved || []).length);
+        setLoading(false);
+        return;
+      }
+
       if (typeof api.getCloudFeedPage === 'function') {
-        const page1 = await api.getCloudFeedPage({ page: 1, pageSize: 36 });
-        if (page1.success && page1.jobs && page1.jobs.length > 0) {
-          const initialJobs = deduplicateJobList(page1.jobs);
-          setJobs(initialJobs);
-          setLoading(false); // Render Page 1 immediately with zero wait!
+        const pageRes = await api.getCloudFeedPage({
+          page: targetPage,
+          pageSize,
+          search: searchQuery,
+          filterTab,
+          source: selectedSourceFilter !== 'all' ? selectedSourceFilter : undefined,
+        });
+
+        if (pageRes.success && pageRes.jobs) {
+          const pageJobs = deduplicateJobList(pageRes.jobs);
+          setJobs(pageJobs);
+          setTotalCount(pageRes.totalCount ?? pageJobs.length);
+        }
+      } else {
+        const res = await api.getCloudFeed('candidate');
+        if (res.success && res.jobs && res.jobs.length > 0) {
+          const combined = deduplicateJobList(res.jobs);
+          setJobs(combined);
+          setTotalCount(combined.length);
         }
       }
-    } catch {}
 
-    // Step 2 - Stream full catalog in background without blocking UI
-    try {
-      const res = await api.getCloudFeed('candidate');
-      if (res.success && res.jobs && res.jobs.length > 0) {
-        const combined = deduplicateJobList(res.jobs);
-        setJobs(combined);
-        saveJobsToLocalStorage(combined);
-        onLog(`[Feed] Stream synced ${combined.length} unique opportunities.`);
-      }
       const saved = await api.getSavedJobs();
       setSavedJobs(saved || []);
-    } catch {
+    } catch (err: any) {
+      onLog?.(`[Feed] Error fetching page ${targetPage}: ${err?.message}`);
     } finally {
       setLoading(false);
+      setIsFetchingJobs(false);
     }
   };
 
-  // 3. Refresh and load latest cloud jobs on mount
+  // Trigger page fetch when active page, filters, or search change
   useEffect(() => {
-    fetchCloudJobs();
-  }, []);
+    fetchCloudJobs(currentPage);
+  }, [currentPage, pageSize, filterTab, searchQuery, selectedSourceFilter]);
+
+  // Reset page to 1 when filters or search changes
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [filterTab, searchQuery, pageSize, selectedLocationFilter, selectedSourceFilter]);
 
   // Keyboard shortcut listener (Escape to close drawer, ⌘K for search focus)
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -228,32 +253,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
       if (!matchesSearch) return false;
 
-      // Tab Filtering
-      if (filterTab === 'jobs') {
-        const titleLower = (job.title || '').toLowerCase();
-        const empType = (job.employmentType || '').toLowerCase();
-        if (empType === 'internship' || titleLower.includes('intern') || titleLower.includes('internship')) return false;
-      }
-      if (filterTab === 'internships') {
-        const titleLower = (job.title || '').toLowerCase();
-        const empType = (job.employmentType || '').toLowerCase();
-        const srcLower = (job.source || '').toLowerCase();
-        if (!(empType === 'internship' || titleLower.includes('intern') || titleLower.includes('internship') || srcLower.includes('internshala'))) return false;
-      }
-      if (filterTab === 'internshala') {
-        if (!(job.source || '').toLowerCase().includes('internshala')) return false;
-      }
-      if (filterTab === 'high_match') {
-        if ((job.score ?? 0) < 80) return false;
-      }
-      if (filterTab === 'remote') {
-        if (!(job.workplaceType === 'remote' || (job.location || '').toLowerCase().includes('remote'))) return false;
-      }
-
       // Advanced Drawer Filters
-      if (selectedSourceFilter !== 'all') {
-        if (job.source !== selectedSourceFilter) return false;
-      }
       if (selectedLocationFilter !== 'all') {
         if (selectedLocationFilter === 'remote' && !(job.workplaceType === 'remote' || (job.location || '').toLowerCase().includes('remote'))) return false;
         if (selectedLocationFilter === 'india' && !((job.location || '').toLowerCase().includes('india') || (job.location || '').toLowerCase().includes('bengaluru') || (job.location || '').toLowerCase().includes('bangalore') || (job.location || '').toLowerCase().includes('mumbai') || (job.location || '').toLowerCase().includes('delhi') || (job.location || '').toLowerCase().includes('hyderabad') || (job.location || '').toLowerCase().includes('pune'))) return false;
@@ -273,26 +273,23 @@ export const FeedView: React.FC<FeedViewProps> = ({
       if (timeB !== timeA) return timeB - timeA;
       return (b.score ?? 0) - (a.score ?? 0);
     });
-  }, [scoredJobPool, filterTab, searchQuery, sortBy, selectedSourceFilter, selectedLocationFilter]);
+  }, [scoredJobPool, searchQuery, sortBy, selectedLocationFilter]);
 
   // Active advanced filters count
   const activeAdvancedFilterCount = (selectedLocationFilter !== 'all' ? 1 : 0) + (selectedSourceFilter !== 'all' ? 1 : 0);
 
   const isFreeUser = !currentUser?.tier || currentUser?.tier === 'free';
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(18);
 
-  // Reset page to 1 when filters or search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filterTab, searchQuery, pageSize, sortBy, selectedLocationFilter, selectedSourceFilter]);
-
-  const totalFilteredCount = filteredJobs.length;
+  const totalFilteredCount = totalCount > 0 ? totalCount : filteredJobs.length;
   const totalPages = isFreeUser && filterTab !== 'saved' ? 1 : Math.max(1, Math.ceil(totalFilteredCount / pageSize));
 
   const displayedJobs = useMemo(() => {
     if (isFreeUser && filterTab !== 'saved') {
       return filteredJobs.slice(0, 10);
+    }
+    // For cloud feed, `jobs` is already the current page's slice
+    if (filterTab !== 'saved') {
+      return filteredJobs;
     }
     const start = (currentPage - 1) * pageSize;
     return filteredJobs.slice(start, start + pageSize);

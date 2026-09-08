@@ -961,9 +961,15 @@ ipcMain.handle('run-scrapers', async () => {
 });
 
 // ── IPC: Get Cloud Feed Page (Fast Instant Page-Wise Hydration < 30ms) ─────
-ipcMain.handle('get-cloud-feed-page', async (_, opts?: { page?: number; pageSize?: number }) => {
-  const page = opts?.page || 1;
-  const pageSize = opts?.pageSize || 36;
+ipcMain.handle('get-cloud-feed-page', async (_, opts?: { 
+  page?: number; 
+  pageSize?: number; 
+  search?: string; 
+  filterTab?: string; 
+  source?: string;
+}) => {
+  const page = Math.max(1, opts?.page || 1);
+  const pageSize = opts?.pageSize || 18;
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -980,10 +986,31 @@ ipcMain.handle('get-cloud-feed-page', async (_, opts?: { page?: number; pageSize
     const supabase = getAnonSupabase();
     if (!supabase) return { success: false, jobs: [], totalCount: 0 };
 
-    const { data: dbJobs, count, error } = await supabase
+    let query = supabase
       .from('jobs')
       .select('*', { count: 'exact' })
-      .eq('is_active', true)
+      .eq('is_active', true);
+
+    if (opts?.filterTab === 'internships') {
+      query = query.or('employment_type.ilike.%intern%,title.ilike.%intern%,source.ilike.%internshala%');
+    } else if (opts?.filterTab === 'jobs') {
+      query = query.not('title', 'ilike', '%intern%').not('employment_type', 'ilike', '%intern%');
+    } else if (opts?.filterTab === 'internshala') {
+      query = query.ilike('source', '%internshala%');
+    } else if (opts?.filterTab === 'remote') {
+      query = query.or('workplace_type.ilike.%remote%,location.ilike.%remote%');
+    }
+
+    if (opts?.search && opts.search.trim().length > 0) {
+      const s = opts.search.trim();
+      query = query.or(`title.ilike.%${s}%,company.ilike.%${s}%,location.ilike.%${s}%`);
+    }
+
+    if (opts?.source && opts.source !== 'all') {
+      query = query.eq('source', opts.source);
+    }
+
+    const { data: dbJobs, count, error } = await query
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -1018,7 +1045,7 @@ ipcMain.handle('get-cloud-feed-page', async (_, opts?: { page?: number; pageSize
       };
     });
 
-    return { success: true, jobs, totalCount: count || jobs.length };
+    return { success: true, jobs, totalCount: count ?? jobs.length };
   } catch (err: any) {
     log(`[Cloud Feed Page] Error: ${err?.message}`);
     return { success: false, jobs: [], totalCount: 0 };
