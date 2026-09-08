@@ -73,10 +73,26 @@ function normalizeProfileToFormData(profile: MasterProfile | null, currentUser?:
     skillsArr = p.techStack.split(',').map((s: string) => s.trim()).filter(Boolean);
   }
 
+  let wsMode: WorkspaceMode = 'unified';
+  try {
+    const rawMode = p.workspaceMode || localStorage.getItem('nomadic_workspace_mode');
+    if (rawMode === 'learner_only' || rawMode === 'seeker_only' || rawMode === 'unified') {
+      wsMode = rawMode;
+    }
+  } catch {}
+
+  let oppType: OpportunityType = 'both';
+  try {
+    const rawOpp = p.targetOpportunityType || localStorage.getItem('nomadic_target_opportunity_type');
+    if (rawOpp === 'job' || rawOpp === 'internship' || rawOpp === 'both') {
+      oppType = rawOpp;
+    }
+  } catch {}
+
   return {
-    fullName,
-    firstName: fName,
-    lastName: lName,
+    fullName: fullName || '',
+    firstName: fName || '',
+    lastName: lName || '',
     email: p.email || currentUser?.email || '',
     phone: p.phone || '',
     location: p.location || '',
@@ -96,12 +112,12 @@ function normalizeProfileToFormData(profile: MasterProfile | null, currentUser?:
     willingToRelocate: Boolean(p.willingToRelocate),
     authorizedToWorkInUS: p.sponsorship ? p.sponsorship.toLowerCase() === 'no' : (p.authorizedToWorkInUS ?? true),
     requiresSponsorship: p.sponsorship ? p.sponsorship.toLowerCase() === 'yes' : (p.requiresSponsorship ?? false),
-    answers: p.answers || p.customAnswers || {},
+    answers: (p.answers || p.customAnswers || {}) as Record<string, any>,
     resumes: Array.isArray(p.resumes) ? p.resumes : [],
-    defaultResumeId: p.defaultResumeId,
+    defaultResumeId: p.defaultResumeId || '',
     onboardingCompleted: p.onboardingCompleted ?? true,
-    workspaceMode: (p.workspaceMode as WorkspaceMode) || (localStorage.getItem('nomadic_workspace_mode') as WorkspaceMode) || 'unified',
-    targetOpportunityType: (p.targetOpportunityType as OpportunityType) || (localStorage.getItem('nomadic_target_opportunity_type') as OpportunityType) || 'both',
+    workspaceMode: wsMode,
+    targetOpportunityType: oppType,
     askBeforeSubmit: p.askBeforeSubmit !== undefined ? Boolean(p.askBeforeSubmit) : true,
   };
 }
@@ -250,16 +266,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   };
 
   // Safely calculate profile completeness
-  const safeSkillsList = Array.isArray(formData.skills) ? formData.skills : [];
-  const safeResumesList = Array.isArray(formData.resumes) ? formData.resumes : [];
+  const safeSkillsList = Array.isArray(formData?.skills) ? formData.skills : [];
+  const safeResumesList = Array.isArray(formData?.resumes) ? formData.resumes : [];
 
   const completenessChecks = useMemo(() => [
-    Boolean(formData.fullName?.trim() || `${formData.firstName || ''} ${formData.lastName || ''}`.trim()),
-    Boolean(formData.email?.trim()),
-    Boolean(formData.targetRole?.trim()),
+    Boolean(formData?.fullName?.trim() || `${formData?.firstName || ''} ${formData?.lastName || ''}`.trim()),
+    Boolean(formData?.email?.trim()),
+    Boolean(formData?.targetRole?.trim()),
     safeSkillsList.length > 0,
-    Boolean(formData.linkedin?.trim() || formData.github?.trim()),
-  ], [formData.fullName, formData.firstName, formData.lastName, formData.email, formData.targetRole, safeSkillsList.length, formData.linkedin, formData.github]);
+    Boolean(formData?.linkedin?.trim() || formData?.github?.trim()),
+  ], [formData?.fullName, formData?.firstName, formData?.lastName, formData?.email, formData?.targetRole, safeSkillsList.length, formData?.linkedin, formData?.github]);
 
   const completenessPercent = Math.round(
     (completenessChecks.filter(Boolean).length / Math.max(1, completenessChecks.length)) * 100
