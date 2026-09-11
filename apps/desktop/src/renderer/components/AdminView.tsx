@@ -57,7 +57,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
     return [
       {
         id: '1',
-        actor: currentUser?.email || 'admin@jobmaxxer.com',
+        actor: currentUser?.email || 'sajalmishra0906@gmail.com',
         action: 'System Initialized',
         targetUser: 'All Fleet',
         details: 'Admin Console loaded and verified',
@@ -69,7 +69,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onLog, currentUser }) => {
   const recordAudit = (action: string, targetUser: string, details: string) => {
     const entry: AuditLogEntry = {
       id: String(Date.now()),
-      actor: currentUser?.email || 'admin@jobmaxxer.com',
+      actor: currentUser?.email || 'sajalmishra0906@gmail.com',
       action,
       targetUser,
       details,

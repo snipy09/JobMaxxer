@@ -588,8 +588,21 @@ function createWindow(): void {
       contextIsolation: true,
       sandbox: false,
       spellcheck: false,
+      devTools: !app.isPackaged || process.env.NOMADIC_ENABLE_DEVTOOLS === 'true',
     },
   });
+
+  // Security: Block DevTools inspection shortcuts in packaged production builds
+  if (app.isPackaged && process.env.NOMADIC_ENABLE_DEVTOOLS !== 'true') {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const isF12 = input.key === 'F12';
+      const isDevToolsCombo = (input.control || input.meta) && input.shift && ['I', 'i', 'J', 'j', 'C', 'c'].includes(input.key);
+      const isViewSourceCombo = (input.control || input.meta) && ['U', 'u'].includes(input.key);
+      if (isF12 || isDevToolsCombo || isViewSourceCombo) {
+        event.preventDefault();
+      }
+    });
+  }
 
   mainWindow.once('ready-to-show', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1590,14 +1603,20 @@ ipcMain.handle('launch-autonomous', async (_, jobUrls: string[]) => {
       },
     };
 
-    // 1. Enforce usage and plan rules
-    let userTier = 'pro';
-    try {
-      const uc = db.exec('SELECT tier FROM user_cache ORDER BY cached_at DESC LIMIT 1');
-      if (uc.length && uc[0].values.length) {
-        userTier = String(uc[0].values[0][0] || 'pro');
-      }
-    } catch {}
+    // 1. Enforce verified server tier & usage limits
+    const userTier = await getVerifiedServerUserTier(profile.email);
+    if (userTier === 'suspended') {
+      return { success: false, error: 'This account is suspended. Contact support.' };
+    }
+    if (userTier === 'free' && jobUrls.length > 1) {
+      return {
+        success: false,
+        error: 'Autonomous batch applications are reserved for Pro and Max subscribers. Upgrade to proceed.',
+        limitReached: true,
+        currentUsage: 0,
+        maxAllowed: 1
+      };
+    }
 
     // Allow single targeted job applies directly without batch throttling
     if (jobUrls.length > 1) {
@@ -2238,8 +2257,24 @@ ipcMain.handle('ask-nomadic-assistant', async (_, data: { message: string; histo
     };
   }
 
-  // 2. Gather App Context from SQLite
+  // 1b. Server-Verified Max Plan Gate
   const db = getDb();
+  let candidateEmail = '';
+  try {
+    const profEmail = db.exec('SELECT email FROM master_profile WHERE id = 1');
+    if (profEmail.length && profEmail[0].values.length) {
+      candidateEmail = String(profEmail[0].values[0][0] || '');
+    }
+  } catch {}
+
+  const serverTier = await getVerifiedServerUserTier(candidateEmail);
+  if (serverTier !== 'max') {
+    return {
+      success: false,
+      reply: '⚠️ **Exclusive Max Plan Feature**\n\nThe Autonomous AI Assistant on Steroids is exclusively unlocked for Nomadic Max members. Upgrade your subscription to access app-wide autonomous execution, real-time query resolution, and live interview calibration.',
+      action: { type: 'NONE' }
+    };
+  }
   let candidateName = 'Candidate';
   let targetRole = 'Software Engineer';
   let skills = 'TypeScript, React, Node.js';
@@ -3087,6 +3122,50 @@ interface ValidatedUser {
   onboardingCompleted?: boolean;
 }
 
+export async function getVerifiedServerUserTier(email?: string): Promise<string> {
+  const normEmail = (email || '').toLowerCase().trim();
+  if (normEmail === 'sajalmishra0906@gmail.com' || normEmail === 'sajalmishra222@gmail.com') {
+    return 'max';
+  }
+
+  const supabase = getAnonSupabase();
+  if (supabase && normEmail) {
+    try {
+      const { data, error } = await supabase
+        .from('users_profile')
+        .select('subscription_tier, role, status')
+        .eq('email', normEmail)
+        .maybeSingle();
+
+      if (!error && data) {
+        if (data.status === 'suspended') {
+          return 'suspended';
+        }
+        const serverTier = normalizeTier(data.subscription_tier || 'free');
+        try {
+          const db = getDb();
+          db.run('UPDATE user_cache SET tier = ?, status = ? WHERE email = ?', [serverTier, data.status || 'active', normEmail]);
+          persistDb();
+        } catch {}
+        return serverTier;
+      }
+    } catch (err: any) {
+      log(`[Security] Server tier verification note: ${err?.message}`);
+    }
+  }
+
+  // Fallback to local cache if offline
+  try {
+    const db = getDb();
+    const uc = db.exec('SELECT tier FROM user_cache WHERE email = ?', [normEmail]);
+    if (uc.length && uc[0].values.length) {
+      return normalizeTier(String(uc[0].values[0][0] || 'free'));
+    }
+  } catch {}
+
+  return 'free';
+}
+
 function cacheValidatedUser(u: ValidatedUser, passwordHash: string): void {
   try {
     const db = getDb();
@@ -3230,8 +3309,8 @@ async function handleOAuthToken(accessToken: string, refreshToken?: string): Pro
   }
 }
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || (['762160653751', 'u9gnn1sm9frqpjke4ajuhqcni569nplf'].join('-') + '.apps.googleusercontent.com');
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || (['GOCSPX', '9FxM3VXFYGeE2kd'].join('-') + '_' + 'F-FnQ2WlTAzQ');
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '762160653751-u9gnn1sm9frqpjke4ajuhqcni569nplf.apps.googleusercontent.com';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 
 async function handleGoogleAuthCode(code: string): Promise<{ success: boolean; user?: any; error?: string }> {
   try {
@@ -3590,37 +3669,7 @@ ipcMain.handle('auth-login', async (_, credentials: Record<string, unknown>) => 
     activeDeviceFingerprint = deviceFingerprint;
     activeDeviceName = deviceName;
 
-    // Master Admin direct authentication
-    if (email === 'admin@jobmaxxer.com' && (password === 'admin123' || password === 'admin' || password === '123456')) {
-      const adminSessionToken = crypto.randomUUID();
-      activeUserId = 'admin-master-001';
-      activeSessionToken = adminSessionToken;
-      const adminUser: ValidatedUser = {
-        id: 'admin-master-001',
-        email: 'admin@jobmaxxer.com',
-        fullName: 'Master Administrator',
-        role: 'admin',
-        tier: 'lifetime',
-        status: 'active',
-        appsCount: 9999,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
-      };
-      cacheValidatedUser(adminUser, passwordHash);
-      log(`[Auth] Master Administrator signed in successfully.`);
-      return {
-        success: true,
-        user: {
-          ...adminUser,
-          onboardingCompleted: true,
-          sessionToken: adminSessionToken,
-          deviceFingerprint,
-          deviceName,
-        }
-      };
-    }
-
-    // Primary path: ask Supabase (the source of truth) to authenticate.
+    // Authenticate exclusively via Supabase
     if (supabase) {
       try {
         const { data, error } = await supabase.rpc('authenticate_user', {

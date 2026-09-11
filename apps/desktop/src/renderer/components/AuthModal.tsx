@@ -53,32 +53,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setErrorMsg(res.error || 'Invalid credentials or license key.');
         }
       } else {
-        // Fallback for browser mode demo
-        const mockUser: AppUser = {
-          id: 1,
-          email: finalEmail || 'admin@jobmaxxer.com',
-          fullName: finalEmail.includes('admin') ? 'Master Admin' : 'Licensed Buyer',
-          role: finalEmail.includes('admin') ? 'admin' : 'user',
-          tier: 'max',
-          licenseKey: 'JMX-MAX-2026-9912',
-          status: 'active',
-          appsCount: 120,
-          createdAt: new Date().toISOString(),
-        };
-        onSuccess(mockUser);
-        onClose();
+        setErrorMsg('Authentication requires the desktop application runtime.');
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Authentication failed.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAdminQuickLogin = () => {
-    setEmail('admin@jobmaxxer.com');
-    setPassword('admin123');
-    handleLogin('admin@jobmaxxer.com', 'admin123');
   };
 
   return (
@@ -153,21 +134,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </form>
 
-        {/* Quick Admin Access */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={handleAdminQuickLogin}
-            className="text-[11px] font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1"
-          >
-            <Sparkles className="w-3 h-3 text-amber-500" />
-            <span>Sign In as Master Admin (admin@jobmaxxer.com)</span>
-          </button>
-
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="text-[11px] text-slate-400 hover:text-slate-700"
+            className="text-xs text-slate-500 hover:text-slate-800 font-medium"
           >
             Cancel
           </button>

@@ -21,33 +21,17 @@ import { OpportunityBoardView } from './components/OpportunityBoardView';
 import { CommandPalette } from './components/CommandPalette';
 import { NomadicAssistant } from './components/NomadicAssistant';
 export default function App() {
-  const ADMIN_DEV_USER: AppUser = {
-    id: 1,
-    email: 'admin@jobmaxxer.com',
-    fullName: 'Master Admin',
-    role: 'admin',
-    tier: 'max',
-    licenseKey: 'JMX-MAX-2026-9912',
-    status: 'active',
-    appsCount: 120,
-    createdAt: new Date().toISOString(),
-  };
-
-  const hasAdminQuery = typeof window !== 'undefined' && (
-    window.location.search.toLowerCase().includes('admin') ||
-    window.location.hash.toLowerCase().includes('admin')
-  );
-
-  // Current user state (persisted in localStorage)
+  // Current user state (persisted in secure localStorage session)
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
     try {
-      if (hasAdminQuery) {
-        localStorage.setItem('nomadic_user', JSON.stringify(ADMIN_DEV_USER));
-        localStorage.setItem('hirestack_user', JSON.stringify(ADMIN_DEV_USER));
-        return ADMIN_DEV_USER;
+      const stored = localStorage.getItem('nomadic_user') || localStorage.getItem('hirestack_user');
+      if (!stored) return null;
+      const parsed = JSON.parse(stored);
+      // Validate that stored object has valid identity structure
+      if (parsed && typeof parsed.email === 'string' && parsed.email.includes('@')) {
+        return parsed;
       }
-      const stored = localStorage.getItem('nomadic_user') || localStorage.getItem('hirestack_user') || localStorage.getItem('jobmaxxer_user');
-      return stored ? JSON.parse(stored) : null;
+      return null;
     } catch {
       return null;
     }
@@ -80,9 +64,6 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     try {
-      if (hasAdminQuery) {
-        return 'admin-overview';
-      }
       const savedTrack = (localStorage.getItem('nomadic_active_track') as PersonaTrack) || 'learner';
       const savedTab = localStorage.getItem(`nomadic_last_tab_${savedTrack}`) as TabType;
       if (savedTab) return savedTab;
