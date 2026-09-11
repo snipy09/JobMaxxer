@@ -246,8 +246,8 @@ export default function Home() {
               href="#/download"
               className="text-[13px] font-semibold bg-[#0A0A0A] hover:bg-black text-white px-4 py-2 rounded-full transition-all shadow-xs active:scale-[0.98] inline-flex items-center gap-1.5"
             >
-              <DownloadIcon className="w-3.5 h-3.5" />
-              <span>Download</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#bae2fd]" />
+              <span>Alpha Pre-Register · ₹99</span>
             </a>
 
             <button
@@ -271,9 +271,9 @@ export default function Home() {
             <div className="pt-2 border-t border-[#E5E5E5] flex flex-col gap-2">
               <a
                 href="#/download"
-                className="w-full text-center text-xs font-medium bg-[#0A0A0A] text-white py-2 rounded-lg"
+                className="w-full text-center text-xs font-semibold bg-[#0A0A0A] text-white py-2.5 rounded-lg"
               >
-                Download Nomadic
+                Pre-Register for Alpha (₹99)
               </a>
             </div>
           </div>
@@ -283,9 +283,9 @@ export default function Home() {
       {/* 2. Hero Section */}
       <section className="pt-16 sm:pt-24 pb-12 sm:pb-16 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#f0f7ff] text-[#0369a1] border border-[#bae2fd]/70 shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7]" />
-            <span>AI Career Accelerator &amp; Application Autopilot</span>
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-[#f0f7ff] text-[#0369a1] border border-[#bae2fd] shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-[#0284c7] animate-ping" />
+            <span>Alpha Testing Program Starts Next Monday · Pre-Register for ₹99</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-[#0A0A0A] leading-[1.1]">
@@ -300,15 +300,15 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <a
               href="#/download"
-              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-[#0A0A0A] hover:bg-black text-white font-medium text-sm transition-all shadow-xs flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-lg bg-[#0A0A0A] hover:bg-black text-white font-semibold text-sm transition-all shadow-xs flex items-center justify-center gap-2 group"
             >
-              <DownloadIcon className="w-4 h-4" />
-              <span>Download Nomadic</span>
+              <Sparkles className="w-4 h-4 text-[#bae2fd] group-hover:rotate-12 transition-transform" />
+              <span>Pre-Register for Alpha (₹99)</span>
             </a>
 
             <a
               href="#platform"
-              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-white hover:bg-[#F5F5F5] text-[#0A0A0A] font-medium text-sm border border-[#E5E5E5] transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-lg bg-white hover:bg-[#F5F5F5] text-[#0A0A0A] font-medium text-sm border border-[#E5E5E5] transition-all flex items-center justify-center gap-2"
             >
               <span>Explore the Platform</span>
               <ArrowRight className="w-4 h-4 text-[#777777]" />
@@ -316,7 +316,7 @@ export default function Home() {
           </div>
 
           <p className="text-xs text-[#777777] font-medium tracking-wide">
-            Windows · macOS · Linux
+            🔒 Public download unlocks this weekend · Alpha cohort begins next Monday
           </p>
         </div>
 
@@ -772,7 +772,7 @@ export default function Home() {
                 href="#/download"
                 className="w-full text-center py-3 px-4 rounded-xl border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] text-xs font-semibold text-[#0A0A0A] transition-colors block shadow-2xs"
               >
-                Download for Windows
+                Pre-Register for Free Tier
               </a>
             </div>
 
@@ -1340,15 +1340,15 @@ export default function Home() {
           <div className="pt-2">
             <a
               href="#/download"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#0A0A0A] hover:bg-black text-white font-medium text-sm transition-all shadow-xs"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-[#0A0A0A] hover:bg-black text-white font-semibold text-sm transition-all shadow-xs"
             >
-              <DownloadIcon className="w-4 h-4" />
-              <span>Download Nomadic</span>
+              <Sparkles className="w-4 h-4 text-[#bae2fd]" />
+              <span>Pre-Register for Alpha (₹99)</span>
             </a>
           </div>
 
           <div className="text-xs text-[#777777] font-medium pt-1">
-            Windows · macOS · Linux
+            🔒 Public downloads unlock this weekend · Alpha testing cohort goes live next Monday
           </div>
         </div>
       </section>
@@ -1374,7 +1374,7 @@ export default function Home() {
             <a href="#discovery" className="hover:text-[#0A0A0A] transition-colors">Job Search</a>
             <a href="#pricing" className="hover:text-[#0A0A0A] transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-[#0A0A0A] transition-colors">FAQ</a>
-            <a href="#/download" className="hover:text-[#0A0A0A] transition-colors">Download</a>
+            <a href="#/download" className="hover:text-[#0A0A0A] transition-colors">Alpha Pre-Register</a>
             <a href="#/terms" className="hover:text-[#0A0A0A] transition-colors">Terms</a>
             <a href="#/privacy" className="hover:text-[#0A0A0A] transition-colors">Privacy</a>
           </div>
