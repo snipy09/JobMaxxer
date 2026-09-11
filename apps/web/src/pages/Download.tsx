@@ -13,7 +13,7 @@ export default function Download() {
   const containerRef = useRef<HTMLDivElement>(null);
   const registrationCardRef = useRef<HTMLDivElement>(null);
 
-  const WHATSAPP_PRE_REGISTER_URL = 'https://wa.me/919493833632?text=Hi%20Nomadic%20Team%2C%20I%20want%20to%20pre-register%20for%20the%20Nomadic%20Alpha%20Testing%20Program%20(INR%2099).%20Please%20reserve%20my%20spot.';
+  const WHATSAPP_PRE_REGISTER_URL = 'https://wa.me/919493833632?text=Hi%20Nomadic%20Team%2C%20I%20want%20to%20pre-register%20for%20the%20Nomadic%20Closed%20Alpha%20Testing%20Program%20(INR%2099).%20Please%20reserve%20my%20spot.';
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -33,7 +33,7 @@ export default function Download() {
     e.preventDefault();
     if (!waitlistEmail || !waitlistEmail.includes('@')) return;
     setWaitlistSubmitted(true);
-    window.open(`https://wa.me/919493833632?text=Hi%20Nomadic%20Team%2C%20I%20am%20pre-registering%20for%20the%20Alpha%20Testing%20Program%20(INR%2099)%20with%20email%3A%20${encodeURIComponent(waitlistEmail)}`, '_blank');
+    window.open(`https://wa.me/919493833632?text=Hi%20Nomadic%20Team%2C%20I%20am%20pre-registering%20for%20the%20Closed%20Alpha%20Testing%20Program%20(INR%2099)%20with%20email%3A%20${encodeURIComponent(waitlistEmail)}`, '_blank');
   };
 
   return (
@@ -41,7 +41,7 @@ export default function Download() {
       {/* Top Announcement Bar */}
       <div className="border-b border-[#E5E5E5] bg-white px-4 py-2.5 text-center text-xs text-[#555555] font-medium tracking-tight flex items-center justify-center gap-2">
         <span className="w-2 h-2 rounded-full bg-[#0284c7] animate-ping shrink-0" />
-        <span>Alpha Testing Program Opens Next Monday · Public Downloads Unlock This Weekend</span>
+        <span>Nomadic Closed Alpha Testing Program · Cohort Launches Next Monday · Pre-Register for ₹99</span>
       </div>
 
       {/* Main Navigation */}
@@ -73,7 +73,7 @@ export default function Download() {
         <div className="text-center max-w-2xl mx-auto space-y-4 animate-in">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-[#f0f7ff] border border-[#bae2fd] rounded-full text-xs font-semibold text-[#0369a1]">
             <Lock className="w-3.5 h-3.5" />
-            <span>Public Downloads Locked Until This Weekend</span>
+            <span>Closed Alpha Testing Only · No Public Downloads</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#0A0A0A] leading-tight">
@@ -81,7 +81,7 @@ export default function Download() {
           </h1>
 
           <p className="text-sm sm:text-base text-[#555555] leading-relaxed max-w-xl mx-auto font-normal">
-            We are preparing the universal release of Nomadic v1.0.6. The exclusive closed Alpha cohort goes live <strong className="text-[#0A0A0A] font-semibold">next Monday</strong>.
+            Nomadic is available exclusively to members of the closed Alpha cohort starting <strong className="text-[#0A0A0A] font-semibold">next Monday</strong>. Public access is closed.
           </p>
         </div>
 
@@ -95,19 +95,19 @@ export default function Download() {
             <div className="space-y-1">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#0A0A0A] text-white text-[11px] font-bold tracking-wide uppercase">
                 <Sparkles className="w-3 h-3 text-[#bae2fd]" />
-                <span>Limited Alpha Cohort</span>
+                <span>Exclusive Closed Alpha</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-bold text-[#0A0A0A]">
-                Pre-Register for Early Alpha Access
+                Reserve Your Alpha Seat
               </h2>
               <p className="text-xs sm:text-sm text-[#666666]">
-                Guaranteed priority seat in the Monday testing cohort with direct founder support.
+                Only 100 tester slots available. Receive direct private build access next Monday.
               </p>
             </div>
 
             <div className="bg-[#f0f7ff] border border-[#bae2fd] px-5 py-3 rounded-2xl text-right shrink-0">
               <span className="text-[11px] font-semibold text-[#0369a1] block uppercase tracking-wider">
-                Pre-Registration Fee
+                Alpha Entry Fee
               </span>
               <div className="flex items-baseline gap-1 justify-end">
                 <span className="text-3xl sm:text-4xl font-extrabold text-[#0A0A0A]">₹99</span>
@@ -123,9 +123,9 @@ export default function Download() {
                 <Zap className="w-4 h-4 text-[#0284c7]" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-[#0A0A0A]">Instant Monday Access</h4>
+                <h4 className="text-xs font-bold text-[#0A0A0A]">Guaranteed Monday Access</h4>
                 <p className="text-[11px] text-[#666666] mt-0.5">
-                  Receive the verified v1.0.6 desktop executable before general availability.
+                  Receive your private installer link and licensed credentials on launch morning.
                 </p>
               </div>
             </div>
@@ -137,7 +137,7 @@ export default function Download() {
               <div>
                 <h4 className="text-xs font-bold text-[#0A0A0A]">Full Autonomous Engine</h4>
                 <p className="text-[11px] text-[#666666] mt-0.5">
-                  Unrestricted access to the 1-click ATS Form Solver and Batch Co-Pilot.
+                  Unrestricted access to the 1-click ATS Form Solver and Parallel Batch Co-Pilot.
                 </p>
               </div>
             </div>
@@ -149,7 +149,7 @@ export default function Download() {
               <div>
                 <h4 className="text-xs font-bold text-[#0A0A0A]">Autonomous Assistant on Steroids</h4>
                 <p className="text-[11px] text-[#666666] mt-0.5">
-                  Max AI Career Assistant with full workspace control and interview calibration.
+                  Max AI Career Assistant with full workspace control and live interview calibration.
                 </p>
               </div>
             </div>
@@ -159,9 +159,9 @@ export default function Download() {
                 <MessageSquare className="w-4 h-4 text-[#0A0A0A]" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-[#0A0A0A]">Private Alpha Feedback Group</h4>
+                <h4 className="text-xs font-bold text-[#0A0A0A]">Direct Developer VIP Channel</h4>
                 <p className="text-[11px] text-[#666666] mt-0.5">
-                  Direct communication with developers for feature requests and fast bugfixes.
+                  Private 1-on-1 support and priority feature request roadmap access.
                 </p>
               </div>
             </div>
@@ -186,14 +186,14 @@ export default function Download() {
                 required
                 value={waitlistEmail}
                 onChange={(e) => setWaitlistEmail(e.target.value)}
-                placeholder="Enter your email to receive your Alpha key..."
+                placeholder="Enter your email to reserve your Alpha slot..."
                 className="flex-1 px-4 py-3 rounded-xl border border-[#E5E5E5] bg-[#FAFAFA] text-xs font-medium text-[#0A0A0A] focus:outline-hidden focus:border-[#0A0A0A] transition-colors"
               />
               <button
                 type="submit"
                 className="px-6 py-3 rounded-xl bg-white hover:bg-[#F5F5F5] text-[#0A0A0A] font-bold text-xs border border-[#E5E5E5] transition-colors shrink-0 flex items-center justify-center gap-1.5"
               >
-                <span>Submit &amp; Pre-Register</span>
+                <span>Reserve Seat (₹99)</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </form>
@@ -201,7 +201,7 @@ export default function Download() {
             {waitlistSubmitted && (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Thank you! Your spot is reserved. We have opened WhatsApp to complete your ₹99 registration.</span>
+                <span>Thank you! Your spot is reserved. We have opened WhatsApp to complete your ₹99 Alpha registration.</span>
               </div>
             )}
           </div>
@@ -211,31 +211,23 @@ export default function Download() {
         <div className="bg-white border border-[#E5E5E5] rounded-3xl p-6 sm:p-8 space-y-6 animate-in">
           <h3 className="text-sm font-bold text-[#0A0A0A] uppercase tracking-wider flex items-center gap-2">
             <Clock className="w-4 h-4 text-[#0284c7]" />
-            <span>Launch Timeline</span>
+            <span>Alpha Cohort Schedule</span>
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#E5E5E5] space-y-1">
-              <span className="text-[10px] font-bold text-[#0369a1] uppercase tracking-wider">Now · Open</span>
-              <h4 className="text-xs font-bold text-[#0A0A0A]">Alpha Pre-Registration</h4>
+              <span className="text-[10px] font-bold text-[#0369a1] uppercase tracking-wider">Phase 1 · Open Now</span>
+              <h4 className="text-xs font-bold text-[#0A0A0A]">Closed Alpha Pre-Registration</h4>
               <p className="text-[11px] text-[#666666]">
-                Reserve access for ₹99 and secure your spot in the early testing cohort.
+                Reserve your slot for ₹99. Strictly limited to the first 100 verified applicants.
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#E5E5E5] space-y-1">
-              <span className="text-[10px] font-bold text-[#777777] uppercase tracking-wider">This Weekend</span>
-              <h4 className="text-xs font-bold text-[#0A0A0A]">Public Downloads Unlock</h4>
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Phase 2 · Next Monday</span>
+              <h4 className="text-xs font-bold text-[#0A0A0A]">Alpha Cohort Deployment</h4>
               <p className="text-[11px] text-[#666666]">
-                Full verified binaries and install scripts will be published on the web portal.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#E5E5E5] space-y-1">
-              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Next Monday</span>
-              <h4 className="text-xs font-bold text-[#0A0A0A]">Alpha Cohort Live</h4>
-              <p className="text-[11px] text-[#666666]">
-                Testing begins with unlimited auto-apply and live ATS radar streams.
+                Private executable delivered directly to registered candidates with full Max entitlements.
               </p>
             </div>
           </div>

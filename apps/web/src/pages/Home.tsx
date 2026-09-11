@@ -316,7 +316,7 @@ export default function Home() {
           </div>
 
           <p className="text-xs text-[#777777] font-medium tracking-wide">
-            🔒 Public download unlocks this weekend · Alpha cohort begins next Monday
+            🔒 Closed Alpha Testing Only · Cohort begins next Monday · Pre-register for ₹99
           </p>
         </div>
 
@@ -772,7 +772,7 @@ export default function Home() {
                 href="#/download"
                 className="w-full text-center py-3 px-4 rounded-xl border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] text-xs font-semibold text-[#0A0A0A] transition-colors block shadow-2xs"
               >
-                Pre-Register for Free Tier
+                Pre-Register for Alpha (₹99)
               </a>
             </div>
 
